@@ -5,6 +5,7 @@ import React from 'react';
 import { useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 
+import logo from '../image/logo_2.png';
 import { setSearchTerms } from '../redux/searchSlice';
 
 function NavBar() {
@@ -57,7 +58,7 @@ function NavBar() {
         <div className="logo">
           <a href={"/"}>
             <img style={{ height: '50px' }}
-              src="https://hugeampkpncms.org/sites/default/files/users/user32/pankbase/PanKbase_logo-black-tagline.svg" />
+              src={logo} />
           </a>
         </div>
         <div className="nav-right">
