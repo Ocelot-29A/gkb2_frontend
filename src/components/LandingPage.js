@@ -1,23 +1,27 @@
 import React, {
-  useEffect,
-  useRef,
-  useState,
+    useEffect,
+    useRef,
+    useState,
 } from 'react';
 
+import {
+    useDispatch,
+    useSelector,
+} from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 
 import ArrowOutwardIcon from '@mui/icons-material/ArrowOutward';
 import CloseIcon from '@mui/icons-material/Close';
 import SearchIcon from '@mui/icons-material/Search';
 import {
-  Autocomplete,
-  Box,
-  Button,
-  Container,
-  Link,
-  Paper,
-  TextField,
-  Typography,
+    Autocomplete,
+    Box,
+    Button,
+    Container,
+    Link,
+    Paper,
+    TextField,
+    Typography,
 } from '@mui/material';
 
 import apiImage from '../image/api.svg';
@@ -26,10 +30,11 @@ import complexImage from '../image/complex.svg';
 import dumpImage from '../image/dump.svg';
 import geneImage from '../image/gene.svg';
 import regulationImage from '../image/regulation.svg';
+import { queryRephrase } from '../redux/rephraseSlice';
 import {
-  AlertMessage,
-  LandingPageCard,
-  LoadingMessage,
+    AlertMessage,
+    LandingPageCard,
+    LoadingMessage,
 } from './SupportingMaterial';
 
 const ExampleQueries = {
@@ -81,17 +86,63 @@ const ExampleClasses = {
     }
 };
 
-const handleSearch = (query) => {
-}
 
 function LandingPage() {
     const [windowWidth, setWindowWidth] = useState(window.innerWidth);
     const [query, setQuery] = useState('');
     const [focused, setFocused] = useState(false);
     const [showExamples, setShowExamples] = useState(undefined);
-    const [showWarning, setShowWarning] = useState(false);
+    const [showWarning, setShowWarning] = useState(undefined);
+    const [lastWarning, setLastWarning] = useState(undefined);
+    const [currentQuery, setCurrentQuery] = useState(undefined);
+    const refCurrentQuery = useRef(currentQuery);
+
+    useEffect(() => {
+        refCurrentQuery.current = currentQuery;
+    }, [currentQuery]);
+
+    useEffect(() => {
+        if (showWarning) {
+            setLastWarning(showWarning);
+        }
+    }, [showWarning]);
     const [showLoading, setShowLoading] = useState(false);
     const [showCard, setShowCard] = useState(true);
+
+    const { rephraseResult: rephrase } = useSelector((state) => state.rephrase);
+    const dispatch = useDispatch();
+    const navigate = useNavigate();
+
+    function replaceInQuery(query, text) {
+        // Escape regex special chars from text
+        const escapedText = text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+        // Pattern 1: : 'text'}
+        const pattern1 = new RegExp(`(:\\s*)'${escapedText}'(})`, 'g');
+
+        // Pattern 2: = 'text'␣
+        const pattern2 = new RegExp(`(=\\s*)'${escapedText}'(\\s)`, 'g');
+
+        return query
+            .replace(pattern1, `$1'@{${text}}'$2`)
+            .replace(pattern2, `$1'@{${text}}'$2`);
+    }
+
+    const handleSearch = (query) => {
+        // query
+        setCurrentQuery(query);
+        dispatch(queryRephrase({ question: query })).then((res) => {
+            const response = res.payload;
+            if (refCurrentQuery.current === query) {
+                if (!response.in_scope) {
+                    setShowWarning("Question is out of scope.");
+                    return;
+                }
+                navigate(`/match?input=${encodeURIComponent(query)}&cypher_query=${encodeURIComponent(response.cypher_query)}&question=${encodeURIComponent(response.rephrase)}&pattern=(empty)`);
+
+            }
+        });
+    };
 
     const paperRef = useRef();
     useEffect(() => {
@@ -107,7 +158,6 @@ function LandingPage() {
         };
     }, []);
 
-    const navigate = useNavigate();
 
     useEffect(() => {
         function handleResize() {
@@ -151,9 +201,9 @@ function LandingPage() {
             </Typography>
             <AlertMessage
                 type="warning"
-                content="Please ensure all boxes are filled out before submitting"
-                open={showWarning}
-                onClose={() => setShowWarning(false)}
+                content={lastWarning}
+                open={!!showWarning}
+                onClose={() => setShowWarning(undefined)}
                 sx={{
                     '& .MuiSnackbar-root': {
                         position: 'static',
@@ -170,7 +220,7 @@ function LandingPage() {
             />
             <LoadingMessage
                 open={showLoading}
-                onClose={() => setShowLoading(false)}
+                onClose={() => { setShowLoading(false); setShowWarning("Question matching failed."); }}
                 onCancel={() => setShowLoading(false)}
             />
             <Box className="content-wrapper" sx={{
@@ -282,7 +332,7 @@ function LandingPage() {
                                                     cursor: !query.trim() ? 'not-allowed' : 'pointer',
                                                 }}
                                                 onClick={!query.trim()
-                                                    ? () => { setShowWarning(true) }
+                                                    ? () => { setShowWarning("Please ensure all boxes are filled out before submitting") }
                                                     : () => {
                                                         setShowLoading(true);
                                                         handleSearch(query.trim());
@@ -360,6 +410,7 @@ function LandingPage() {
                             <Box
                                 component="li"
                                 {...props}
+                                key={option}
                                 sx={{
                                     minHeight: '36px !important',
                                     '& .MuiAutocomplete-option': {
@@ -374,7 +425,7 @@ function LandingPage() {
                         onKeyDown={(e) => {
                             if (e.key === 'Enter') {
                                 if (query.trim() === '') {
-                                    setShowWarning(true);
+                                    setShowWarning("Please ensure all boxes are filled out before submitting");
                                 } else {
                                     e.preventDefault();
                                     setShowLoading(true);

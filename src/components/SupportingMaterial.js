@@ -146,7 +146,7 @@ export const LoadingMessage = ({ sx = {}, open = true, onClose = () => { }, onCa
           sx={{ color: 'black', position: 'absolute', top: 10, right: 10 }}
           onClick={() => { onCancel(); }}
         >
-          <Close sx={{ color: 'black', position: 'absolute', top: 10, right: 10 }} />
+          <Close sx={{ color: 'black' }} />
         </IconButton>
         <Typography sx={{ textAlign: 'left', fontFamily: 'Open Sans', fontWeight: '600', fontSize: '36px' }}>
           Matching...

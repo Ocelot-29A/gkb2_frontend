@@ -27,20 +27,38 @@ import { queryQueryResult } from '../redux/queryResultSlice';
 import { nodeAutoWidth } from './style.js';
 import { AlertMessage } from './SupportingMaterial';
 
+const textBoxStyles = {
+  "Gene": {
+    backgroundColor: "#EFF5FF",
+    border: "1px solid #71B9FA",
+    borderRadius: "8px"
+  },
+  "Cell line": {
+    border: "1px solid #f6c957",
+    backgroundColor: "rgba(246, 201, 87, 0.4)",
+    borderRadius: "8px"
+  },
+  "Sequence variant": {
+    border: "1px solid #FFB77F",
+    backgroundColor: "rgba(255, 183, 127, 0.4)",
+    borderRadius: "8px"
+  }
+};
+
 const nodeColors = {
-  gene: "#A4D0F6",
-  snp: "#FFB371",
-  ontology: "#FFDE7D",
-  OCR: "#61ECBC",
-  article: "#F5BEFF",
+  "Gene": "#A4D0F6",
+  "Sequence variant": "#FFB371",
+  "Cell line": "#FFDE7D",
+  "OCR Cluster": "#61ECBC",
+  "Literature": "#F5BEFF",
 };
 
 const nodeLabels = {
-  gene: "Gene",
-  snp: "SNP",
-  ontology: "Cell Type",
-  OCR: "OCR Cluster",
-  article: "Literature",
+  "Gene": "Gene",
+  "Sequence variant": "SNP",
+  "Cell line": "Cell Type",
+  "OCR Cluster": "OCR Cluster",
+  "Literature": "Literature",
 };
 
 const edgeLabels = {
@@ -209,7 +227,7 @@ function InputComponent({ type, setValue, setInputStatus, disabled, clearTrigger
       setValidatedValue('');
       setInputStatus('mismatch');
       setSelfOptions([]); // to trigger rendering the dropdown
-      if (type === 'gene') {
+      if (type === 'Gene') {
         setSimIsLoading(true);
         updateSource(defaultValue, type);
       }
@@ -264,13 +282,13 @@ function InputComponent({ type, setValue, setInputStatus, disabled, clearTrigger
   function updateValidation(newInputValue, type) { // validate the input value with vocab
     const geneName = newInputValue.split('(')[0].trim();
     const typeMap = {
-      gene: 'gene',
-      cell: 'cell_type',
-      snp: 'sequence_variant'
+      "Gene": 'gene',
+      "Cell line": 'cell_type',
+      "Sequence variant": 'sequence_variant'
     };
     Promise.all(
       [dispatch(queryVocab({ input: geneName })).unwrap(),
-      ...(type === 'snp' ? [dispatch(queryQueryResult({
+      ...(type === 'Sequence variant' ? [dispatch(queryQueryResult({
         isNeptune: false,
         rawResponse: true,
         query: `SELECT snp FROM QTL_DATA WHERE snp = '${geneName}' LIMIT 1;`
@@ -285,16 +303,16 @@ function InputComponent({ type, setValue, setInputStatus, disabled, clearTrigger
       } // skip repeated response
       const responseList = (response?.result || '').split('@') || [''];
       const id1 = typeMap[type] === responseList[0] ?
-        (type === 'gene' ? `${geneName}(${responseList[1]})` : responseList[1]) :
+        (type === 'Gene' ? `${geneName}(${responseList[1]})` : responseList[1]) :
         '';
       const id2 = response2?.results?.[0]?.[type];
       const id = id1 || id2 || '';
       if (id) {
-        if (type === 'gene') {
+        if (type === 'Gene') {
           setInputStatus('valid');
           setValidatedValue(id.toUpperCase());
         }
-        else if (type === 'cell' || type === 'snp') {
+        else if (type === 'Cell line' || type === 'Sequence variant') {
           setInputStatus('valid');
           setValidatedValue(id);
         }
@@ -319,13 +337,13 @@ function InputComponent({ type, setValue, setInputStatus, disabled, clearTrigger
         options={(() => {
           const options = [...(validatedValue ? [validatedValue] : []), ...selfOptions];
           const uniqueOptions = [...new Set(options.map(option => option.label || option))];
-          return uniqueOptions.length > 0 ? (type === 'gene' ? uniqueOptions : []) : [{ label: `No ${type} found`, disabled: true, notFound: true }];
+          return uniqueOptions.length > 0 ? (type === 'Gene' ? uniqueOptions : []) : [{ label: `No ${type} found`, disabled: true, notFound: true }];
         })()}
         disabled={disabled}
         getOptionDisabled={(option) => option.disabled}
-        className={type}
         filterOptions={(options) => options}
         sx={{
+          ...(textBoxStyles[type] || textBoxStyles['Gene']),
           ...(disabled ? { border: '1px dashed #ACB1B0' } : {
             '& .MuiAutocomplete-endAdornment': {
               right: '-4px !important', // Adjust the position of the end adornment (clear button)
@@ -362,7 +380,7 @@ function InputComponent({ type, setValue, setInputStatus, disabled, clearTrigger
               setInputStatus('mismatch');
               inputChangeTimer.current = setTimeout(() => {
                 setSelfOptions([]); // to trigger rendering the dropdown
-                if (type === 'gene') {
+                if (type === 'Gene') {
                   setSimIsLoading(true);
                   updateSource(newInputValue, type);
                 }
@@ -392,8 +410,8 @@ function InputComponent({ type, setValue, setInputStatus, disabled, clearTrigger
                     display: 'flex',
                     justifyContent: 'center',
                     alignItems: 'center',
-                    padding: type === 'gene' ? 2 : 1,
-                    width: type === 'gene' ? '200px' : '115px'
+                    padding: type === 'Gene' ? 2 : 1,
+                    width: type === 'Gene' ? '200px' : '115px'
                   }}
                 >
                   <CircularProgress size={20} />
@@ -414,8 +432,7 @@ function InputComponent({ type, setValue, setInputStatus, disabled, clearTrigger
             {...params}
             disabled={disabled}
             placeholder={
-              disabled ? type.toUpperCase() :
-                type === 'gene' ? 'GENE' : type === 'cell' ? 'CELL' : 'SNP'
+              type.toUpperCase()
             }
             sx={{
               ...sx,
@@ -475,11 +492,13 @@ export const SearchComponent = ({ questionSchema, clearTrigger = 0, updateValues
     const sequence = questionSchema || '';
     console.log("Parsing question schema:", sequence);
 
-    const parts = sequence.split(/(\{.*?\}|\(.*?\))/);
+    const parts = sequence.split(/(@@\{.*?\}\{.*?\}|\(.*?\))/);
     const [partsMap, defaultValues] = parts.reduce(
       ([acc1, acc2], part, index) => {
-        if (part.startsWith('{') && part.endsWith('}')) {
-          const [key, defaultValue = ''] = part.slice(1, -1).split('@');
+        if (part.startsWith('@@') && part.endsWith('}')) {
+          const [key, defaultValue = ''] =
+            part.slice(3, -1).split('}{'); // remove leading @@{ and trailing }, then split by }{
+
           acc1[index] = key;
           acc2[index] = key === defaultValue ? '' : defaultValue;
         }
@@ -504,7 +523,7 @@ export const SearchComponent = ({ questionSchema, clearTrigger = 0, updateValues
         setInputStatus={() => { }}
         defaultValue={''}
       />);
-    } else if (part.startsWith('{') && part.endsWith('}')) {
+    } else if (part.startsWith('@@') && part.endsWith('}')) {
       const type = partsMap[index];
       return (<InputComponent
         sx={sx}
@@ -686,8 +705,8 @@ function MatchPage() {
   const handleSubmit = () => {
     //return; //disable for now
     //redirect to result page with question replaced with input values
-    const replacedQuestion = question.replace(/\{(.*?)@(.*?)@\}/g, (match, key, defaultValue) => {
-      return `{${key}@${inputDict[key] || defaultValue}@}`;
+    const replacedQuestion = question.replace(/@@\{(.*?)\}\{(.*?)\}/g, (match, key, defaultValue) => {
+      return `@@{${key}}{${inputDict[key] || defaultValue}}`;
     });
     navigate(`/result?question=${encodeURIComponent(replacedQuestion)}`);
   };
@@ -695,15 +714,18 @@ function MatchPage() {
   useEffect(() => {
     let connectedString = emptyPattern || '';
     console.log("inputDict:", inputDict);
-    if (inputDict['gene']) {
-      connectedString = connectedString.replace(/\{gene@.*?@}/, `{gene@${inputDict['gene']}@}`);
-    }
-    if (inputDict['cell']) {
-      connectedString = connectedString.replace(/\{ontology@.*?@}/, `{ontology@${inputDict['cell']}@}`);
-    }
-    if (inputDict['snp']) {
-      connectedString = connectedString.replace(/\{snp@.*?@}/, `{snp@${inputDict['snp']}@}`);
-    }
+    // if (inputDict['gene']) {
+    //   connectedString = connectedString.replace(/\{gene@.*?@}/, `{gene@${inputDict['gene']}@}`);
+    // }
+    // if (inputDict['cell']) {
+    //   connectedString = connectedString.replace(/\{ontology@.*?@}/, `{ontology@${inputDict['cell']}@}`);
+    // }
+    // if (inputDict['snp']) {
+    //   connectedString = connectedString.replace(/\{snp@.*?@}/, `{snp@${inputDict['snp']}@}`);
+    // }
+    Object.entries(inputDict).forEach(([key, value]) => {
+      connectedString = connectedString.replace(new RegExp(`\\@@{${key}}{.*?}\\}`, 'g'), `@@{${key}}{${value}}`);
+    });
     setVisualPattern(connectedString);
   }, [emptyPattern, inputDict]);
 
@@ -755,7 +777,7 @@ function MatchPage() {
               href="/"
               sx={{
                 textDecoration: 'underline',
-                color: '#398289',
+                color: 'black',
                 fontSize: 16,
                 fontWeight: 600,
                 fontFamily: 'Open Sans',
@@ -851,7 +873,7 @@ function MatchPage() {
                   top: '36px',
                   right: '36px',
                   textDecoration: 'underline',
-                  color: '#398289',
+                  color: 'black',
                   fontSize: 16,
                   fontWeight: 600,
                   fontFamily: 'Open Sans',
