@@ -3,7 +3,7 @@
     "match_page": [
         {
             "dictionary": {
-                "question": "Which (SNP) serves as the lead (QTL) for {gene@CFTR@}?",
+                "question": "Which @@{Sequence variant}{SNP} serves as the @@{Expression QTLs}{QTL} for @@{Gene}{CFTR}?",
                 "input": "Tell me which (SNP) serves as the (QTL) for (CFTR)?",
                 "pattern": "(snp) - eqtl of -> {gene@gene@}"
             },
@@ -11,15 +11,7 @@
         },
         {
             "dictionary": {
-                "question": "How does {gene@gene@} expression change in (T1D) versus non-diabetic samples?",
-                "input": "How does (INS) expression change in (T1D) versus non-diabetic samples?",
-                "pattern": "{gene@gene@} - express in -> (ontology)"
-            },
-            "root": "/match"
-        },
-        {
-            "dictionary": {
-                "question": "Which (gene) is regulated by {snp@snp@} as a (QTL)?",
+                "question": "Which @@{Gene}{gene} is regulated by @@{Sequence variant}{rs1234} as a @@{Expression QTLs}{QTL}?",
                 "input": "Which (gene) is regulated by (rs1234) as a (QTL)?",
                 "pattern": "{snp@snp@} - eqtl of -> (gene)"
             },
@@ -27,8 +19,24 @@
         },
         {
             "dictionary": {
-                "question": "Does {snp@snp@} serves as a (QTL) for {gene@gene@}?",
+                "question": "Does the @@{Sequence variant}{rs1234} serve as a QTL for @@{Gene}{CFTR}?",
                 "input": "Does (rs1234) serves as a (QTL) for (CFTR)?",
+                "pattern": "{snp@snp@} - eqtl of -> {gene@gene@}"
+            },
+            "root": "/match"
+        },
+        {
+            "dictionary": {
+                "question": "How does the @@{Sequence variant}{SNP} rs2402203 influence the expression of @@{Gene}{CFTR} in @@{Tissue}{pancreas} through @@{Expression QTLs}{eQTL} relationships?",
+                "input": "How does the SNP rs2402203 influence the expression of CFTR in pancreas tissue?",
+                "pattern": "{snp@snp@} - eqtl of -> {gene@gene@}"
+            },
+            "root": "/match"
+        },
+        {
+            "dictionary": {
+                "question": "Which @@{Gene}{gene} is expressed in @@{Cell line}{pancreatic beta cells}?",
+                "input": "What gene is expressed in pancreatic beta cells?",
                 "pattern": "{snp@snp@} - eqtl of -> {gene@gene@}"
             },
             "root": "/match"

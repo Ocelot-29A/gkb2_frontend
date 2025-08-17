@@ -20,6 +20,7 @@ import PkbFooter from './Footer/footer';
 import NavBar from './NavBar';
 import ApiPage from './pages/ApiPage';
 import DocPage from './pages/DocPage';
+import QueryPage from './pages/GraphQuery';
 import Ontology from './pages/Ontology';
 import Pipeline from './pages/Pipeline';
 import QTLDataSource from './pages/QTL_data_source';
@@ -53,6 +54,7 @@ root.render(
           <Route path="/match" element={<MatchPage />} />
           <Route path="/" element={<LandingPage />} />
           <Route path="/debug" element={<DebugPage />} />
+          <Route path="/querydebug" element={<QueryPage />} />
         </Routes>
         <PkbFooter />
       </BrowserRouter>
