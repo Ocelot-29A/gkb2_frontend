@@ -1,14 +1,11 @@
-import {
-    createSlice,
-    nanoid,
-} from '@reduxjs/toolkit';
+import { createSlice } from '@reduxjs/toolkit';
 
 const initialState = {
     nodes: [],
     edges: [],
     history: [],
     future: [],
-    viewport: { zoom: 1, pan: { x: 0, y: 0 } }
+    viewport: { zoom: 2, pan: { x: 0, y: 0 } }
 };
 
 // helper: deep clone state
@@ -48,38 +45,48 @@ const querySlice = createSlice({
         },
 
         // ---- Graph operations ----
-        addNode(state, action) {
-            querySlice.caseReducers.saveHistory(state);
-            const node = { data: { id: nanoid(), type: 'node', ...copy(action.payload.node) }, position: copy(action.payload.position) };
-            state.nodes.push(node);
-            console.log("Added node", node);
-        },
-
-        addEdge(state, action) {
-            querySlice.caseReducers.saveHistory(state);
-            const { source, target, ...rest } = copy(action.payload);
-            if (
-                state.nodes.some(n => n.data?.id === source) &&
-                state.nodes.some(n => n.data?.id === target)
-            ) {
-                state.edges.push({ data: { id: nanoid(), type: 'edge', source, target, ...rest } });
-            }
-        },
-
         editNode(state, action) {
             querySlice.caseReducers.saveHistory(state);
-            const { id, ...updates } = copy(action.payload);
-            const node = state.nodes.find(n => n.data?.id === id);
-            if (node) Object.assign(node.data, updates);
-
+            // if exist
+            const existingNode = state.nodes.find(n => n.data?.id === action.payload.node.id);
+            if (existingNode) {
+                // Update existing node
+                Object.assign(existingNode.data, copy(action.payload.node));
+            } else {
+                // Add new node
+                const node = { data: { type: 'node', ...copy(action.payload.node) }, position: copy(action.payload.position) };
+                state.nodes.push(node);
+            }
         },
 
         editEdge(state, action) {
             querySlice.caseReducers.saveHistory(state);
-            const { id, ...updates } = copy(action.payload);
-            const edge = state.edges.find(e => e.data?.id === id);
-            if (edge) Object.assign(edge.data, updates);
+            const { source, target, ...rest } = copy(action.payload);
+            const existingEdge = state.edges.find(e => e.data?.id === action.payload.id);
+            if (existingEdge) {
+                // Update existing edge
+                Object.assign(existingEdge.data, copy(action.payload));
+            } else if (
+                state.nodes.some(n => n.data?.id === source) &&
+                state.nodes.some(n => n.data?.id === target)
+            ) {
+                state.edges.push({ data: { type: 'edge', source, target, ...rest } });
+            }
         },
+
+        // editNode(state, action) {
+        //     querySlice.caseReducers.saveHistory(state);
+        //     const { id, ...updates } = copy(action.payload);
+        //     const node = state.nodes.find(n => n.data?.id === id);
+        //     if (node) Object.assign(node.data, updates);
+        // },
+
+        // editEdge(state, action) {
+        //     querySlice.caseReducers.saveHistory(state);
+        //     const { id, ...updates } = copy(action.payload);
+        //     const edge = state.edges.find(e => e.data?.id === id);
+        //     if (edge) Object.assign(edge.data, updates);
+        // },
 
         removeNode(state, action) {
             querySlice.caseReducers.saveHistory(state);
@@ -110,7 +117,7 @@ const querySlice = createSlice({
 });
 
 export const {
-    addNode, addEdge, editNode, editEdge,
+    editNode, editEdge,
     removeNode, removeEdge,
     undo, redo,
     updateNodePosition, updateViewport

@@ -1,33 +1,42 @@
 import React, {
-    useEffect,
-    useRef,
-    useState,
+  useEffect,
+  useRef,
+  useState,
 } from 'react';
 
 import cytoscape from 'cytoscape';
 import {
-    useDispatch,
-    useSelector,
+  useDispatch,
+  useSelector,
 } from 'react-redux';
 
 import {
-    Box,
-    Button,
-    Stack,
-    TextField,
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
+  Box,
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
+  Stack,
+  TextField,
+  Typography,
 } from '@mui/material';
+import { nanoid } from '@reduxjs/toolkit';
 
+import Logger from '../components/Logger';
 import {
-    addEdge,
-    addNode,
-    editEdge,
-    editNode,
-    redo,
-    removeEdge,
-    removeNode,
-    undo,
-    updateNodePosition,
-    updateViewport,
+  editEdge,
+  editNode,
+  redo,
+  removeEdge,
+  removeNode,
+  undo,
+  updateNodePosition,
+  updateViewport,
 } from '../redux/querySlice';
 
 export const nodeAutoWidth = (node) => {
@@ -52,6 +61,154 @@ const nodeAutoHeight = (node) => {
     const metrics = ctx.measureText(node.data('label'));
     return metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent;
 };
+
+function NodeLabelPopup({ open, cyEle, onClose, onConfirm }) {
+    const [inputValue, setInputValue] = useState(cyEle?.label || "");
+
+    // Update input when cyEle changes
+    React.useEffect(() => {
+        if (cyEle) {
+            setInputValue(cyEle.label || "");
+        }
+    }, [cyEle, open]);
+
+    const handleConfirm = () => {
+        if (!cyEle) return;
+
+        // Return a new node object without mutating the original
+        const newNode = {
+            ...cyEle,
+            label: inputValue
+        };
+        onConfirm(newNode);
+    };
+
+    return (
+        <Dialog open={open} onClose={onClose}>
+            <DialogTitle>Change Node Label</DialogTitle>
+            <DialogContent>
+                <DialogContentText>
+                    Edit the label of the node. Press "Confirm" to apply.
+                </DialogContentText>
+                <TextField
+                    autoFocus
+                    margin="dense"
+                    label="Node Label"
+                    type="text"
+                    fullWidth
+                    value={inputValue}
+                    onChange={(e) => setInputValue(e.target.value)}
+                />
+            </DialogContent>
+            <DialogActions>
+                <Button onClick={onClose} color="secondary">
+                    Quit
+                </Button>
+                <Button
+                    onClick={() => {
+                        handleConfirm();
+                        onClose();
+                    }}
+                    color="primary"
+                >
+                    Confirm
+                </Button>
+            </DialogActions>
+        </Dialog>
+    );
+}
+
+const addNodeThunk = (node, position) => (dispatch) => {
+    const id = nanoid();
+    dispatch(editNode({ node: { ...node, id }, position }));
+    return id;
+};
+
+const addEdgeThunk = (edge) => (dispatch) => {
+    const id = nanoid();
+    dispatch(editEdge({ id, ...edge }));
+    return id;
+};
+
+const getCenter = (cy, viewport) => {
+    const cyContainerSize = cy.container().getBoundingClientRect();
+    return {
+        x: (cyContainerSize.width / 2 - viewport.pan.x) / viewport.zoom,
+        y: (cyContainerSize.height / 2 - viewport.pan.y) / viewport.zoom
+    };
+};
+
+const getDefRange = (cy, viewport, scale = 1) => {
+    const cyContainerSize = cy.container().getBoundingClientRect();
+    return {
+        x: cyContainerSize.width / viewport.zoom * scale,
+        y: cyContainerSize.height / viewport.zoom * scale
+    };
+};
+
+function findEmptyPosition(cy, viewport, constraints, minDist = 80) {
+    // const rect = {
+    //     x1: center.x - range.x / 2,
+    //     y1: center.y - range.y / 2,
+    //     x2: center.x + range.x / 2,
+    //     y2: center.y + range.y / 2,
+    // }
+    const rect = constraints.map(({ center, range }) => ({
+        x1: center.x - range.x / 2,
+        y1: center.y - range.y / 2,
+        x2: center.x + range.x / 2,
+        y2: center.y + range.y / 2,
+    })).reduce((acc, curr) => {
+        acc.x1 = Math.max(acc.x1, curr.x1);
+        acc.y1 = Math.max(acc.y1, curr.y1);
+        acc.x2 = Math.min(acc.x2, curr.x2);
+        acc.y2 = Math.min(acc.y2, curr.y2);
+        return acc;
+    }, { x1: -Infinity, y1: -Infinity, x2: Infinity, y2: Infinity });
+
+    const nodes = cy.nodes();
+    const isOccupied = (p) =>
+        nodes.some(n => {
+            const np = n.position();
+            const dx = np.x - p.x;
+            const dy = np.y - p.y;
+            return Math.sqrt(dx * dx + dy * dy) < minDist;
+        });
+
+    let pos = null;
+
+    // Try 200 random positions
+    for (let i = 0; i < 200; i++) {
+        if (i === 100) minDist /= 2;
+        const candidate = {
+            x: rect.x1 + Math.random() * (rect.x2 - rect.x1),
+            y: rect.y1 + Math.random() * (rect.y2 - rect.y1),
+        };
+        if (!isOccupied(candidate)) {
+            pos = candidate;
+            break;
+        }
+    }
+
+    // Fallback
+    if (!pos) {
+        return [getCenter(cy, viewport), "Full"];
+    }
+
+    return [pos, undefined];
+}
+
+const defaultNode = {
+    type: 'node',
+    label: 'Sample Node',
+    color: 'lightblue'
+};
+
+const defualtEdge = {
+    type: 'edge',
+    label: 'Sample Edge',
+}
+
 
 export default function QueryPage() {
     const dispatch = useDispatch();
@@ -85,14 +242,85 @@ export default function QueryPage() {
         )
     );
 
+    const [menuPos, setMenuPos] = useState({ x: 0, y: 0 });
+    const [menuVisible, setMenuVisible] = useState(false);
+    const [contextTapElement, setContextTapElement] = useState(null);
+
+    const [panelMode, setPanelMode] = useState("editNode");
+    useEffect(() => {
+        // one node: addedge1
+        // two node: addedge2
+        // else: editNode
+        if (selected.length === 1 && selected[0].type === 'node') {
+            setPanelMode("addedge1");
+        } else if (selected.length === 2 && selected[0].type === 'node' && selected[1].type === 'node') {
+            setPanelMode("addedge2");
+        } else {
+            setPanelMode("editNode");
+        }
+    }, [selected]);
+
+    const [logger, setLogger] = useState([]);
+    const log = (message) => {
+        setLogger((prev) => [...prev, message]);
+    };
+    const clearLog = () => {
+        setLogger([]);
+    };
+
+    useEffect(() => {
+        const handleClickOutside = () => {
+            if (menuVisible) setMenuVisible(false);
+        };
+        document.addEventListener("click", handleClickOutside);
+        return () => document.removeEventListener("click", handleClickOutside);
+    }, [menuVisible]);
+
+    const handleRightClick = (event) => {
+
+        const element = event.target;
+        const renderedPos = event.renderedPosition; // {x, y} in canvas coords
+        const cyContainer = cyRef.current.container();
+        const rect = cyContainer.getBoundingClientRect();
+
+        // Compute absolute page position
+        const x = rect.left + renderedPos.x;
+        const y = rect.top + renderedPos.y;
+        setContextTapElement(element.data());
+        setMenuPos({ x, y });
+        setMenuVisible(true);
+    };
+
+    const handleEditLabel = () => {
+        setMenuVisible(false);
+        // Open modal for editing node label
+        setPopupOpen(true);
+    };
+
+    const [popupOpen, setPopupOpen] = useState(false);
+
+    const handleConfirm = (newEle) => {
+        if (newEle.type === "node") {
+            log(`Node name changed from "${contextTapElement.label}" to "${newEle.label}"`);
+            dispatch(editNode({
+                node: newEle
+            }));
+        } else if (newEle.type === "edge") {
+            log(`Edge label changed from "${contextTapElement.label}" to "${newEle.label}"`);
+            dispatch(editEdge(newEle));
+        }
+    };
+
     // Ctrl-Z Ctrl-Y listener
     useEffect(() => {
         const handleKeyDown = (e) => {
             if (e.ctrlKey && e.key === 'z') {
                 e.preventDefault();
+                log("Undo last action");
                 dispatch(undo());
             } else if (e.ctrlKey && e.key === 'y') {
                 e.preventDefault();
+                log("Redo last action");
                 dispatch(redo());
             }
         };
@@ -102,6 +330,31 @@ export default function QueryPage() {
             window.removeEventListener('keydown', handleKeyDown);
         };
     }, [dispatch]);
+
+    const findDefault = () => {
+        const [result, status] = findEmptyPosition(cyRef.current, viewportRef.current,
+            [{
+                center: getCenter(cyRef.current, viewportRef.current),
+                range: getDefRange(cyRef.current, viewportRef.current, 0.75)
+            }]
+        );
+        if (status) log("Container almost full!");
+        return result;
+    };
+    const findWithCenter = (pos) => {
+        const [result, status] = findEmptyPosition(cyRef.current, viewportRef.current,
+            [{
+                center: pos,
+                range: { x: 300, y: 300 }
+            },
+            {
+                center: getCenter(cyRef.current, viewportRef.current),
+                range: getDefRange(cyRef.current, viewportRef.current, 0.9)
+            }]
+        );
+        if (status) log("Container almost full!");
+        return result;
+    };
 
     // Sync elements with redux
     useEffect(() => {
@@ -143,7 +396,7 @@ export default function QueryPage() {
                         "label": "data(label)",
                         "font-size": "10px",
                         "text-background-opacity": 1,
-                        "text-background-color": "#F9FAFB",
+                        "text-background-color": "#fff",
                         "color": "#000",
                     }
                 },
@@ -167,7 +420,7 @@ export default function QueryPage() {
                 name: 'preset',
                 fit: false
             },
-            zoom: 1,
+            zoom: 4, //no use, set this in redux initial state
             minZoom: 1,
             maxZoom: 12,
             pan: { x: containerSize.width / 2, y: containerSize.height / 2 },
@@ -175,9 +428,10 @@ export default function QueryPage() {
             autoungrabify: false,
             autounselectify: false
         });
-        console.log(cyRef.current.pan());
+        console.log(cyRef.current.zoom());
         cyRef.current.on('select unselect', 'node, edge', () => {
-            const sel = cyRef.current.$(':selected').map(el => ({ ...el.data() })); // clone here
+            const sel = cyRef.current.$(':selected').map(el => ({ ...el.data(), position: el.position() })); // clone here
+            console.log(sel);
             setSelected(sel);
         });
         cyRef.current.on('dragfree', 'node', (evt) => {
@@ -187,6 +441,7 @@ export default function QueryPage() {
                 position: node.position()
             }));
         });
+        cyRef.current.on("cxttap", "node, edge", handleRightClick);
 
         // Viewport change → update zoom/pan in Redux
         const updateView = () => {
@@ -195,11 +450,17 @@ export default function QueryPage() {
                 pan: cyRef.current.pan()
             }));
         };
-        cyRef.current.on('zoom pan', updateView);
+        let timeout;
+        cyRef.current.on('zoom pan', () => {
+            clearTimeout(timeout);
+            timeout = setTimeout(updateView, 200);
+        });
         return () => {
             cyRef.current.removeListener('select unselect');
             cyRef.current.removeListener('dragfree');
             cyRef.current.removeListener('zoom pan', updateView);
+            cyRef.current.removeListener('cxttap', 'node, edge', handleRightClick);
+            clearTimeout(timeout);
         };
     }, []);
 
@@ -220,17 +481,18 @@ export default function QueryPage() {
         try {
             const obj = JSON.parse(jsonInput);
             if (selected.length === 0 && obj.type === 'node') {
-                dispatch(addNode({
-                    node: obj,
-                    position: {
-                        x: (cyContainerSize.width / 2 - viewportRef.current.pan.x) / viewportRef.current.zoom,
-                        y: (cyContainerSize.height / 2 - viewportRef.current.pan.y) / viewportRef.current.zoom
-                    }
-                }));
+                // dispatch(editNode({
+                //     node: obj,
+                //     position: {
+                //         x: (cyContainerSize.width / 2 - viewportRef.current.pan.x) / viewportRef.current.zoom,
+                //         y: (cyContainerSize.height / 2 - viewportRef.current.pan.y) / viewportRef.current.zoom
+                //     }
+                // }));
+                dispatch(addNodeThunk(obj, findDefault()));
             } else if (selected.length === 1 && selected[0].type === 'node' && obj.type === 'node') {
                 // Edit existing
                 const sel = { ...selected[0] }; // clone before editing
-                dispatch(editNode({ id: sel.id, ...obj }));
+                dispatch(editEdge({ id: sel.id, ...obj }));
             } else if (selected.length === 1 && selected[0].type === 'edge' && obj.type === 'edge') {
                 // Edit existing
                 const sel = { ...selected[0] }; // clone before editing
@@ -238,7 +500,7 @@ export default function QueryPage() {
             } else if (selected.length === 2 && selected[0].type === 'node' && selected[1].type === 'node' && obj.type === 'edge') {
                 const sel1 = { ...selected[0] };
                 const sel2 = { ...selected[1] };
-                dispatch(addEdge({
+                dispatch(addNodeThunk({
                     source: sel1.id,
                     target: sel2.id,
                     ...obj
@@ -253,20 +515,176 @@ export default function QueryPage() {
         unselectAll();
     };
 
+    const handleAddEdge1 = (edgeLabel, nodeLabel) => {
+        if (selected.length !== 1 || selected[0].type !== 'node') return;
+        const nodeUid = dispatch(addNodeThunk({ ...defaultNode, label: nodeLabel }, findWithCenter(selected[0].position)));
+        dispatch(addEdgeThunk({ label: edgeLabel, source: selected[0].id, target: nodeUid }));
+        log(`Added edge "${edgeLabel}" from "${selected[0].label}" to new node "${nodeLabel}"`);
+        unselectAll();
+    }
+
+    const handleAddEdge2 = (edgeLabel) => {
+        if (selected.length !== 2 || selected[0].type !== 'node' || selected[1].type !== 'node') return;
+        dispatch(addEdgeThunk({ label: edgeLabel, source: selected[0].id, target: selected[1].id }));
+        log(`Added edge "${edgeLabel}" from "${selected[0].label}" to "${selected[1].label}"`);
+        unselectAll();
+    }
+
     const handleDelete = () => {
         selected.forEach(sel => {
             if (sel.type === 'node') {
+                log(`Removed node: ${sel.label}`);
                 dispatch(removeNode(sel.id));
             } else if (sel.type === 'edge') {
+                log(`Removed edge: ${sel.label}`);
                 dispatch(removeEdge(sel.id));
             }
         });
         unselectAll();
     };
 
+    const handleDeleteAll = () => {
+        // delete everything regardless of select
+        log(`Removed all nodes and edges...`);
+        nodes.forEach(node => {
+            log(`Removed node: ${node.data.label}`);
+            dispatch(removeNode(node.data.id));
+        });
+        edges.forEach(edge => {
+            log(`Removed edge: ${edge.data.label}`);
+            dispatch(removeEdge(edge.data.id));
+        });
+    };
+
     return (
         <Box p={2}>
-            <Box
+            <Box>
+                <Stack spacing={1} direction="column">
+                    <Stack spacing={1} direction="row">
+                        <Stack spacing={1} direction="column" flexGrow={1}>
+                            <Box sx={{ background: 'white', padding: '10px', borderRadius: '10px', border: '1px solid #7F7D7D' }}>
+                                <Typography variant="body2" color="textSecondary">
+                                    Instructions : Select a node type and configure the property restrictions on the right panel.
+                                </Typography>
+                            </Box>
+                            <Box sx={{ borderRadius: '10px', border: '1px solid #7F7D7D', overflow: 'hidden' }}>
+                                <Box sx={{ padding: '10px', background: '#EAEEF0', flexDirection: 'row', display: 'flex', justifyContent: 'flex-end' }}>
+                                    <Stack spacing={1} direction="row">
+                                        <Button variant="filled" color="error" onClick={handleDelete}>Delete</Button>
+                                        <Button variant="filled" onClick={() => { log("Undo last action"); dispatch(undo()) }}>Undo</Button>
+                                        <Button variant="filled" onClick={() => { log("Redo last action"); dispatch(redo()) }}>Redo</Button>
+                                    </Stack>
+                                </Box>
+                                {menuVisible && (
+                                    <div
+                                        style={{
+                                            position: "fixed",
+                                            top: menuPos.y,
+                                            left: menuPos.x,
+                                            background: "#fff",
+                                            border: "1px solid #ccc",
+                                            borderRadius: "4px",
+                                            zIndex: 1000,
+                                            padding: "5px",
+                                            boxShadow: "0px 2px 5px rgba(0,0,0,0.3)"
+                                        }}
+                                        onContextMenu={(e) => e.preventDefault()}
+                                    >
+                                        <div
+                                            style={{ padding: "5px 10px", cursor: "pointer" }}
+                                            onClick={handleEditLabel}
+                                        >
+                                            Edit Label
+                                        </div>
+                                        <div
+                                            style={{ padding: "5px 10px", cursor: "pointer" }}
+                                            onClick={() => {
+                                                log(`Removed node: ${contextTapElement.id}`);
+                                                dispatch(removeNode(contextTapElement.id));
+                                                setMenuVisible(false);
+                                            }}
+                                        >
+                                            Remove Node
+                                        </div>
+                                    </div>
+                                )}
+                                <Box id="cy-container" sx={{ height: '400px', padding: '10px', background: 'white' }}>
+                                </Box>
+
+
+                                {/* Node Label Modal */}
+                                <NodeLabelPopup
+                                    open={popupOpen}
+                                    cyEle={contextTapElement}
+                                    onClose={() => setPopupOpen(false)}
+                                    onConfirm={handleConfirm}
+                                />
+                            </Box>
+                        </Stack>
+                        <Box sx={{ background: 'white', width: '300px', padding: '10px', borderRadius: '10px', border: '1px solid #7F7D7D' }}>
+                            {panelMode === "editNode" &&
+                                <>
+                                    <Typography variant="body2" color="textSecondary">
+                                        Bio Element List
+                                    </Typography>
+                                    <Stack spacing={1}>
+                                        <Button variant="contained" onClick={() => {
+                                            log("Added node: Gene");
+                                            dispatch(addNodeThunk({ ...defaultNode, label: "Gene" }, findDefault()));
+                                        }}>Add Gene</Button>
+                                        <Button variant="contained" onClick={() => {
+                                            log("Added node: Variant");
+                                            dispatch(addNodeThunk({ ...defaultNode, label: "Variant" }, findDefault()));
+                                        }}>Add Variant</Button>
+                                    </Stack>
+                                </>
+                            }
+                            {panelMode === "addedge1" &&
+                                <>
+                                    <Typography variant="body2" color="textSecondary">
+                                        Quick Add Edge
+                                    </Typography>
+                                    <Stack spacing={1}>
+                                        <Button variant="contained" onClick={() => {
+                                            handleAddEdge1("Relationship 1", "Gene");
+                                        }}>{"-- Relationship 1 -> Gene"}</Button>
+                                        <Button variant="contained" onClick={() => {
+                                            handleAddEdge1("Relationship 2", "Variant");
+                                        }}>{"-- Relationship 2 -> Variant"}</Button>
+                                    </Stack>
+                                </>
+                            }
+                            {panelMode === "addedge2" &&
+                                <>
+                                    <Typography variant="body2" color="textSecondary">
+                                        Relationship Options
+                                    </Typography>
+                                    <Stack spacing={1}>
+                                        <Button variant="contained" onClick={() => {
+                                            handleAddEdge2("Relationship 1");
+                                        }}>{"-- Relationship 1 ->"}</Button>
+                                        <Button variant="contained" onClick={() => {
+                                            handleAddEdge2("Relationship 2");
+                                        }}>{"-- Relationship 2 ->"}</Button>
+                                    </Stack>
+                                </>
+                            }
+                        </Box>
+                    </Stack>
+                    <Stack spacing={1} direction="row">
+                        <Box sx={{ background: 'white', flexGrow: 1, height: '150px', padding: '10px', borderRadius: '10px', border: '1px solid #7F7D7D' }}>
+                            <Logger logs={logger} />
+                        </Box>
+                        <Box sx={{ padding: '10px', width: '300px' }}>
+                            <Stack spacing={1} direction="row">
+                                <Button variant="outlined" onClick={handleDeleteAll}>Clear All</Button>
+                                <Button variant="outlined" disabled={true}>Submit</Button>
+                            </Stack>
+                        </Box>
+                    </Stack>
+                </Stack>
+            </Box>
+            {/* <Box
                 sx={{
                     border: '1px solid #ccc',
                     height: '400px',
@@ -274,51 +692,50 @@ export default function QueryPage() {
                 }}
                 id="cy-container"
             >
-            </Box>
-
-            <Stack spacing={2} direction="row">
-                <Stack spacing={1} flexGrow={1}>
-                    <TextField
-                        label="JSON Input"
-                        multiline
-                        minRows={4}
-                        fullWidth
-                        value={jsonInput}
-                        onChange={(e) => setJsonInput(e.target.value)}
-                    />
+            </Box> */}
+            <Accordion sx={{ mt: 2 }}>
+                <AccordionSummary>
+                    <Typography variant="body2" color="textSecondary">
+                        Debug Options
+                    </Typography>
+                </AccordionSummary>
+                <AccordionDetails>
                     <Stack spacing={2} direction="row">
-                        <Button variant="outlined" onClick={() => setJsonInput(
-                            JSON.stringify(
-                                {
-                                    type: 'node',
-                                    label: 'Sample Node',
-                                    color: 'lightblue'
-                                },
-                                null,
-                                2 // pretty print
-                            )
-                        )}>Default Node</Button>
-                        <Button variant="outlined" onClick={() => setJsonInput(
-                            JSON.stringify(
-                                {
-                                    type: 'edge',
-                                    label: 'Sample Edge',
-                                    color: 'lightgreen',
-
-                                },
-                                null,
-                                2 // pretty print
-                            )
-                        )}>Default Edge</Button>
+                        <Stack spacing={1} flexGrow={1}>
+                            <TextField
+                                label="JSON Input"
+                                multiline
+                                minRows={4}
+                                fullWidth
+                                value={jsonInput}
+                                onChange={(e) => setJsonInput(e.target.value)}
+                            />
+                            <Stack spacing={2} direction="row">
+                                <Button variant="outlined" onClick={() => setJsonInput(
+                                    JSON.stringify(
+                                        defaultNode,
+                                        null,
+                                        2 // pretty print
+                                    )
+                                )}>Default Node</Button>
+                                <Button variant="outlined" onClick={() => setJsonInput(
+                                    JSON.stringify(
+                                        defualtEdge,
+                                        null,
+                                        2 // pretty print
+                                    )
+                                )}>Default Edge</Button>
+                            </Stack>
+                        </Stack>
+                        <Stack spacing={1}>
+                            <Button variant="contained" onClick={handleAddEdit}>Add/Edit</Button>
+                            <Button variant="outlined" color="error" onClick={handleDelete}>Delete</Button>
+                            <Button variant="outlined" onClick={() => { log("Undo last action"); dispatch(undo()) }}>Undo</Button>
+                            <Button variant="outlined" onClick={() => { log("Redo last action"); dispatch(redo()) }}>Redo</Button>
+                        </Stack>
                     </Stack>
-                </Stack>
-                <Stack spacing={1}>
-                    <Button variant="contained" onClick={handleAddEdit}>Add/Edit</Button>
-                    <Button variant="outlined" color="error" onClick={handleDelete}>Delete</Button>
-                    <Button variant="outlined" onClick={() => dispatch(undo())}>Undo</Button>
-                    <Button variant="outlined" onClick={() => dispatch(redo())}>Redo</Button>
-                </Stack>
-            </Stack>
+                </AccordionDetails>
+            </Accordion>
         </Box>
     );
 }
