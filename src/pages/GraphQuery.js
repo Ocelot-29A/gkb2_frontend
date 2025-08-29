@@ -245,6 +245,11 @@ export default function QueryPage() {
     const [menuPos, setMenuPos] = useState({ x: 0, y: 0 });
     const [menuVisible, setMenuVisible] = useState(false);
     const [contextTapElement, setContextTapElement] = useState(null);
+    const [ctxDragID, setCtxDragID] = useState(null);
+    const ctxIDref = useRef(null);
+    useEffect(() => {
+        ctxIDref.current = ctxDragID;
+    }, [ctxDragID]);
 
     const [panelMode, setPanelMode] = useState("editNode");
     useEffect(() => {
@@ -464,6 +469,35 @@ export default function QueryPage() {
         });
         cyRef.current.on("cxttap", "node, edge", handleRightClick);
 
+        // start of the drag edge function
+        cyRef.current.on('cxtdragover', 'node', (e) => {
+            setCtxDragID(e.target.id());
+            e.target.addClass('highlight');
+        });
+
+        cyRef.current.on('cxtdragout', 'node', (e) => {
+            e.target.removeClass('highlight');
+            if (ctxIDref.current === e.target.id()) {
+                setCtxDragID(null);
+            }
+        });
+
+        cyRef.current.on('cxttapend', (e) => {
+            let target = e.target;
+            if (target.id() !== ctxIDref.current && target.isNode && target.isNode()) {
+                console.log('add edge');
+                dispatch(addEdgeThunk({
+                    label: 'Drag Edge',
+                    source: target.id(),
+                    target: ctxIDref.current
+                }));
+            }
+
+            cyRef.current.elements().removeClass('highlight');
+            setCtxDragID(null);
+        });
+        // end of it
+
         // Viewport change → update zoom/pan in Redux
         const updateView = () => {
             dispatch(updateViewport({
@@ -482,6 +516,9 @@ export default function QueryPage() {
             cyRef.current.off('dragfree');
             cyRef.current.off('zoom pan', updateView);
             cyRef.current.off('cxttap', 'node, edge', handleRightClick);
+            cyRef.current.off('cxtdragover');
+            cyRef.current.off('cxtdragout');
+            cyRef.current.off('cxtdragend');
             clearTimeout(timeout);
         };
     }, []);
