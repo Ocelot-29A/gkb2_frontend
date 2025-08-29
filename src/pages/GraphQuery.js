@@ -1,42 +1,42 @@
 import React, {
-  useEffect,
-  useRef,
-  useState,
+    useEffect,
+    useRef,
+    useState,
 } from 'react';
 
 import cytoscape from 'cytoscape';
 import {
-  useDispatch,
-  useSelector,
+    useDispatch,
+    useSelector,
 } from 'react-redux';
 
 import {
-  Accordion,
-  AccordionDetails,
-  AccordionSummary,
-  Box,
-  Button,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
-  Stack,
-  TextField,
-  Typography,
+    Accordion,
+    AccordionDetails,
+    AccordionSummary,
+    Box,
+    Button,
+    Dialog,
+    DialogActions,
+    DialogContent,
+    DialogContentText,
+    DialogTitle,
+    Stack,
+    TextField,
+    Typography,
 } from '@mui/material';
 import { nanoid } from '@reduxjs/toolkit';
 
 import Logger from '../components/Logger';
 import {
-  editEdge,
-  editNode,
-  redo,
-  removeEdge,
-  removeNode,
-  undo,
-  updateNodePosition,
-  updateViewport,
+    editEdge,
+    editNode,
+    redo,
+    removeEdge,
+    removeNode,
+    undo,
+    updateNodePosition,
+    updateViewport,
 } from '../redux/querySlice';
 
 export const nodeAutoWidth = (node) => {
@@ -318,10 +318,12 @@ export default function QueryPage() {
                 e.preventDefault();
                 log("Undo last action");
                 dispatch(undo());
+                unselectAll();
             } else if (e.ctrlKey && e.key === 'y') {
                 e.preventDefault();
                 log("Redo last action");
                 dispatch(redo());
+                unselectAll();
             }
         };
 
@@ -429,10 +431,29 @@ export default function QueryPage() {
             autounselectify: false
         });
         console.log(cyRef.current.zoom());
-        cyRef.current.on('select unselect', 'node, edge', () => {
-            const sel = cyRef.current.$(':selected').map(el => ({ ...el.data(), position: el.position() })); // clone here
+        // cyRef.current.on('select unselect', 'node, edge', () => {
+        //     const sel = cyRef.current.$(':selected').map(el => ({ ...el.data(), position: el.position() })); // clone here
+        //     console.log(sel);
+        //     setSelected(sel);
+        // });
+        cyRef.current.on('select', 'node, edge', (evt) => {
+            const el = evt.target;
+            const sel = { ...el.data(), position: el.position() };
             console.log(sel);
-            setSelected(sel);
+            setSelected((selected) => [...selected, sel]);
+            if (cyRef.current.$(':selected').length === 1) {
+                setJsonInput(JSON.stringify(
+                    el.data(),
+                    null,
+                    2 // pretty print
+                ));
+            }
+        });
+        cyRef.current.on('unselect', 'node, edge', (evt) => {
+            const el = evt.target;
+            const sel = { ...el.data(), position: el.position() };
+            console.log(sel);
+            setSelected((selected) => selected.filter(s => s.id !== sel.id));
         });
         cyRef.current.on('dragfree', 'node', (evt) => {
             const node = evt.target;
@@ -456,10 +477,11 @@ export default function QueryPage() {
             timeout = setTimeout(updateView, 200);
         });
         return () => {
-            cyRef.current.removeListener('select unselect');
-            cyRef.current.removeListener('dragfree');
-            cyRef.current.removeListener('zoom pan', updateView);
-            cyRef.current.removeListener('cxttap', 'node, edge', handleRightClick);
+            cyRef.current.off('select');
+            cyRef.current.off('unselect');
+            cyRef.current.off('dragfree');
+            cyRef.current.off('zoom pan', updateView);
+            cyRef.current.off('cxttap', 'node, edge', handleRightClick);
             clearTimeout(timeout);
         };
     }, []);
@@ -492,11 +514,11 @@ export default function QueryPage() {
             } else if (selected.length === 1 && selected[0].type === 'node' && obj.type === 'node') {
                 // Edit existing
                 const sel = { ...selected[0] }; // clone before editing
-                dispatch(editEdge({ id: sel.id, ...obj }));
+                dispatch(editNode({ node: { ...obj, id: sel.id } }));
             } else if (selected.length === 1 && selected[0].type === 'edge' && obj.type === 'edge') {
                 // Edit existing
                 const sel = { ...selected[0] }; // clone before editing
-                dispatch(editEdge({ id: sel.id, ...obj }));
+                dispatch(editEdge({ ...obj, id: sel.id }));
             } else if (selected.length === 2 && selected[0].type === 'node' && selected[1].type === 'node' && obj.type === 'edge') {
                 const sel1 = { ...selected[0] };
                 const sel2 = { ...selected[1] };
@@ -509,10 +531,10 @@ export default function QueryPage() {
             else {
                 // error
             }
+            unselectAll();
         } catch (err) {
             console.error('Invalid JSON', err);
         }
-        unselectAll();
     };
 
     const handleAddEdge1 = (edgeLabel, nodeLabel) => {
@@ -571,8 +593,8 @@ export default function QueryPage() {
                                 <Box sx={{ padding: '10px', background: '#EAEEF0', flexDirection: 'row', display: 'flex', justifyContent: 'flex-end' }}>
                                     <Stack spacing={1} direction="row">
                                         <Button variant="filled" color="error" onClick={handleDelete}>Delete</Button>
-                                        <Button variant="filled" onClick={() => { log("Undo last action"); dispatch(undo()) }}>Undo</Button>
-                                        <Button variant="filled" onClick={() => { log("Redo last action"); dispatch(redo()) }}>Redo</Button>
+                                        <Button variant="filled" onClick={() => { log("Undo last action"); dispatch(undo()); unselectAll(); }}>Undo</Button>
+                                        <Button variant="filled" onClick={() => { log("Redo last action"); dispatch(redo()); unselectAll(); }}>Redo</Button>
                                     </Stack>
                                 </Box>
                                 {menuVisible && (
@@ -604,7 +626,7 @@ export default function QueryPage() {
                                                 setMenuVisible(false);
                                             }}
                                         >
-                                            Remove Node
+                                            {`Remove ${contextTapElement.type === 'node' ? 'Node' : 'Edge'}`}
                                         </div>
                                     </div>
                                 )}
@@ -705,7 +727,8 @@ export default function QueryPage() {
                             <TextField
                                 label="JSON Input"
                                 multiline
-                                minRows={4}
+                                minRows={6}
+                                maxRows={6}
                                 fullWidth
                                 value={jsonInput}
                                 onChange={(e) => setJsonInput(e.target.value)}
@@ -729,9 +752,6 @@ export default function QueryPage() {
                         </Stack>
                         <Stack spacing={1}>
                             <Button variant="contained" onClick={handleAddEdit}>Add/Edit</Button>
-                            <Button variant="outlined" color="error" onClick={handleDelete}>Delete</Button>
-                            <Button variant="outlined" onClick={() => { log("Undo last action"); dispatch(undo()) }}>Undo</Button>
-                            <Button variant="outlined" onClick={() => { log("Redo last action"); dispatch(redo()) }}>Redo</Button>
                         </Stack>
                     </Stack>
                 </AccordionDetails>
