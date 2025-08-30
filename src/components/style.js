@@ -11,6 +11,18 @@ export const nodeAutoWidth = (node) => {
   return ctx.measureText(node.data('label')).width;
 };
 
+export const textAutoWidth = (text, sx) => {
+  const ctx = document.createElement('canvas').getContext("2d");
+  const fStyle = sx.fontStyle || 'normal';
+  const size = (sx.fontSize || '6px');
+  const family = sx.fontFamily || 'Roboto';
+  const weight = sx.fontWeight || 'normal';
+  ctx.font = fStyle + ' ' + weight + ' ' + size + ' ' + family;
+  console.log(ctx.font);
+  console.log(ctx.measureText(text).width);
+  return ctx.measureText(text).width;
+}
+
 const nodeAutoHeight = (node) => {
   const ctx = document.createElement('canvas').getContext("2d");
   const fStyle = node.pstyle('font-style').strValue;

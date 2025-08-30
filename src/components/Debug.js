@@ -3,7 +3,56 @@ import React, {
   useState,
 } from 'react';
 
+import axios from 'axios';
+
+import { Button } from '@mui/material';
+
 import sampleLinks from '../schema/sample_links.json';
+
+const api = axios.create({
+    baseURL: "https://05mmsalcn1.execute-api.us-east-1.amazonaws.com/development",
+});
+
+export async function runGKB2ApiTests() {
+    const requests = [
+        api.post("/inputToVocab", { input: "beta cell" }),
+        api.post("/nodeTypeDictionary", { nodeType: "gene" }),
+        api.post("/onprem", { query: "MATCH (n) RETURN n LIMIT 5" }),
+        api.post("/queryResultToVisualization", { query: "MATCH (n) RETURN n LIMIT 5" }),
+        api.post("/tripletsToViewSchema", { sourceTerm: "snp@rs2402203", relationship: "QTL", targetTerm: "gene@ENSG00000001626" }),
+        api.post("/gkb2ResultPage", {
+            core_cypher: "debug",
+            neighbor_cypher: "debug",
+        }),
+        api.post("/gkb2ResultPage", {
+            core_cypher: "MATCH (n) RETURN n LIMIT 5",
+            neighbor_cypher: "MATCH (n)-[r]->(m) RETURN p=(n)-[r]->(m) LIMIT 5",
+        }),
+        api.post("/RDSLambdaPostgreSQL", { query: "test" }),
+        api.post("/aiChat", {
+            message: "What is a gene?",
+            conversationId: "test-conv-001",
+            context: { domain: "biology", user_type: "researcher" },
+        }),
+        api.post("/aiSummary", {
+            text: "Genes are the basic units of heredity and are made up of DNA. They contain the instructions for making proteins, which are essential for the structure and function of all living organisms. Genes are located on chromosomes and can be passed from parents to offspring. Mutations in genes can lead to genetic disorders or diseases. The study of genes and their functions is called genetics, which has important applications in medicine, agriculture, and biotechnology.",
+            maxLength: 50,
+        }),
+        api.post("/aiRephrase", {
+            text: "This research paper discusses the genetic factors involved in disease susceptibility.",
+            style: "casual",
+            language: "en",
+        }),
+    ];
+
+    const results = await Promise.allSettled(requests);
+
+    results.forEach((result, idx) => {
+        if (result.status === "rejected") {
+            console.error(`Request ${idx + 1} failed:`, result.reason);
+        }
+    });
+}
 
 export default function DebugPage() {
     const [graphJson, setGraphJson] = useState("");
@@ -211,6 +260,13 @@ export default function DebugPage() {
                 </div>
             </div> */}
             <div style={{ padding: '20px', width: '1440px' }}>
+                <Button
+                    onClick={() => {
+                        runGKB2ApiTests();
+                    }}
+                >
+                    Connection Test
+                </Button>
                 <h1>Links for Debug Quick Redirect</h1>
                 {[
                     ["match_page", "Match Page"],
