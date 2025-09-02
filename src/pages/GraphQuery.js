@@ -40,25 +40,25 @@ import {
 } from '../redux/querySlice';
 
 export const nodeAutoWidth = (node) => {
-    const ctx = document.createElement('canvas').getContext("2d");
+    const cxt = document.createElement('canvas').getContext("2d");
     const fStyle = node.pstyle('font-style').strValue;
     const size = node.pstyle('font-size').pfValue + 'px';
     const family = node.pstyle('font-family').strValue;
     const weight = node.pstyle('font-weight').strValue;
 
-    ctx.font = fStyle + ' ' + weight + ' ' + size + ' ' + family;
-    return ctx.measureText(node.data('label')).width;
+    cxt.font = fStyle + ' ' + weight + ' ' + size + ' ' + family;
+    return cxt.measureText(node.data('label')).width;
 };
 
 const nodeAutoHeight = (node) => {
-    const ctx = document.createElement('canvas').getContext("2d");
+    const cxt = document.createElement('canvas').getContext("2d");
     const fStyle = node.pstyle('font-style').strValue;
     const size = node.pstyle('font-size').pfValue + 'px';
     const family = node.pstyle('font-family').strValue;
     const weight = node.pstyle('font-weight').strValue;
 
-    ctx.font = fStyle + ' ' + weight + ' ' + size + ' ' + family;
-    const metrics = ctx.measureText(node.data('label'));
+    cxt.font = fStyle + ' ' + weight + ' ' + size + ' ' + family;
+    const metrics = cxt.measureText(node.data('label'));
     return metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent;
 };
 
@@ -223,7 +223,7 @@ export default function QueryPage() {
     }, [nodes, edges]);
 
     const cyRef = useRef(null);
-    const [cyContainerSize, setCyContainerSize] = useState({ width: 0, height: 0 });
+    // const [cyContainerSize, setCyContainerSize] = useState({ width: 0, height: 0 });
     const [selected, setSelected] = useState([]);
     const unselectAll = () => {
         if (cyRef.current) {
@@ -245,21 +245,21 @@ export default function QueryPage() {
     const [menuPos, setMenuPos] = useState({ x: 0, y: 0 });
     const [menuVisible, setMenuVisible] = useState(false);
     const [contextTapElement, setContextTapElement] = useState(null);
-    const [ctxDragFrom, setCtxDragFrom] = useState(null);
-    const ctxDragFromRef = useRef(null);
+    const [cxtDragFrom, setCxtDragFrom] = useState(null);
+    const cxtDragFromRef = useRef(null);
     useEffect(() => {
-        ctxDragFromRef.current = ctxDragFrom;
-    }, [ctxDragFrom]);
-    const [ctxDragTo, setCtxDragTo] = useState(null);
-    const ctxDragToRef = useRef(null);
+        cxtDragFromRef.current = cxtDragFrom;
+    }, [cxtDragFrom]);
+    const [cxtDragTo, setCxtDragTo] = useState(null);
+    const cxtDragToRef = useRef(null);
     useEffect(() => {
-        ctxDragToRef.current = ctxDragTo;
-    }, [ctxDragTo]);
-    const [ctxDragEdge, setCtxDragEdge] = useState(null);
-    const ctxDragEdgeRef = useRef(null);
+        cxtDragToRef.current = cxtDragTo;
+    }, [cxtDragTo]);
+    const [cxtDragEdge, setCxtDragEdge] = useState(null);
+    const cxtDragEdgeRef = useRef(null);
     useEffect(() => {
-        ctxDragEdgeRef.current = ctxDragEdge;
-    }, [ctxDragEdge]);
+        cxtDragEdgeRef.current = cxtDragEdge;
+    }, [cxtDragEdge]);
 
     const [panelMode, setPanelMode] = useState("editNode");
     useEffect(() => {
@@ -279,9 +279,9 @@ export default function QueryPage() {
     const log = (message) => {
         setLogger((prev) => [...prev, message]);
     };
-    const clearLog = () => {
-        setLogger([]);
-    };
+    // const clearLog = () => {
+    //     setLogger([]);
+    // };
 
     useEffect(() => {
         const handleClickOutside = () => {
@@ -377,7 +377,7 @@ export default function QueryPage() {
     useEffect(() => {
         const containerSize = document.getElementById("cy-container").getBoundingClientRect();
         console.log(containerSize);
-        setCyContainerSize({ width: containerSize.width, height: containerSize.height });
+        // setCyContainerSize({ width: containerSize.width, height: containerSize.height });
         cyRef.current = cytoscape({
             container: document.getElementById("cy-container"),
             elements: [],
@@ -495,12 +495,12 @@ export default function QueryPage() {
         cyRef.current.on("cxttap", "node, edge", handleRightClick);
 
         // start of the drag edge function
-        cyRef.current.on('cxtdragover', 'node', (e) => {
+        cyRef.current.on('cxtdrag', 'node', (e) => {
             if(e.target?.id() === "special-node") return;
-            if (ctxDragFromRef.current === null) {
-                setCtxDragFrom(e.target.id());
+            if (cxtDragFromRef.current === null) {
+                setCxtDragFrom(e.target.id());
                 // create a new edge to the special node
-                if (cyRef.current.$id("special-node").length > 0) {
+                if (cyRef.current.$id("special-node").length > 0 && cyRef.current.$id("temp-edge").length === 0) {
                     // move it to mouse position
                     cyRef.current.$id("special-node").position({ x: e.position.x, y: e.position.y });
                     cyRef.current.add({
@@ -511,25 +511,32 @@ export default function QueryPage() {
                             label: 'Drag Edge'
                         },
                     });
-                    setCtxDragEdge('temp-edge');
+                    setCxtDragEdge('temp-edge');
                 }
-            } else {
-                setCtxDragTo(e.target.id());
-                if (ctxDragEdgeRef.current && cyRef.current.$id(ctxDragEdgeRef.current).length > 0) {
-                    cyRef.current.$id(ctxDragEdgeRef.current).move({'target': e.target.id()});
-                }
+                e.target.addClass('highlight');
+                console.log('drag', e.target.id());
             }
-            e.target.addClass('highlight');
-            console.log('drag over', e.target.id());
+        });
+
+        cyRef.current.on('cxtdragover', 'node', (e) => {
+            if(e.target?.id() === "special-node") return;
+            if (cxtDragFromRef.current !== null) {
+                setCxtDragTo(e.target.id());
+                if (cxtDragEdgeRef.current && cyRef.current.$id(cxtDragEdgeRef.current).length > 0) {
+                    cyRef.current.$id(cxtDragEdgeRef.current).move({'target': e.target.id()});
+                }
+                e.target.addClass('highlight');
+                console.log('drag over', e.target.id());
+            }
         });
 
         cyRef.current.on('cxtdragout', 'node', (e) => {
             if(e.target?.id() === "special-node") return;
             e.target.removeClass('highlight');
-            if (ctxDragToRef.current === e.target.id()) {
-                setCtxDragTo(null);
-                if (ctxDragEdgeRef.current && cyRef.current.$id(ctxDragEdgeRef.current).length > 0) {
-                    cyRef.current.$id(ctxDragEdgeRef.current).move({'target': "special-node"});
+            if (cxtDragToRef.current === e.target.id()) {
+                setCxtDragTo(null);
+                if (cxtDragEdgeRef.current && cyRef.current.$id(cxtDragEdgeRef.current).length > 0) {
+                    cyRef.current.$id(cxtDragEdgeRef.current).move({'target': "special-node"});
                 }
             }
             console.log('drag out', e.target.id());
@@ -538,21 +545,21 @@ export default function QueryPage() {
         cyRef.current.on('cxttapend', (e) => { // target is drag source
             if(e.target?.id() === "special-node") return;
             let target = e.target;
-            if (target.id && target.id() !== ctxDragToRef.current && target.isNode && target.isNode()) {
+            if (cxtDragToRef.current && target.id && target.id() !== cxtDragToRef.current && target.isNode && target.isNode()) {
                 console.log('add edge');
                 dispatch(addEdgeThunk({
                     label: 'Drag Edge',
                     source: target.id(),
-                    target: ctxDragToRef.current
+                    target: cxtDragToRef.current
                 }));
             }
-            if (ctxDragEdgeRef.current && cyRef.current.$id(ctxDragEdgeRef.current).length > 0) {
-                cyRef.current.$id(ctxDragEdgeRef.current).remove();
+            if (cxtDragEdgeRef.current && cyRef.current.$id(cxtDragEdgeRef.current).length > 0) {
+                cyRef.current.$id(cxtDragEdgeRef.current).remove();
             }
 
             cyRef.current.elements().removeClass('highlight');
-            setCtxDragFrom(null);
-            setCtxDragTo(null);
+            setCxtDragFrom(null);
+            setCxtDragTo(null);
             console.log('drag end', e.target.id());
         });
         // end of it
@@ -575,12 +582,13 @@ export default function QueryPage() {
             cyRef.current.off('dragfree');
             cyRef.current.off('zoom pan', updateView);
             cyRef.current.off('cxttap', 'node, edge', handleRightClick);
+            cyRef.current.off('cxtdrag');
             cyRef.current.off('cxtdragover');
             cyRef.current.off('cxtdragout');
             cyRef.current.off('cxtdragend');
             clearTimeout(timeout);
         };
-    }, []);
+    }, [dispatch]);
 
     useEffect(() => {
         // do a deep clone
@@ -600,9 +608,9 @@ export default function QueryPage() {
         });
     }, [nodes, edges, viewportRef]);
 
-    // if ctx drag from is not null, make special node visible at mouse position
+    // if cxt drag from is not null, make special node visible at mouse position
     useEffect(() => {
-        if (ctxDragFrom !== null) {
+        if (cxtDragFrom !== null) {
             const specialNode = cyRef.current.$id("special-node");
             if (specialNode) {  
                 // position it at mouse position
@@ -613,7 +621,7 @@ export default function QueryPage() {
         } else {
             cyRef.current.off('mousemove');
         }
-    }, [ctxDragFrom, ctxDragTo]);
+    }, [cxtDragFrom, cxtDragTo]);
 
     const handleAddEdit = () => {
         if (!jsonInput.trim()) return;
