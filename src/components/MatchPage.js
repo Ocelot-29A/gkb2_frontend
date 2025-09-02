@@ -24,21 +24,24 @@ import Popper from '@mui/material/Popper';
 
 import { queryVocab } from '../redux/inputToVocabSlice'; // Import the action
 import { queryQueryResult } from '../redux/queryResultSlice';
-import { nodeAutoWidth } from './style.js';
+import {
+  nodeAutoWidth,
+  textAutoWidth,
+} from './style.js';
 import { AlertMessage } from './SupportingMaterial';
 
 const textBoxStyles = {
-  "Gene": {
+  "gene": {
     backgroundColor: "#EFF5FF",
     border: "1px solid #71B9FA",
     borderRadius: "8px"
   },
-  "Cell line": {
+  "cell_line_or_tissue": {
     border: "1px solid #f6c957",
     backgroundColor: "rgba(246, 201, 87, 0.4)",
     borderRadius: "8px"
   },
-  "Sequence variant": {
+  "sequence_variant": {
     border: "1px solid #FFB77F",
     backgroundColor: "rgba(255, 183, 127, 0.4)",
     borderRadius: "8px"
@@ -46,19 +49,19 @@ const textBoxStyles = {
 };
 
 const nodeColors = {
-  "Gene": "#A4D0F6",
-  "Sequence variant": "#FFB371",
-  "Cell line": "#FFDE7D",
-  "OCR Cluster": "#61ECBC",
-  "Literature": "#F5BEFF",
+  "gene": "#A4D0F6",
+  "sequence_variant": "#FFB371",
+  "cell_line_or_tissue": "#FFDE7D",
+  "ocr_cluster": "#61ECBC",
+  "literature": "#F5BEFF",
 };
 
 const nodeLabels = {
-  "Gene": "Gene",
-  "Sequence variant": "SNP",
-  "Cell line": "Cell Type",
-  "OCR Cluster": "OCR Cluster",
-  "Literature": "Literature",
+  "gene": "Gene",
+  "sequence_variant": "Sequence Variant",
+  "cell_line_or_tissue": "Cell Line or Tissue",
+  "ocr_cluster": "OCR Cluster",
+  "literature": "Literature",
 };
 
 const edgeLabels = {
@@ -267,7 +270,7 @@ function InputComponent({ type, setValue, setInputStatus, disabled, clearTrigger
             return `${item.name}(${item.id})`;
           });
           if (parsedResponse.length === 0) {
-            setSelfOptions([{ label: `${type} not found`, disabled: true, notFound: true }]);
+            setSelfOptions([{ label: `${nodeLabels[type] || type} not found`, disabled: true, notFound: true }]);
           } else {
             setSelfOptions(parsedResponse);
           }
@@ -280,19 +283,19 @@ function InputComponent({ type, setValue, setInputStatus, disabled, clearTrigger
   }
 
   function updateValidation(newInputValue, type) { // validate the input value with vocab
-    const geneName = newInputValue.split('(')[0].trim();
-    const typeMap = {
-      "Gene": 'gene',
-      "Cell line": 'cell_type',
-      "Sequence variant": 'sequence_variant'
-    };
+    const termName = newInputValue.split('(')[0].trim();
+    // const typeMap = {
+    //   "Gene": 'gene',
+    //   "Cell line": 'cell_type',
+    //   "Sequence variant": 'sequence_variant'
+    // };
     Promise.all(
-      [dispatch(queryVocab({ input: geneName })).unwrap(),
-      ...(type === 'Sequence variant' ? [dispatch(queryQueryResult({
-        isNeptune: false,
-        rawResponse: true,
-        query: `SELECT snp FROM QTL_DATA WHERE snp = '${geneName}' LIMIT 1;`
-      })).unwrap()] : [])
+      [dispatch(queryVocab({ input: termName })).unwrap(),
+        // ...(type === 'Sequence variant' ? [dispatch(queryQueryResult({
+        //   isNeptune: false,
+        //   rawResponse: true,
+        //   query: `SELECT snp FROM QTL_DATA WHERE snp = '${geneName}' LIMIT 1;`
+        // })).unwrap()] : [])
       ]
     ).then(([response, response2]) => {
       if (newInputValue !== inputValueRef.current) return; // discard outdated response
@@ -302,22 +305,19 @@ function InputComponent({ type, setValue, setInputStatus, disabled, clearTrigger
         return;
       } // skip repeated response
       const responseList = (response?.result || '').split('@') || [''];
-      const id1 = typeMap[type] === responseList[0] ?
-        (type === 'Gene' ? `${geneName}(${responseList[1]})` : responseList[1]) :
+      const id1 = type === responseList[0] ?
+        (type === 'gene' ? `${termName}` : responseList[1]) : //use gene name for now
         '';
       const id2 = response2?.results?.[0]?.[type];
       const id = id1 || id2 || '';
       if (id) {
-        if (type === 'Gene') {
+        if (type === 'gene') {
           setInputStatus('valid');
           setValidatedValue(id.toUpperCase());
         }
-        else if (type === 'Cell line' || type === 'Sequence variant') {
+        else {
           setInputStatus('valid');
           setValidatedValue(id);
-        }
-        else {
-          setValidatedValue('');
         }
       } else {
         setValidatedValue('');
@@ -441,7 +441,7 @@ function InputComponent({ type, setValue, setInputStatus, disabled, clearTrigger
               fontWeight: 600,
               mx: 1,
               '& .MuiAutocomplete-input': {
-                width: disabled ? `calc(${sx.fontSize} * 3) !important` : `calc(${sx.fontSize} * 5) !important`,
+                width: disabled ? `${textAutoWidth(defaultValue, { fontSize: sx.fontSize }) + 4}px !important` : `calc(${sx.fontSize} * 5) !important`,
                 ...sx,
               },
               '& .MuiOutlinedInput-root': {
@@ -483,45 +483,65 @@ function InputComponent({ type, setValue, setInputStatus, disabled, clearTrigger
   );
 }
 
-export const SearchComponent = ({ questionSchema, clearTrigger = 0, updateValues, setInputStatus, sx = { fontSize: '16px' } }) => {
+export const SearchComponent = ({ questionSchema, clearTrigger = 0, values, updateValues, setInputStatus, defaultQuery, setQuery, sx = { fontSize: '16px' } }) => {
   const [parts, setParts] = useState([]);
   const [partsMap, setPartsMap] = useState({});
   const [defaultValues, setDefaultValues] = useState({});
+  const [isFixedMap, setIsFixedMap] = useState({});
 
   useEffect(() => {
     const sequence = questionSchema || '';
     console.log("Parsing question schema:", sequence);
 
     const parts = sequence.split(/(@@\{.*?\}\{.*?\}|\(.*?\))/);
-    const [partsMap, defaultValues] = parts.reduce(
-      ([acc1, acc2], part, index) => {
+    const [partsMap, defaultValues, isFixedMap] = parts.reduce(
+      ([acc1, acc2, acc3], part, index) => {
+        acc3[index] = false;
         if (part.startsWith('@@') && part.endsWith('}')) {
           const [key, defaultValue = ''] =
             part.slice(3, -1).split('}{'); // remove leading @@{ and trailing }, then split by }{
 
           acc1[index] = key;
-          acc2[index] = key === defaultValue ? '' : defaultValue;
+          acc2[index] = defaultValue;
+          acc3[index] = (
+            !(['gene', 'sequence_variant'].includes(key))
+            || ['@@{sequence_variant}{SNPs}', '@@{gene}{genes}'].includes(part)
+          )
         }
-        return [acc1, acc2];
+        return [acc1, acc2, acc3];
       },
-      [{}, {}] // Correct initial accumulator: an array of two empty objects
+      [{}, {}, {}] // Correct initial accumulator: an array of two empty objects
     );
     setParts(parts);
     setPartsMap(partsMap);
     setDefaultValues(defaultValues);
+    setIsFixedMap(isFixedMap);
     console.log("Default values set:", defaultValues);
   }, [questionSchema]);
 
+  useEffect(() => {
+    let query = defaultQuery;
+    for (const [index, isFixed] of Object.entries(isFixedMap)) {
+      if (!isFixed) {
+        query = query.replace(`: '${defaultValues[index]}'}`, `: '${values[partsMap[index]]}'}`);
+        query = query.replace(` = '${defaultValues[index]}'`, ` = '${values[partsMap[index]]}'`);
+      }
+    }
+    setQuery(query);
+    console.log("Updated query:", query);
+  }, [values]);
+
   return parts.map((part, index) => {
-    if (part.startsWith('(') && part.endsWith(')')) {
+    if (isFixedMap[index]) {
+      const type = partsMap[index];
       return (<InputComponent
         sx={sx}
         disabled={true}
         key={index}
-        type={part.slice(1, -1)}
+        type={type}
         setValue={() => { }}
         setInputStatus={() => { }}
-        defaultValue={''}
+        defaultValue={defaultValues[index] || ''}
       />);
     } else if (part.startsWith('@@') && part.endsWith('}')) {
       const type = partsMap[index];
@@ -674,6 +694,8 @@ function MatchPage() {
   const [visualPattern, setVisualPattern] = useState("");
   const [searchInput, setSearchInput] = useState(''); // user input question
   const [clearTrigger, clearInputComponent] = useState(0); // 0/1 trigger to clear all input
+  const [defaultCypherQuery, setDefaultCypherQuery] = useState('');
+  const [cypherQuery, setCypherQuery] = useState('');
 
   // Extract this page's question and qid from URL
   useEffect(() => {
@@ -681,14 +703,17 @@ function MatchPage() {
     const question = params.get('question');
     if (question) {
       setQuestion(decodeURIComponent(question));
+      console.log("question:", decodeURIComponent(question));
     } else {
       navigate('/');
     }
     if (params.get("pattern")) {
       setEmptyPattern(decodeURIComponent(params.get("pattern")));
+      console.log("pattern:", decodeURIComponent(params.get("pattern")));
     }
     if (params.get("input")) {
       const input = decodeURIComponent(params.get("input"));
+      console.log("input:", input);
       //const styledInput = input.replace(/\(([^)]+)\)/g, (match, p1) => <span style={{ color: '#3872f6' }}>({p1})</span>);
       const styledInput =
         input.split(/(\s+|\{.*?\}|\(.*?\))/).map((part, index) => {
@@ -698,6 +723,11 @@ function MatchPage() {
           return part;
         });
       setSearchInput(styledInput);
+    }
+    if (params.get("cypher_query")) {
+      const cypher = decodeURIComponent(params.get("cypher_query"));
+      console.log("cypher:", cypher);
+      setDefaultCypherQuery(cypher);
     }
   }, []);
 
@@ -802,8 +832,11 @@ function MatchPage() {
             <SearchComponent
               questionSchema={question}
               clearTrigger={clearTrigger}
+              values={inputDict}
               updateValues={setInputDict}
               setInputStatus={setInputStatus}
+              defaultQuery={defaultCypherQuery}
+              setQuery={setCypherQuery}
             />
           </Box>
           <Typography sx={{
