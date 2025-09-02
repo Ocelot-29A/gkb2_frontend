@@ -245,11 +245,21 @@ export default function QueryPage() {
     const [menuPos, setMenuPos] = useState({ x: 0, y: 0 });
     const [menuVisible, setMenuVisible] = useState(false);
     const [contextTapElement, setContextTapElement] = useState(null);
-    const [ctxDragID, setCtxDragID] = useState(null);
-    const ctxIDref = useRef(null);
+    const [ctxDragFrom, setCtxDragFrom] = useState(null);
+    const ctxDragFromRef = useRef(null);
     useEffect(() => {
-        ctxIDref.current = ctxDragID;
-    }, [ctxDragID]);
+        ctxDragFromRef.current = ctxDragFrom;
+    }, [ctxDragFrom]);
+    const [ctxDragTo, setCtxDragTo] = useState(null);
+    const ctxDragToRef = useRef(null);
+    useEffect(() => {
+        ctxDragToRef.current = ctxDragTo;
+    }, [ctxDragTo]);
+    const [ctxDragEdge, setCtxDragEdge] = useState(null);
+    const ctxDragEdgeRef = useRef(null);
+    useEffect(() => {
+        ctxDragEdgeRef.current = ctxDragEdge;
+    }, [ctxDragEdge]);
 
     const [panelMode, setPanelMode] = useState("editNode");
     useEffect(() => {
@@ -421,6 +431,21 @@ export default function QueryPage() {
                         'target-arrow-color': '#f00',
                         'width': 4
                     }
+                },
+                {
+                    selector: '.highlight',
+                    style: {
+                        'border-color': 'red',
+                        'border-width': '2px'
+                    }
+                },
+                {
+                    selector: '.special', // not visible
+                    style: {
+                        'width': 1,
+                        'height': 1,
+                        'opacity': 0
+                    }
                 }
             ],
             layout: {
@@ -471,30 +496,64 @@ export default function QueryPage() {
 
         // start of the drag edge function
         cyRef.current.on('cxtdragover', 'node', (e) => {
-            setCtxDragID(e.target.id());
+            if(e.target?.id() === "special-node") return;
+            if (ctxDragFromRef.current === null) {
+                setCtxDragFrom(e.target.id());
+                // create a new edge to the special node
+                if (cyRef.current.$id("special-node").length > 0) {
+                    // move it to mouse position
+                    cyRef.current.$id("special-node").position({ x: e.position.x, y: e.position.y });
+                    cyRef.current.add({
+                        data: {
+                            id: 'temp-edge',
+                            source: e.target.id(),
+                            target: "special-node",
+                            label: 'Drag Edge'
+                        },
+                    });
+                    setCtxDragEdge('temp-edge');
+                }
+            } else {
+                setCtxDragTo(e.target.id());
+                if (ctxDragEdgeRef.current && cyRef.current.$id(ctxDragEdgeRef.current).length > 0) {
+                    cyRef.current.$id(ctxDragEdgeRef.current).move({'target': e.target.id()});
+                }
+            }
             e.target.addClass('highlight');
+            console.log('drag over', e.target.id());
         });
 
         cyRef.current.on('cxtdragout', 'node', (e) => {
+            if(e.target?.id() === "special-node") return;
             e.target.removeClass('highlight');
-            if (ctxIDref.current === e.target.id()) {
-                setCtxDragID(null);
+            if (ctxDragToRef.current === e.target.id()) {
+                setCtxDragTo(null);
+                if (ctxDragEdgeRef.current && cyRef.current.$id(ctxDragEdgeRef.current).length > 0) {
+                    cyRef.current.$id(ctxDragEdgeRef.current).move({'target': "special-node"});
+                }
             }
+            console.log('drag out', e.target.id());
         });
 
-        cyRef.current.on('cxttapend', (e) => {
+        cyRef.current.on('cxttapend', (e) => { // target is drag source
+            if(e.target?.id() === "special-node") return;
             let target = e.target;
-            if (target.id() !== ctxIDref.current && target.isNode && target.isNode()) {
+            if (target.id && target.id() !== ctxDragToRef.current && target.isNode && target.isNode()) {
                 console.log('add edge');
                 dispatch(addEdgeThunk({
                     label: 'Drag Edge',
                     source: target.id(),
-                    target: ctxIDref.current
+                    target: ctxDragToRef.current
                 }));
+            }
+            if (ctxDragEdgeRef.current && cyRef.current.$id(ctxDragEdgeRef.current).length > 0) {
+                cyRef.current.$id(ctxDragEdgeRef.current).remove();
             }
 
             cyRef.current.elements().removeClass('highlight');
-            setCtxDragID(null);
+            setCtxDragFrom(null);
+            setCtxDragTo(null);
+            console.log('drag end', e.target.id());
         });
         // end of it
 
@@ -526,14 +585,35 @@ export default function QueryPage() {
     useEffect(() => {
         // do a deep clone
         const nodes_copied = JSON.parse(JSON.stringify(nodes));
+        const special_node = {
+            data: { id: 'special-node', label: '', type: 'node', color: 'transparent' },
+            position: { x: 0, y: 0 },
+            classes: 'special'
+        };
+        //
         const edges_copied = JSON.parse(JSON.stringify(edges));
         const viewport_copied = JSON.parse(JSON.stringify(viewportRef.current));
         cyRef.current?.json({
-            elements: { nodes: nodes_copied, edges: edges_copied },
+            elements: { nodes: [special_node, ...nodes_copied], edges: edges_copied },
             zoom: viewport_copied.zoom,
             pan: viewport_copied.pan
         });
     }, [nodes, edges, viewportRef]);
+
+    // if ctx drag from is not null, make special node visible at mouse position
+    useEffect(() => {
+        if (ctxDragFrom !== null) {
+            const specialNode = cyRef.current.$id("special-node");
+            if (specialNode) {  
+                // position it at mouse position
+                cyRef.current.on('mousemove', (e) => {
+                    specialNode.position({ x: e.position.x, y: e.position.y });
+                });
+            }
+        } else {
+            cyRef.current.off('mousemove');
+        }
+    }, [ctxDragFrom, ctxDragTo]);
 
     const handleAddEdit = () => {
         if (!jsonInput.trim()) return;
