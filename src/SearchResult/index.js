@@ -168,6 +168,7 @@ function SearchResult() {
     const [inputStatus, setInputStatus] = useState({}); // input status of boxes
     const [inputDict, setInputDict] = useState({}); // input values
     const [warning, setWarning] = useState('');
+    const [cypherQuery, setCypherQuery] = useState('');
 
     // scroll to active reference after it is set
     const timeoutRef = useRef(null);
@@ -459,6 +460,7 @@ function SearchResult() {
                             updateValues={setInputDict}
                             setInputStatus={setInputStatus}
                             sx={{ fontSize: '20px' }}
+                            setQuery={setCypherQuery}
                         />}
                     </Box>
                     <SubmitButtonComponent onClick={handleSubmit} sx={{
