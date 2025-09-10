@@ -1,4 +1,5 @@
 import axios from 'axios';
+
 // import * as https from "https";
 
 export const flaskBackendAxiosInstance = axios.create({
@@ -7,6 +8,10 @@ export const flaskBackendAxiosInstance = axios.create({
 
 export const flaskBackendAxiosInstanceNew = axios.create({
     baseURL: 'https://nzi5e9mb0f.execute-api.us-east-1.amazonaws.com/' + process.env.REACT_APP_API_GATEWAY_STAGE_NAME
+});
+
+export const flaskBackendAxiosInstanceGKB2 = axios.create({
+    baseURL: 'https://05mmsalcn1.execute-api.us-east-1.amazonaws.com/' + process.env.REACT_APP_API_GATEWAY_STAGE_NAME
 });
 
 // const https = require('https');

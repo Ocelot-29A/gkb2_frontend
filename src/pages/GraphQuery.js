@@ -1,43 +1,44 @@
 import React, {
-    useEffect,
-    useRef,
-    useState,
+  useEffect,
+  useRef,
+  useState,
 } from 'react';
 
 import cytoscape from 'cytoscape';
 import {
-    useDispatch,
-    useSelector,
+  useDispatch,
+  useSelector,
 } from 'react-redux';
 
 import {
-    Accordion,
-    AccordionDetails,
-    AccordionSummary,
-    Box,
-    Button,
-    Dialog,
-    DialogActions,
-    DialogContent,
-    DialogContentText,
-    DialogTitle,
-    Stack,
-    TextField,
-    Typography,
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
+  Box,
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
+  Stack,
+  TextField,
+  Typography,
 } from '@mui/material';
 import { nanoid } from '@reduxjs/toolkit';
 
 import Logger from '../components/Logger';
 import {
-    editEdge,
-    editNode,
-    redo,
-    removeEdge,
-    removeNode,
-    undo,
-    updateNodePosition,
-    updateViewport,
+  editEdge,
+  editNode,
+  redo,
+  removeEdge,
+  removeNode,
+  undo,
+  updateNodePosition,
+  updateViewport,
 } from '../redux/querySlice';
+import { queryQueryToCypher } from '../redux/queryToCypher';
 
 export const nodeAutoWidth = (node) => {
     const cxt = document.createElement('canvas').getContext("2d");
@@ -63,22 +64,31 @@ const nodeAutoHeight = (node) => {
 };
 
 function NodeLabelPopup({ open, cyEle, onClose, onConfirm }) {
-    const [inputValue, setInputValue] = useState(cyEle?.label || "");
+    const [inputProperty, setInputProperty] = useState({
+        label: cyEle?.label || "",
+        _label: cyEle?._label || "",
+    });
 
     // Update input when cyEle changes
     React.useEffect(() => {
         if (cyEle) {
-            setInputValue(cyEle.label || "");
+            setInputProperty({
+                label: cyEle.label || "",
+                _label: cyEle._label || "",
+            });
         }
     }, [cyEle, open]);
 
     const handleConfirm = () => {
         if (!cyEle) return;
+        if (!cyEle.label) return;
 
         // Return a new node object without mutating the original
         const newNode = {
-            ...cyEle,
-            label: inputValue
+            ...{
+                ...cyEle,
+                label: inputProperty.label
+            }, ...(inputProperty._label.trim() !== "" ? { _label: inputProperty._label } : {})
         };
         onConfirm(newNode);
     };
@@ -96,8 +106,17 @@ function NodeLabelPopup({ open, cyEle, onClose, onConfirm }) {
                     label="Node Label"
                     type="text"
                     fullWidth
-                    value={inputValue}
-                    onChange={(e) => setInputValue(e.target.value)}
+                    value={inputProperty.label}
+                    onChange={(e) => setInputProperty((prev) => ({ ...prev, label: e.target.value }))}
+                />
+                <TextField
+                    autoFocus
+                    margin="dense"
+                    label="Node Label 2"
+                    type="text"
+                    fullWidth
+                    value={inputProperty._label}
+                    onChange={(e) => setInputProperty((prev) => ({ ...prev, _label: e.target.value }))}
                 />
             </DialogContent>
             <DialogActions>
@@ -496,7 +515,7 @@ export default function QueryPage() {
 
         // start of the drag edge function
         cyRef.current.on('cxtdrag', 'node', (e) => {
-            if(e.target?.id() === "special-node") return;
+            if (e.target?.id() === "special-node") return;
             if (cxtDragFromRef.current === null) {
                 setCxtDragFrom(e.target.id());
                 // create a new edge to the special node
@@ -519,11 +538,11 @@ export default function QueryPage() {
         });
 
         cyRef.current.on('cxtdragover', 'node', (e) => {
-            if(e.target?.id() === "special-node") return;
+            if (e.target?.id() === "special-node") return;
             if (cxtDragFromRef.current !== null) {
                 setCxtDragTo(e.target.id());
                 if (cxtDragEdgeRef.current && cyRef.current.$id(cxtDragEdgeRef.current).length > 0) {
-                    cyRef.current.$id(cxtDragEdgeRef.current).move({'target': e.target.id()});
+                    cyRef.current.$id(cxtDragEdgeRef.current).move({ 'target': e.target.id() });
                 }
                 e.target.addClass('highlight');
                 console.log('drag over', e.target.id());
@@ -531,19 +550,19 @@ export default function QueryPage() {
         });
 
         cyRef.current.on('cxtdragout', 'node', (e) => {
-            if(e.target?.id() === "special-node") return;
+            if (e.target?.id() === "special-node") return;
             e.target.removeClass('highlight');
             if (cxtDragToRef.current === e.target.id()) {
                 setCxtDragTo(null);
                 if (cxtDragEdgeRef.current && cyRef.current.$id(cxtDragEdgeRef.current).length > 0) {
-                    cyRef.current.$id(cxtDragEdgeRef.current).move({'target': "special-node"});
+                    cyRef.current.$id(cxtDragEdgeRef.current).move({ 'target': "special-node" });
                 }
             }
             console.log('drag out', e.target.id());
         });
 
         cyRef.current.on('cxttapend', (e) => { // target is drag source
-            if(e.target?.id() === "special-node") return;
+            if (!e.target?.id || e.target.id() === "special-node") return;
             let target = e.target;
             if (cxtDragToRef.current && target.id && target.id() !== cxtDragToRef.current && target.isNode && target.isNode()) {
                 console.log('add edge');
@@ -612,7 +631,7 @@ export default function QueryPage() {
     useEffect(() => {
         if (cxtDragFrom !== null) {
             const specialNode = cyRef.current.$id("special-node");
-            if (specialNode) {  
+            if (specialNode) {
                 // position it at mouse position
                 cyRef.current.on('mousemove', (e) => {
                     specialNode.position({ x: e.position.x, y: e.position.y });
@@ -702,6 +721,23 @@ export default function QueryPage() {
             dispatch(removeEdge(edge.data.id));
         });
     };
+
+    const handleSubmit = () => {
+        const queryNodes = nodes.reduce((acc, node) => {
+            acc[node.data.id] = { label: node.data.label, _label: node.data._label || "" };
+            return acc;
+        }, {});
+
+        const queryEdges = edges.reduce((acc, edge) => {
+            acc[edge.data.id] = { label: edge.data.label, from: edge.data.source, to: edge.data.target };
+            return acc;
+        }, {});
+
+        dispatch(queryQueryToCypher({ nodes: queryNodes, edges: queryEdges, graphical_query: true })).then(res => {
+            console.log("Cypher Query:\n" + res.payload.cypher_query);
+            log("Generated Cypher Query:\n" + res.payload.cypher_query);
+        });
+    }
 
     return (
         <Box p={2}>
@@ -825,7 +861,7 @@ export default function QueryPage() {
                         <Box sx={{ padding: '10px', width: '300px' }}>
                             <Stack spacing={1} direction="row">
                                 <Button variant="outlined" onClick={handleDeleteAll}>Clear All</Button>
-                                <Button variant="outlined" disabled={true}>Submit</Button>
+                                <Button variant="outlined" onClick={handleSubmit}>Submit</Button>
                             </Stack>
                         </Box>
                     </Stack>
@@ -877,6 +913,13 @@ export default function QueryPage() {
                         </Stack>
                         <Stack spacing={1}>
                             <Button variant="contained" onClick={handleAddEdit}>Add/Edit</Button>
+                            <Button variant="contained" onClick={() => {
+                                handleDeleteAll();
+                                const id1 = dispatch(addNodeThunk({ ...defaultNode, label: "gene" }, findDefault()));
+                                const id2 = dispatch(addNodeThunk({ ...defaultNode, label: "cell_line_or_tissue", _label: "transverse colon" }, findDefault()));
+                                dispatch(addEdgeThunk({ label: "express_in", source: id1, target: id2 }));
+                                log("Added sample graph with 2 nodes and 1 edge");
+                            }}>Add Sample Graph</Button>
                         </Stack>
                     </Stack>
                 </AccordionDetails>
