@@ -89,7 +89,7 @@ const MatchGraphViewer = ({ visualPattern, question }) => {
     const parseVisualPattern = (pattern) => {
       const nodes = (pattern.match(/\{[^\}]+\}|\([^\)]+\)/g) || [])
         .map(
-          (node) => (node.match(/\{(?<type>[^@]+)@(?<id>[^@^\(]+)(\(.+\))?@\}/)?.groups
+          (node) => (node.match(/@@\{(?<type>[^@]+)\}\{(?<id>[^@^\(]+)\}/)?.groups
             || node.match(/\((?<type>[^\}]+)\)/)?.groups) || {}
         );
       const edge = pattern.match(/- (.+) ->/)?.[1] || '';
@@ -109,7 +109,7 @@ const MatchGraphViewer = ({ visualPattern, question }) => {
       group: "nodes",
       data: {
         id: `node${index}`,
-        label: node.id === node.type ? nodeLabels[node.type] : (node.id || nodeLabels[node.type]),
+        label: node.id === node.type ? (nodeLabels[node.type] || node.type) : (node.id || nodeLabels[node.type] || node.type),
         color: nodeColors[node.type] || "#CCCCCC",
       },
       locked: true,
@@ -397,14 +397,14 @@ function InputComponent({ type, setValue, setInputStatus, disabled, clearTrigger
           }
         }}
         onChange={() => { }}
-        ListboxComponent={(props) => {
+        ListboxComponent={React.forwardRef(function ListboxComponent(props, ref) {
           if (!inputValue) {
             return <></>;
           }
           const loading = simIsLoading || valIsLoading;
           if (loading) {
             return (
-              <ul {...props}>
+              <ul {...props} ref={ref}>
                 <Box
                   sx={{
                     display: 'flex',
@@ -422,8 +422,8 @@ function InputComponent({ type, setValue, setInputStatus, disabled, clearTrigger
               // </ul>
             );
           }
-          return <ul {...props} />;
-        }}
+          return <ul {...props} ref={ref} />;
+        })}
         PopperComponent={(props) => (
           <Popper {...props} style={{ width: 'fit-content !important' }} />
         )}
@@ -690,6 +690,7 @@ function MatchPage() {
   const [warning, setWarning] = useState('');
 
   const navigate = useNavigate();
+  const dispatch = useDispatch();
   const [emptyPattern, setEmptyPattern] = useState('');
   const [visualPattern, setVisualPattern] = useState("");
   const [searchInput, setSearchInput] = useState(''); // user input question
@@ -707,10 +708,10 @@ function MatchPage() {
     } else {
       navigate('/');
     }
-    if (params.get("pattern")) {
-      setEmptyPattern(decodeURIComponent(params.get("pattern")));
-      console.log("pattern:", decodeURIComponent(params.get("pattern")));
-    }
+    // if (params.get("pattern")) {
+    //   setEmptyPattern(decodeURIComponent(params.get("pattern")));
+    //   console.log("pattern:", decodeURIComponent(params.get("pattern")));
+    // }
     if (params.get("input")) {
       const input = decodeURIComponent(params.get("input"));
       console.log("input:", input);
@@ -728,6 +729,11 @@ function MatchPage() {
       const cypher = decodeURIComponent(params.get("cypher_query"));
       console.log("cypher:", cypher);
       setDefaultCypherQuery(cypher);
+    }
+    if (params.get("pattern")) {
+      const pattern = decodeURIComponent(params.get("pattern"));
+      console.log("pattern:", pattern);
+      setEmptyPattern(pattern);
     }
   }, []);
 
@@ -754,9 +760,10 @@ function MatchPage() {
     //   connectedString = connectedString.replace(/\{snp@.*?@}/, `{snp@${inputDict['snp']}@}`);
     // }
     Object.entries(inputDict).forEach(([key, value]) => {
-      connectedString = connectedString.replace(new RegExp(`\\@@{${key}}{.*?}\\}`, 'g'), `@@{${key}}{${value}}`);
+      connectedString = connectedString.replace(new RegExp(`@@\\{${key}\\}\\{.*?\\}`, 'g'), `@@{${key}}{${value}}`);
     });
     setVisualPattern(connectedString);
+    console.log("Updated visual pattern:", connectedString);
   }, [emptyPattern, inputDict]);
 
   return (

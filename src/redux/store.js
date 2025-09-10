@@ -3,11 +3,13 @@ import { configureStore } from '@reduxjs/toolkit';
 import aiAnswerReducer from './aiAnswerSlice';
 import articlesReducer from './articlesSlice';
 import catalogReducer from './catalogSlice';
+import cypherToGraphReducer from './cypherToGraphSlice';
 import inputToVocabReducer from './inputToVocabSlice';
 import processedQuestionReducer from './processedQuestionSlice';
 import queryResultPage from './queryResultPage';
 import queryResultReducer from './queryResultSlice';
 import queryReducer from './querySlice';
+import queryToCypherReducer from './queryToCypher';
 import queryVisResultReducer from './queryVisResultSlice';
 import rephraseSliceReducer from './rephraseSlice';
 import searchReducer from './searchSlice';
@@ -31,6 +33,8 @@ const store = configureStore({
         queryVisResult: queryVisResultReducer,
         queryResultPage: queryResultPage,
         rephrase: rephraseSliceReducer,
+        cypherToGraph: cypherToGraphReducer,
+        queryToCypher: queryToCypherReducer,
     },
 });
 
