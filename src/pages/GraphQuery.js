@@ -1,44 +1,45 @@
 import React, {
-  useEffect,
-  useRef,
-  useState,
+    useEffect,
+    useRef,
+    useState,
 } from 'react';
 
 import cytoscape from 'cytoscape';
 import {
-  useDispatch,
-  useSelector,
+    useDispatch,
+    useSelector,
 } from 'react-redux';
 
 import {
-  Accordion,
-  AccordionDetails,
-  AccordionSummary,
-  Box,
-  Button,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
-  Stack,
-  TextField,
-  Typography,
+    Accordion,
+    AccordionDetails,
+    AccordionSummary,
+    Box,
+    Button,
+    Dialog,
+    DialogActions,
+    DialogContent,
+    DialogContentText,
+    DialogTitle,
+    Stack,
+    TextField,
+    Typography,
 } from '@mui/material';
 import { nanoid } from '@reduxjs/toolkit';
 
 import Logger from '../components/Logger';
 import {
-  editEdge,
-  editNode,
-  redo,
-  removeEdge,
-  removeNode,
-  undo,
-  updateNodePosition,
-  updateViewport,
+    editEdge,
+    editNode,
+    redo,
+    removeEdge,
+    removeNode,
+    undo,
+    updateNodePosition,
+    updateViewport,
 } from '../redux/querySlice';
 import { queryQueryToCypher } from '../redux/queryToCypher';
+import BioEntityPanel from '../components/ToolPanel';
 
 export const nodeAutoWidth = (node) => {
     const cxt = document.createElement('canvas').getContext("2d");
@@ -83,14 +84,16 @@ function NodeLabelPopup({ open, cyEle, onClose, onConfirm }) {
         if (!cyEle) return;
         if (!cyEle.label) return;
 
-        // Return a new node object without mutating the original
-        const newNode = {
-            ...{
-                ...cyEle,
-                label: inputProperty.label
-            }, ...(inputProperty._label.trim() !== "" ? { _label: inputProperty._label } : {})
-        };
-        onConfirm(newNode);
+        // fix: onConfirm only when anything changed
+        if (cyEle.label !== inputProperty.label || (cyEle._label || "") !== inputProperty._label) {
+            const newNode = {
+                ...{
+                    ...cyEle,
+                    label: inputProperty.label
+                }, ...(inputProperty._label.trim() !== "" ? { _label: inputProperty._label } : {})
+            };
+            onConfirm(newNode);
+        }
     };
 
     return (
@@ -229,6 +232,7 @@ const defualtEdge = {
 }
 
 
+
 export default function QueryPage() {
     const dispatch = useDispatch();
     const { nodes, edges, viewport } = useSelector(state => state.query);
@@ -279,6 +283,8 @@ export default function QueryPage() {
     useEffect(() => {
         cxtDragEdgeRef.current = cxtDragEdge;
     }, [cxtDragEdge]);
+
+    const [quickEdgeMode, setQuickEdgeMode] = useState(false);
 
     const [panelMode, setPanelMode] = useState("editNode");
     useEffect(() => {
@@ -480,132 +486,8 @@ export default function QueryPage() {
             autounselectify: false
         });
         console.log(cyRef.current.zoom());
-        // cyRef.current.on('select unselect', 'node, edge', () => {
-        //     const sel = cyRef.current.$(':selected').map(el => ({ ...el.data(), position: el.position() })); // clone here
-        //     console.log(sel);
-        //     setSelected(sel);
-        // });
-        cyRef.current.on('select', 'node, edge', (evt) => {
-            const el = evt.target;
-            const sel = { ...el.data(), position: el.position() };
-            console.log(sel);
-            setSelected((selected) => [...selected, sel]);
-            if (cyRef.current.$(':selected').length === 1) {
-                setJsonInput(JSON.stringify(
-                    el.data(),
-                    null,
-                    2 // pretty print
-                ));
-            }
-        });
-        cyRef.current.on('unselect', 'node, edge', (evt) => {
-            const el = evt.target;
-            const sel = { ...el.data(), position: el.position() };
-            console.log(sel);
-            setSelected((selected) => selected.filter(s => s.id !== sel.id));
-        });
-        cyRef.current.on('dragfree', 'node', (evt) => {
-            const node = evt.target;
-            dispatch(updateNodePosition({
-                id: node.id(),
-                position: node.position()
-            }));
-        });
-        cyRef.current.on("cxttap", "node, edge", handleRightClick);
 
-        // start of the drag edge function
-        cyRef.current.on('cxtdrag', 'node', (e) => {
-            if (e.target?.id() === "special-node") return;
-            if (cxtDragFromRef.current === null) {
-                setCxtDragFrom(e.target.id());
-                // create a new edge to the special node
-                if (cyRef.current.$id("special-node").length > 0 && cyRef.current.$id("temp-edge").length === 0) {
-                    // move it to mouse position
-                    cyRef.current.$id("special-node").position({ x: e.position.x, y: e.position.y });
-                    cyRef.current.add({
-                        data: {
-                            id: 'temp-edge',
-                            source: e.target.id(),
-                            target: "special-node",
-                            label: 'Drag Edge'
-                        },
-                    });
-                    setCxtDragEdge('temp-edge');
-                }
-                e.target.addClass('highlight');
-                console.log('drag', e.target.id());
-            }
-        });
-
-        cyRef.current.on('cxtdragover', 'node', (e) => {
-            if (e.target?.id() === "special-node") return;
-            if (cxtDragFromRef.current !== null) {
-                setCxtDragTo(e.target.id());
-                if (cxtDragEdgeRef.current && cyRef.current.$id(cxtDragEdgeRef.current).length > 0) {
-                    cyRef.current.$id(cxtDragEdgeRef.current).move({ 'target': e.target.id() });
-                }
-                e.target.addClass('highlight');
-                console.log('drag over', e.target.id());
-            }
-        });
-
-        cyRef.current.on('cxtdragout', 'node', (e) => {
-            if (e.target?.id() === "special-node") return;
-            e.target.removeClass('highlight');
-            if (cxtDragToRef.current === e.target.id()) {
-                setCxtDragTo(null);
-                if (cxtDragEdgeRef.current && cyRef.current.$id(cxtDragEdgeRef.current).length > 0) {
-                    cyRef.current.$id(cxtDragEdgeRef.current).move({ 'target': "special-node" });
-                }
-            }
-            console.log('drag out', e.target.id());
-        });
-
-        cyRef.current.on('cxttapend', (e) => { // target is drag source
-            if (!e.target?.id || e.target.id() === "special-node") return;
-            let target = e.target;
-            if (cxtDragToRef.current && target.id && target.id() !== cxtDragToRef.current && target.isNode && target.isNode()) {
-                console.log('add edge');
-                dispatch(addEdgeThunk({
-                    label: 'Drag Edge',
-                    source: target.id(),
-                    target: cxtDragToRef.current
-                }));
-            }
-            if (cxtDragEdgeRef.current && cyRef.current.$id(cxtDragEdgeRef.current).length > 0) {
-                cyRef.current.$id(cxtDragEdgeRef.current).remove();
-            }
-
-            cyRef.current.elements().removeClass('highlight');
-            setCxtDragFrom(null);
-            setCxtDragTo(null);
-            console.log('drag end', e.target.id());
-        });
-        // end of it
-
-        // Viewport change → update zoom/pan in Redux
-        const updateView = () => {
-            dispatch(updateViewport({
-                zoom: cyRef.current.zoom(),
-                pan: cyRef.current.pan()
-            }));
-        };
-        let timeout;
-        cyRef.current.on('zoom pan', () => {
-            clearTimeout(timeout);
-            timeout = setTimeout(updateView, 200);
-        });
         return () => {
-            cyRef.current.off('select');
-            cyRef.current.off('unselect');
-            cyRef.current.off('dragfree');
-            cyRef.current.off('zoom pan', updateView);
-            cyRef.current.off('cxttap', 'node, edge', handleRightClick);
-            cyRef.current.off('cxtdrag');
-            cyRef.current.off('cxtdragover');
-            cyRef.current.off('cxtdragout');
-            cyRef.current.off('cxtdragend');
-            clearTimeout(timeout);
         };
     }, [dispatch]);
 
@@ -739,6 +621,206 @@ export default function QueryPage() {
         });
     }
 
+    const handleAddNode = (dict) => {
+        log("Added node: " + dict.label);
+        unselectAll();
+        const id = nanoid();
+        dispatch(editNode({ node: { ...defaultNode, ...dict, id }, position: findDefault() }));
+        // open the label edit popup
+        setContextTapElement({ ...defaultNode, ...dict, id });
+        setPopupOpen(true);
+
+    }
+
+    const [dragging, setDragging] = useState(false);
+    const draggingRef = useRef(dragging);        
+    useEffect(() => {
+        draggingRef.current = dragging;
+    }, [dragging]);
+
+    function CyHandler({ cyRef, quickEdgeMode }) {
+        const dispatch = useDispatch();
+
+
+
+
+        // useEffect to toggle between quick edge mode and normal mode
+        useEffect(() => {
+            // all event bindings extracted into functions
+            const bindSelectionHandlers = () => {
+                cyRef.current.on("select", "node, edge", (evt) => {
+                    const el = evt.target;
+                    const sel = { ...el.data(), position: el.position() };
+                    setSelected((selected) => [...selected, sel]);
+                    if (cyRef.current.$(":selected").length === 1) {
+                        setJsonInput(JSON.stringify(el.data(), null, 2));
+                    }
+                });
+
+                cyRef.current.on("unselect", "node, edge", (evt) => {
+                    const el = evt.target;
+                    const sel = { ...el.data(), position: el.position() };
+                    setSelected((selected) => selected.filter((s) => s.id !== sel.id));
+                });
+            };
+
+            const bindPositionHandlers = () => {
+                cyRef.current.on("dragfree", "node", (evt) => {
+                    const node = evt.target;
+                    dispatch(
+                        updateNodePosition({
+                            id: node.id(),
+                            position: node.position(),
+                        })
+                    );
+                });
+            };
+
+            const bindContextHandlers = () => {
+                cyRef.current.on("cxttap", "node, edge", handleRightClick);
+            };
+
+            const bindDragEdgeHandlers = () => {
+                cyRef.current.on("mousedown", "node", (e) => {
+                    console.log("mousedown on node", e.target.id());
+                    if (e.target?.id() === "special-node") return;
+                    if (cxtDragFromRef.current === null) {
+                        setCxtDragFrom(e.target.id());
+                        setDragging(true);
+                        if (
+                            cyRef.current.$id("special-node").length > 0 &&
+                            cyRef.current.$id("temp-edge").length === 0
+                        ) {
+                            cyRef.current.$id("special-node").position({
+                                x: e.position.x,
+                                y: e.position.y,
+                            });
+                            cyRef.current.add({
+                                data: {
+                                    id: "temp-edge",
+                                    source: e.target.id(),
+                                    target: "special-node",
+                                    label: "Drag Edge",
+                                },
+                            });
+                            setCxtDragEdge("temp-edge");
+                        }
+                        e.target.addClass("highlight");
+                    }
+                });
+
+                cyRef.current.on("mouseover", "node", (e) => {
+                    console.log("mouseover on node", e.target.id());
+                    console.log("dragging", draggingRef.current);
+                    if (e.target?.id() === "special-node") return;
+                    if (!draggingRef.current) return;
+                    if (cxtDragFromRef.current !== null) {
+                        setCxtDragTo(e.target.id());
+                        if (
+                            cxtDragEdgeRef.current &&
+                            cyRef.current.$id(cxtDragEdgeRef.current).length > 0
+                        ) {
+                            cyRef.current.$id(cxtDragEdgeRef.current).move({
+                                target: e.target.id(),
+                            });
+                        }
+                        e.target.addClass("highlight");
+                    }
+                });
+
+                cyRef.current.on("mouseout", "node", (e) => {
+                    console.log("mouseout on node", e.target.id());
+                    if (e.target?.id() === "special-node") return;
+                    if (!draggingRef.current) return;
+                    e.target.removeClass("highlight");
+                    if (cxtDragToRef.current === e.target.id()) {
+                        setCxtDragTo(null);
+                        if (
+                            cxtDragEdgeRef.current &&
+                            cyRef.current.$id(cxtDragEdgeRef.current).length > 0
+                        ) {
+                            cyRef.current.$id(cxtDragEdgeRef.current).move({
+                                target: "special-node",
+                            });
+                        }
+                    }
+                });
+
+                cyRef.current.on("mouseup", (e) => {
+                    console.log("mouseup on", e.target.id ? e.target.id() : "background");
+                    if (!e.target?.id || e.target.id() === "special-node") return;
+                    if (!draggingRef.current) return;
+                    let target = e.target;
+                    if (
+                        cxtDragToRef.current &&
+                        target.id &&
+                        target.id() !== cxtDragFromRef.current &&
+                        target.isNode &&
+                        target.isNode()
+                    ) {
+                        console.log(1);
+                        dispatch(
+                            addEdgeThunk({
+                                label: "Drag Edge",
+                                source: cxtDragFromRef.current,
+                                target: target.id(),
+                            })
+                        );
+                    }
+                    if (
+                        cxtDragEdgeRef.current &&
+                        cyRef.current.$id(cxtDragEdgeRef.current).length > 0
+                    ) {
+                        console.log(2);
+                        cyRef.current.$id(cxtDragEdgeRef.current).remove();
+                    }
+                    cyRef.current.elements().removeClass("highlight");
+                    setCxtDragFrom(null);
+                    setCxtDragTo(null);
+                    setDragging(false);
+                });
+            };
+
+            const bindViewportHandlers = () => {
+                let timeout;
+                const updateView = () => {
+                    dispatch(
+                        updateViewport({
+                            zoom: cyRef.current.zoom(),
+                            pan: cyRef.current.pan(),
+                        })
+                    );
+                };
+                cyRef.current.on("zoom pan", () => {
+                    clearTimeout(timeout);
+                    timeout = setTimeout(updateView, 200);
+                });
+            };
+            if (!cyRef.current) return;
+            const cy = cyRef.current;
+            console.log("Binding events, quickEdgeMode:", quickEdgeMode);
+
+            cy.removeAllListeners(); // cleanup before re-binding
+            bindSelectionHandlers();
+            bindContextHandlers();
+            bindViewportHandlers();
+            bindPositionHandlers();
+
+            if (quickEdgeMode) {
+                cy.nodes().ungrabify();
+                bindDragEdgeHandlers();
+            } else {
+                cy.nodes().grabify();
+            }
+
+            return () => {
+                cy.removeAllListeners();
+            };
+        }, [cyRef, quickEdgeMode, dispatch]);
+
+        return <></>;
+    }
+
     return (
         <Box p={2}>
             <Box>
@@ -793,6 +875,7 @@ export default function QueryPage() {
                                 )}
                                 <Box id="cy-container" sx={{ height: '400px', padding: '10px', background: 'white' }}>
                                 </Box>
+                                <CyHandler id="cy-handler" cyRef={cyRef} quickEdgeMode={quickEdgeMode} />
 
 
                                 {/* Node Label Modal */}
@@ -803,8 +886,12 @@ export default function QueryPage() {
                                     onConfirm={handleConfirm}
                                 />
                             </Box>
+                            <Box sx={{ background: 'white', flexGrow: 1, height: '150px', padding: '10px', borderRadius: '10px', border: '1px solid #7F7D7D' }}>
+                                <Logger logs={logger} />
+                            </Box>
                         </Stack>
-                        <Box sx={{ background: 'white', width: '300px', padding: '10px', borderRadius: '10px', border: '1px solid #7F7D7D' }}>
+                        <BioEntityPanel handleAddNode={handleAddNode} handleChangeMode={setQuickEdgeMode} />
+                        {/* <Box sx={{ background: 'white', width: '300px', padding: '10px', borderRadius: '10px', border: '1px solid #7F7D7D' }}>
                             {panelMode === "editNode" &&
                                 <>
                                     <Typography variant="body2" color="textSecondary">
@@ -852,12 +939,9 @@ export default function QueryPage() {
                                     </Stack>
                                 </>
                             }
-                        </Box>
+                        </Box> */}
                     </Stack>
-                    <Stack spacing={1} direction="row">
-                        <Box sx={{ background: 'white', flexGrow: 1, height: '150px', padding: '10px', borderRadius: '10px', border: '1px solid #7F7D7D' }}>
-                            <Logger logs={logger} />
-                        </Box>
+                    <Stack spacing={1} direction="row-reverse">
                         <Box sx={{ padding: '10px', width: '300px' }}>
                             <Stack spacing={1} direction="row">
                                 <Button variant="outlined" onClick={handleDeleteAll}>Clear All</Button>
