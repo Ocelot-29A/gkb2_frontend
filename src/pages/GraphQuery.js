@@ -10,6 +10,9 @@ import {
     useSelector,
 } from 'react-redux';
 
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import RedoIcon from '@mui/icons-material/Redo';
+import UndoIcon from '@mui/icons-material/Undo';
 import {
     Accordion,
     AccordionDetails,
@@ -29,6 +32,13 @@ import { nanoid } from '@reduxjs/toolkit';
 
 import Logger from '../components/Logger';
 import {
+    AddNodeButton,
+    BioEntityPanel,
+    FunctionButton,
+    FunctionButton2,
+    InfoPanel,
+} from '../components/ToolPanel';
+import {
     editEdge,
     editNode,
     redo,
@@ -39,7 +49,6 @@ import {
     updateViewport,
 } from '../redux/querySlice';
 import { queryQueryToCypher } from '../redux/queryToCypher';
-import BioEntityPanel from '../components/ToolPanel';
 
 export const nodeAutoWidth = (node) => {
     const cxt = document.createElement('canvas').getContext("2d");
@@ -244,6 +253,15 @@ export default function QueryPage() {
     useEffect(() => {
         elementsRef.current = { nodes, edges };
     }, [nodes, edges]);
+
+    const [nodeCount, setNodeCount] = useState(0);
+    useEffect(() => {
+        setNodeCount(
+            nodes.filter(
+                node => node?.id !== "special-node"
+            ).length
+        )
+    }, [nodes]);
 
     const cyRef = useRef(null);
     // const [cyContainerSize, setCyContainerSize] = useState({ width: 0, height: 0 });
@@ -627,13 +645,12 @@ export default function QueryPage() {
         const id = nanoid();
         dispatch(editNode({ node: { ...defaultNode, ...dict, id }, position: findDefault() }));
         // open the label edit popup
-        setContextTapElement({ ...defaultNode, ...dict, id });
-        setPopupOpen(true);
-
+        // setContextTapElement({ ...defaultNode, ...dict, id });
+        // setPopupOpen(true);
     }
 
     const [dragging, setDragging] = useState(false);
-    const draggingRef = useRef(dragging);        
+    const draggingRef = useRef(dragging);
     useEffect(() => {
         draggingRef.current = dragging;
     }, [dragging]);
@@ -827,19 +844,43 @@ export default function QueryPage() {
                 <Stack spacing={1} direction="column">
                     <Stack spacing={1} direction="row">
                         <Stack spacing={1} direction="column" flexGrow={1}>
-                            <Box sx={{ background: 'white', padding: '10px', borderRadius: '10px', border: '1px solid #7F7D7D' }}>
-                                <Typography variant="body2" color="textSecondary">
-                                    Instructions : Select a node type and configure the property restrictions on the right panel.
-                                </Typography>
-                            </Box>
-                            <Box sx={{ borderRadius: '10px', border: '1px solid #7F7D7D', overflow: 'hidden' }}>
-                                <Box sx={{ padding: '10px', background: '#EAEEF0', flexDirection: 'row', display: 'flex', justifyContent: 'flex-end' }}>
-                                    <Stack spacing={1} direction="row">
-                                        <Button variant="filled" color="error" onClick={handleDelete}>Delete</Button>
-                                        <Button variant="filled" onClick={() => { log("Undo last action"); dispatch(undo()); unselectAll(); }}>Undo</Button>
-                                        <Button variant="filled" onClick={() => { log("Redo last action"); dispatch(redo()); unselectAll(); }}>Redo</Button>
-                                    </Stack>
+
+
+                            <Box sx={{
+                                border: "1px solid #E5E7EB",
+                                boxShadow: "0px 2px 12px 0px #00000014",
+                                borderRadius: "8px",
+                                overflow: 'hidden'
+                            }}>
+                                <Box sx={{ background: 'white', padding: '10px', height: '55px', borderBottom: '1px solid #E1E8ED', alignContent: 'center' }}>
+                                    <Typography sx={{
+                                        fontFamily: "Inter",
+                                        fontSize: "18px",
+                                        color: "#6D7481",
+                                        marginLeft: "20px"
+                                    }}>
+                                        Select a node type and configure the property restrictions on the right panel.
+                                    </Typography>
                                 </Box>
+                                <div style={{ position: 'relative' }}>
+                                    <Box sx={{
+                                        position: "absolute",
+                                        width: '100%',
+                                        padding: '10px',
+                                        flexDirection: 'row',
+                                        display: 'flex',
+                                        justifyContent: 'flex-end',
+                                        zIndex: 10,
+                                        right: 0,
+                                    }}>
+                                        <Stack spacing={1} direction="row">
+                                            <AddNodeButton handleAddNode={handleAddNode} />
+                                            <FunctionButton onClick={handleDelete} startIcon={<DeleteOutlineIcon />}>Delete</FunctionButton>
+                                            <FunctionButton onClick={() => { log("Undo last action"); dispatch(undo()); unselectAll(); }} startIcon={<UndoIcon />}>Undo</FunctionButton>
+                                            <FunctionButton onClick={() => { log("Redo last action"); dispatch(redo()); unselectAll(); }} startIcon={<RedoIcon />}>Redo</FunctionButton>
+                                        </Stack>
+                                    </Box>
+                                </div>
                                 {menuVisible && (
                                     <div
                                         style={{
@@ -873,7 +914,7 @@ export default function QueryPage() {
                                         </div>
                                     </div>
                                 )}
-                                <Box id="cy-container" sx={{ height: '400px', padding: '10px', background: 'white' }}>
+                                <Box id="cy-container" sx={{ height: '518px', padding: '10px', background: 'white' }}>
                                 </Box>
                                 <CyHandler id="cy-handler" cyRef={cyRef} quickEdgeMode={quickEdgeMode} />
 
@@ -886,8 +927,17 @@ export default function QueryPage() {
                                     onConfirm={handleConfirm}
                                 />
                             </Box>
-                            <Box sx={{ background: 'white', flexGrow: 1, height: '150px', padding: '10px', borderRadius: '10px', border: '1px solid #7F7D7D' }}>
-                                <Logger logs={logger} />
+                            <Box sx={{
+                                background: 'white',
+                                height: '67px',
+                                padding: '10px',
+                                border: "1px solid #E5E7EB",
+                                boxShadow: "0px 2px 12px 0px #00000014",
+                                borderRadius: "8px",
+                                flexGrow: 1,
+                                alignContent: "center"
+                            }}>
+                                <InfoPanel selectedNode={selected} />
                             </Box>
                         </Stack>
                         <BioEntityPanel handleAddNode={handleAddNode} handleChangeMode={setQuickEdgeMode} />
@@ -944,8 +994,8 @@ export default function QueryPage() {
                     <Stack spacing={1} direction="row-reverse">
                         <Box sx={{ padding: '10px', width: '300px' }}>
                             <Stack spacing={1} direction="row">
-                                <Button variant="outlined" onClick={handleDeleteAll}>Clear All</Button>
-                                <Button variant="outlined" onClick={handleSubmit}>Submit</Button>
+                                <FunctionButton2 disabled={nodeCount === 0} onClick={handleDeleteAll} sx={{ background: "white", color: "black", border: "1px solid #CCD4FFA8", fontSize: "16px" }}>Clear All</FunctionButton2>
+                                <FunctionButton2 disabled={nodeCount === 0} onClick={handleSubmit}>Submit</FunctionButton2>
                             </Stack>
                         </Box>
                     </Stack>
@@ -994,6 +1044,10 @@ export default function QueryPage() {
                                     )
                                 )}>Default Edge</Button>
                             </Stack>
+
+                            <Box sx={{ background: 'white', flexGrow: 1, height: '150px', padding: '10px', borderRadius: '10px', border: '1px solid #7F7D7D' }}>
+                                <Logger logs={logger} />
+                            </Box>
                         </Stack>
                         <Stack spacing={1}>
                             <Button variant="contained" onClick={handleAddEdit}>Add/Edit</Button>
