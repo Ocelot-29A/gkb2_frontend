@@ -7,7 +7,7 @@ import React, {
 } from 'react';
 
 import Cytoscape from 'cytoscape';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 
 import {
@@ -24,6 +24,7 @@ import Popper from '@mui/material/Popper';
 
 import { queryVocab } from '../redux/inputToVocabSlice'; // Import the action
 import { queryQueryResult } from '../redux/queryResultSlice';
+import { queryCypherToGraph } from '../redux/cypherToGraphSlice';
 import {
   nodeAutoWidth,
   textAutoWidth,
@@ -77,59 +78,55 @@ const edgeLabels = {
 // sourceType: aaa, sourceId: bbb, targetType: ccc, targetId: ddd, relationship: xxx
 // and then render a graph with Cytoscape
 
-const MatchGraphViewer = ({ visualPattern, question }) => {
+const MatchGraphViewer = ({ query }) => {
   const containerRef = useRef(null);
   const cyRef = useRef(null);
+  const dispatch = useDispatch();
+
+  const {cypherToGraph} = useSelector((state) => state.cypherToGraph);
 
   useEffect(() => {
-    if (!containerRef.current || !question) {
+    dispatch(queryCypherToGraph(query));
+  }, [query]);
+
+  console.log(1);
+  useEffect(() => {
+    console.log(cypherToGraph);
+    if (!cypherToGraph?.graph?.results?.[0]) {
       return;
     }
-    // Parse the visual pattern to determine the nodes and edges
-    const parseVisualPattern = (pattern) => {
-      const nodes = (pattern.match(/\{[^\}]+\}|\([^\)]+\)/g) || [])
-        .map(
-          (node) => (node.match(/@@\{(?<type>[^@]+)\}\{(?<id>[^@^\(]+)\}/)?.groups
-            || node.match(/\((?<type>[^\}]+)\)/)?.groups) || {}
-        );
-      const edge = pattern.match(/- (.+) ->/)?.[1] || '';
-      return { nodes, edge };
-    };
-
-    const { nodes, edge } = parseVisualPattern(visualPattern);
-    // suppose nodes.length = 2, ignore other cases
-
-    if (nodes.length !== 2) {
-      console.error("Invalid visual pattern format. Expected 2 nodes.");
-      return;
-    }
+    const graph = cypherToGraph.graph.results[0];
+    
 
     // Create Cytoscape nodes
-    const cyNodes = nodes.map((node, index) => ({
-      group: "nodes",
-      data: {
-        id: `node${index}`,
-        label: node.id === node.type ? (nodeLabels[node.type] || node.type) : (node.id || nodeLabels[node.type] || node.type),
-        color: nodeColors[node.type] || "#CCCCCC",
-      },
-      locked: true,
-      position: {
-        x: index === 0 ? 100 : 400,
-        y: 150,
-      }
-    }));
+    const cyNodes = graph.nodes.map((node, index) => {
+      const type = node?.["~label"]?.[0];
+      return {
+        group: "nodes",
+        data: {
+          id: node["~id"],
+          label: node.name || (nodeLabels?.[type] || type) || 'Unknown',
+          color: nodeColors[type] || "#CCCCCC",
+        },
+      };
+  });
 
-    const cyEdges = [
-      {
+    const cyEdges = graph.edges.map((edge, index) => {
+      const type = edge?.["~type"];
+      return {
         group: "edges",
         data: {
-          id: "edge0",
-          source: "node0",
-          target: "node1",
-          label: edgeLabels[edge] || edge || "related to",
-        },
-      },
-    ];
+          id: edge["~id"],
+          label: edgeLabels?.[type] || 
+               // first letter uppercase, _ to space
+               type[0]?.toUpperCase() + type.slice(1).toLowerCase().replace(/_/g, ' ') || 'Unknown',
+          source: edge["~start"],
+        target: edge["~end"],
+      },};
+    });
+
+    console.log("Cytoscape nodes:", cyNodes);
+      console.log("Cytoscape edges:", cyEdges);
 
     if (cyRef.current) {
       cyRef.current.destroy();
@@ -175,7 +172,15 @@ const MatchGraphViewer = ({ visualPattern, question }) => {
         }
       ],
       layout: {
-        name: 'preset',  // 使用preset布局以保持固定位置
+        name: 'breadthfirst',
+        directed: true,
+        spacingFactor: 1,
+        fit: true,
+        transform: function (node, position) {
+          // transpose
+          return { x: position.y, y: position.x };
+        },
+        avoidOverlap: true
       },
       zoom: 1,
       minZoom: 1,
@@ -191,14 +196,14 @@ const MatchGraphViewer = ({ visualPattern, question }) => {
         cyRef.current.destroy();
       }
     };
-  }, [visualPattern, question]);
+  }, [cypherToGraph]);
 
   return (
     <div
       ref={containerRef}
       style={{
         width: "100%",
-        height: "120px",
+        height: "300px",
         borderRadius: "8px",
       }}
     />
@@ -901,10 +906,9 @@ function MatchPage() {
             fontFamily: 'Open Sans',
             fontWeight: 600,
           }}>
-            {visualPattern ? (<>
+            {cypherQuery ? (<>
               <MatchGraphViewer
-                visualPattern={visualPattern}
-                question={question}
+                query={cypherQuery}
               />
               <Link
                 href="#"

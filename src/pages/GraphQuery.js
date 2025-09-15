@@ -765,10 +765,10 @@ export default function QueryPage() {
 
                 cyRef.current.on("mouseup", (e) => {
                     console.log("mouseup on", e.target.id ? e.target.id() : "background");
-                    if (!e.target?.id || e.target.id() === "special-node") return;
                     if (!draggingRef.current) return;
                     let target = e.target;
                     if (
+                        (target?.id && target.id() !== "special-node") &&
                         cxtDragToRef.current &&
                         target.id &&
                         target.id() !== cxtDragFromRef.current &&

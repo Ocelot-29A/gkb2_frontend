@@ -133,6 +133,23 @@ function LandingPage() {
     const handleSearch = (query) => {
         // query
         setCurrentQuery(query);
+        //dispatch(queryRephrase({ text: query, style: "formal", language: "en" })).then((res) => {
+        //     const response = res.payload;
+        //     if (refCurrentQuery.current === query) {
+        //         // if (!response?.in_scope) {
+        //         //     setShowWarning("Question is out of scope.");
+        //         //     return;
+        //         // }
+        //         dispatch(queryCypherToGraph(response.rephrasedText)).then((res) => {
+        //             const response2 = res.payload;
+        //             console.log("Rephrase response:", response);
+        //             navigate(`/match?input=${encodeURIComponent(query)}&cypher_query=${encodeURIComponent(response.rephrasedText)}&question=${encodeURIComponent(response.original_question)}&pattern=${encodeURIComponent(response2.graph || '')}`);
+        //         }).catch((error) => {
+        //             console.error("Error fetching visual pattern:", error);
+        //         });
+
+        //     }
+        // });
         dispatch(queryRephrase({ question: query })).then((res) => {
             const response = res.payload;
             if (refCurrentQuery.current === query) {
@@ -140,9 +157,11 @@ function LandingPage() {
                     setShowWarning("Question is out of scope.");
                     return;
                 }
+                navigate(`/match?input=${encodeURIComponent(query)}&cypher_query=${encodeURIComponent(response.cypher_query)}&question=${encodeURIComponent(response.rephrase)}`);
                 dispatch(queryCypherToGraph(response.cypher_query)).then((res) => {
                     const response2 = res.payload;
-                    navigate(`/match?input=${encodeURIComponent(query)}&cypher_query=${encodeURIComponent(response.cypher_query)}&question=${encodeURIComponent(response.rephrase)}&pattern=${encodeURIComponent(response2.graph || '')}`);
+                    console.log("Rephrase response:", response);
+                    
                 }).catch((error) => {
                     console.error("Error fetching visual pattern:", error);
                 });
