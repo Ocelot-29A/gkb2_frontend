@@ -9,6 +9,15 @@ import AddIcon from '@mui/icons-material/Add';
 import {
   Box,
   Button,
+  Collapse,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
+  Checkbox,
+  FormControlLabel,
+  FormGroup,
   IconButton,
   List,
   ListItem,
@@ -24,21 +33,223 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
+import NodeSchema from '../schema/clean_node_schema.json';
+import { ExpandLess, ExpandMore } from '@mui/icons-material';
+import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+
+// Utility functions
+
+export function typeToVisu(type) {
+  if (!type) return "";
+  return type.charAt(0).toUpperCase() + type.slice(1).replace(/_/g, ' ');
+}
+export function typeToTypeList(type) {
+  function findPath(node, target, path = []) {
+    if (node.label === target) {
+      return [...path, node.label];
+    }
+
+    if (node.children) {
+      for (const child of node.children) {
+        const result = findPath(child, target, [...path, node.label]);
+        if (result) return result;
+      }
+    }
+
+    return null;
+  }
+  return findPath(NodeSchema, type)?.slice(1) || [];
+}
+
+export function typeListToType(types) {
+  const typeSet = new Set(types);
+
+  function dfs(node) {
+    if (node.children) {
+      for (const child of node.children) {
+        const res = dfs(child);
+        if (res) return res;
+      }
+    }
+
+    if (typeSet.has(node.label)) {
+        return node.label;
+    }
+
+    return null;
+  }
+
+  return dfs(NodeSchema);
+}
+
+function collectDescendants(node, indent = 0) {
+  let result = [{
+    label: node.label,
+    indent: indent
+  }];
+  if (node.children) {
+    for (const child of node.children) {
+      result = result.concat(collectDescendants(child, indent + 1));
+    }
+  }
+  return result;
+}
+
+// Component
+export default function TypeSelector({ superType, handleChangeType, defaultType }) {
+  const [selected, setSelected] = useState(defaultType);
+  const [openNodes, setOpenNodes] = useState({}); // track open/close per node
+
+  useEffect(() => {
+    setSelected(defaultType);
+    setOpenNodes(Object.fromEntries(typeToTypeList(defaultType).slice(0, -1).map(t => [t, true])));
+  }, [defaultType]);
+
+  useEffect(() => {
+    handleChangeType(selected);
+  }, [selected, handleChangeType]);
+
+  const rootNode = NodeSchema.children.find(c => c.label === superType);
+  if (!rootNode) return <Typography>Invalid type: {superType}</Typography>;
+
+  const handleToggle = (label) => {
+    setOpenNodes(prev => ({ ...prev, [label]: !prev[label] }));
+  };
+
+  const handleSelect = (label) => {
+    setSelected(label);
+  };
+
+  const renderNode = (node, indent = 0) => {
+    const hasChildren = node.children && node.children.length > 0;
+    const isOpen = !!openNodes[node.label];
+
+    return (
+      <Box key={node.label}>
+        <Box sx={{ display: 'flex', alignItems: 'center', pl: indent * 2 }}>
+          {hasChildren ? (
+            <IconButton size="small" onClick={() => handleToggle(node.label)}>
+              {isOpen ? <ExpandLess /> : <ExpandMore />}
+            </IconButton>
+          ) : <Box sx={{ width: 34 }} />} {/* Placeholder for alignment */}
+          <Checkbox
+            checked={selected === node.label}
+            onChange={() => handleSelect(node.label)}
+            icon={<RadioButtonUncheckedIcon />}
+            checkedIcon={<CheckCircleIcon />}
+          />
+          <Typography>{typeToVisu(node.label)}</Typography>
+        </Box>
+        {hasChildren && (
+          <Collapse in={isOpen} timeout="auto" unmountOnExit>
+            {node.children.map((child) => renderNode(child, indent + 1))}
+          </Collapse>
+        )}
+      </Box>
+    );
+  };
+
+  return <Box>{renderNode(rootNode)}</Box>;
+}
+
+export function NodeLabelPopup({ open, cyEle, onClose, onConfirm }) {
+    const [inputProperty, setInputProperty] = useState({
+        label: cyEle?.label || "",
+        _label: cyEle?._label || "",
+    });
+
+    // Update input when cyEle changes
+    React.useEffect(() => {
+        if (cyEle) {
+            setInputProperty({
+                label: cyEle.label || "",
+                _label: cyEle._label || "",
+            });
+        }
+    }, [cyEle, open]);
+
+    const handleConfirm = () => {
+      const newNode = {
+        ...cyEle,
+        ...inputProperty
+      };
+      onConfirm(newNode);
+    };
+
+    const superType = typeToTypeList(cyEle?.nodeType || "")[0] || "Entity";
+
+    return (
+        <Dialog open={open} onClose={onClose}>
+            <DialogTitle>Edit Node</DialogTitle>
+            <DialogContent>
+                <DialogContentText>
+                    Set the type of the node.
+                </DialogContentText>
+                <TypeSelector superType={superType} defaultType={cyEle?.nodeType} handleChangeType={(newType) => {
+                    setInputProperty((prev) => ({ ...prev, nodeType: newType }));
+                }} />
+                <DialogContentText>
+                    Edit the name of the node. (WIP)
+                </DialogContentText>
+                <TextField
+                    autoFocus
+                    margin="dense"
+                    label="Node Label"
+                    type="text"
+                    fullWidth
+                    value={inputProperty.label}
+                    onChange={(e) => setInputProperty((prev) => ({ ...prev, label: e.target.value }))}
+                />
+                <TextField
+                    autoFocus
+                    margin="dense"
+                    label="Node Label 2"
+                    type="text"
+                    fullWidth
+                    value={inputProperty._label}
+                    onChange={(e) => setInputProperty((prev) => ({ ...prev, _label: e.target.value }))}
+                />
+            </DialogContent>
+            <DialogActions>
+                <Button onClick={onClose} color="secondary">
+                    Quit
+                </Button>
+                <Button
+                    onClick={() => {
+                        handleConfirm();
+                        onClose();
+                    }}
+                    color="primary"
+                >
+                    Confirm
+                </Button>
+            </DialogActions>
+        </Dialog>
+    );
+}
 
 const entityTypes = [
-  { label: "Gene", color: "#dbeafe" },
-  { label: "Other Coding Element", color: "#bfdbfe" },
-  { label: "Non Coding Element", color: "#e9d5ff" },
-  { label: "Variants", color: "#bbf7d0" },
-  { label: "ThreeD Structure", color: "#fde68a" },
-  { label: "Chromatin Organization", color: "#fed7aa" },
-  { label: "Ontology Term (GO, CL...)", color: "#fecaca" },
-];
+  { "label": "Gene", "color": "#dbeafe", "type": "gene" },
+
+  { "label": "Other Coding Element", "color": "#bfdbfe", "type": "coding_elements" },
+
+  { "label": "Non Coding Element", "color": "#e9d5ff", "type": "non_coding_elements" },
+
+  { "label": "Variants", "color": "#bbf7d0", "type": "variants" },
+
+  { "label": "ThreeD Structure", "color": "#fde68a", "type": "threeD_structures" },
+
+  { "label": "Chromatin Organization", "color": "#fed7aa", "type": "epigenomic_features" },
+
+  { "label": "Ontology Term (GO, CL...)", "color": "#fecaca", "type": "ontology" }
+]
+
 
 const commonTypes = [
-  { label: "Gene", color: "#dbeafe" },
-  { label: "Other Coding Element", color: "#bfdbfe" },
-  { label: "Non Coding Element", color: "#e9d5ff" },
+  { label: "Gene", color: "#dbeafe", type: "gene" },
+  { label: "Other Coding Element", color: "#bfdbfe", type: "coding_elements" },
+  { label: "Non Coding Element", color: "#e9d5ff", type: "non_coding_elements" },
   { label: "All Entities", color: "#F566AC" },
 ];
 
@@ -122,7 +333,7 @@ export function AddNodeButton({ handleAddNode }) {
       <MenuItem
         onClick={() => {
           handleClose();
-          handleAddNode({ label: entity.label, color: entity.color });
+          handleAddNode({ nodeType: entity.type, color: entity.color });
         }}
       >
         <ListItemIcon sx={{ minWidth: '0px' }}>
@@ -318,7 +529,7 @@ export function BioEntityPanel({ handleAddNode, handleChangeMode }) {
                   primaryTypographyProps={{ fontSize: 14, fontWeight: 500 }}
                 />
                 <ListItemSecondaryAction>
-                  <IconButton edge="end" size="small" color="primary" onClick={() => handleAddNode({ label: entity.label, color: entity.color })}>
+                  <IconButton edge="end" size="small" color="primary" onClick={() => handleAddNode({ nodeType: entity.type, color: entity.color })}>
                     <AddIcon />
                   </IconButton>
                 </ListItemSecondaryAction>

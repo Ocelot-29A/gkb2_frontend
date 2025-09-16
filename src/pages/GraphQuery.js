@@ -37,6 +37,8 @@ import {
     FunctionButton,
     FunctionButton2,
     InfoPanel,
+    NodeLabelPopup,
+    typeToVisu
 } from '../components/ToolPanel';
 import {
     editEdge,
@@ -50,6 +52,10 @@ import {
 } from '../redux/querySlice';
 import { queryQueryToCypher } from '../redux/queryToCypher';
 
+const getLabel = (data) => {
+    return data.name || data.nodeId || typeToVisu(data.nodeType) || data.id;
+}
+
 export const nodeAutoWidth = (node) => {
     const cxt = document.createElement('canvas').getContext("2d");
     const fStyle = node.pstyle('font-style').strValue;
@@ -58,7 +64,8 @@ export const nodeAutoWidth = (node) => {
     const weight = node.pstyle('font-weight').strValue;
 
     cxt.font = fStyle + ' ' + weight + ' ' + size + ' ' + family;
-    return cxt.measureText(node.data('label')).width;
+    const label = getLabel(node.data());
+    return cxt.measureText(label).width;
 };
 
 const nodeAutoHeight = (node) => {
@@ -69,85 +76,11 @@ const nodeAutoHeight = (node) => {
     const weight = node.pstyle('font-weight').strValue;
 
     cxt.font = fStyle + ' ' + weight + ' ' + size + ' ' + family;
-    const metrics = cxt.measureText(node.data('label'));
+    const label = getLabel(node.data());
+    const metrics = cxt.measureText(label);
     return metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent;
 };
 
-function NodeLabelPopup({ open, cyEle, onClose, onConfirm }) {
-    const [inputProperty, setInputProperty] = useState({
-        label: cyEle?.label || "",
-        _label: cyEle?._label || "",
-    });
-
-    // Update input when cyEle changes
-    React.useEffect(() => {
-        if (cyEle) {
-            setInputProperty({
-                label: cyEle.label || "",
-                _label: cyEle._label || "",
-            });
-        }
-    }, [cyEle, open]);
-
-    const handleConfirm = () => {
-        if (!cyEle) return;
-        if (!cyEle.label) return;
-
-        // fix: onConfirm only when anything changed
-        if (cyEle.label !== inputProperty.label || (cyEle._label || "") !== inputProperty._label) {
-            const newNode = {
-                ...{
-                    ...cyEle,
-                    label: inputProperty.label
-                }, ...(inputProperty._label.trim() !== "" ? { _label: inputProperty._label } : {})
-            };
-            onConfirm(newNode);
-        }
-    };
-
-    return (
-        <Dialog open={open} onClose={onClose}>
-            <DialogTitle>Change Node Label</DialogTitle>
-            <DialogContent>
-                <DialogContentText>
-                    Edit the label of the node. Press "Confirm" to apply.
-                </DialogContentText>
-                <TextField
-                    autoFocus
-                    margin="dense"
-                    label="Node Label"
-                    type="text"
-                    fullWidth
-                    value={inputProperty.label}
-                    onChange={(e) => setInputProperty((prev) => ({ ...prev, label: e.target.value }))}
-                />
-                <TextField
-                    autoFocus
-                    margin="dense"
-                    label="Node Label 2"
-                    type="text"
-                    fullWidth
-                    value={inputProperty._label}
-                    onChange={(e) => setInputProperty((prev) => ({ ...prev, _label: e.target.value }))}
-                />
-            </DialogContent>
-            <DialogActions>
-                <Button onClick={onClose} color="secondary">
-                    Quit
-                </Button>
-                <Button
-                    onClick={() => {
-                        handleConfirm();
-                        onClose();
-                    }}
-                    color="primary"
-                >
-                    Confirm
-                </Button>
-            </DialogActions>
-        </Dialog>
-    );
-}
 
 const addNodeThunk = (node, position) => (dispatch) => {
     const id = nanoid();
@@ -231,7 +164,6 @@ function findEmptyPosition(cy, viewport, constraints, minDist = 80) {
 
 const defaultNode = {
     type: 'node',
-    label: 'Sample Node',
     color: 'lightblue'
 };
 
@@ -432,7 +364,10 @@ export default function QueryPage() {
                         "background-color": "data(color)",
                         "border-width": "1px",
                         "border-color": "black",
-                        label: "data(label)",
+                        label: (node) => {
+                            const data = node.data();
+                            return getLabel(data);
+                        },
                         "font-size": "12px",
                         "text-valign": "center",
                         color: "black",
@@ -657,9 +592,6 @@ export default function QueryPage() {
 
     function CyHandler({ cyRef, quickEdgeMode }) {
         const dispatch = useDispatch();
-
-
-
 
         // useEffect to toggle between quick edge mode and normal mode
         useEffect(() => {
