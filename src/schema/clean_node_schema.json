@@ -1,0 +1,274 @@
+{
+    "label": "All nodes",
+    "children": [
+        {
+            "label": "coding_elements",
+            "children": [
+                {
+                    "label": "exon"
+                },
+                {
+                    "label": "gene"
+                },
+                {
+                    "label": "protein"
+                },
+                {
+                    "label": "transcript"
+                }
+            ]
+        },
+        {
+            "label": "epigenomic_features",
+            "children": [
+                {
+                    "label": "ChromHMM_state"
+                },
+                {
+                    "label": "DNase_hypersensitivity_site"
+                },
+                {
+                    "label": "TF_binding_motif"
+                },
+                {
+                    "label": "TF_binding_site"
+                },
+                {
+                    "label": "histone_modification_site"
+                },
+                {
+                    "label": "replication_timing"
+                }
+            ]
+        },
+        {
+            "label": "non_coding_elements",
+            "children": [
+                {
+                    "label": "enhancer",
+                    "children": [
+                        {
+                            "label": "distal_enhancer"
+                        },
+                        {
+                            "label": "proximal_enhancer"
+                        }
+                    ]
+                },
+                {
+                    "label": "insulator"
+                },
+                {
+                    "label": "non_coding_RNA",
+                    "children": [
+                        {
+                            "label": "RNase_MRP_RNA"
+                        },
+                        {
+                            "label": "RNase_P_RNA"
+                        },
+                        {
+                            "label": "SRP_RNA"
+                        },
+                        {
+                            "label": "Y_RNA"
+                        },
+                        {
+                            "label": "antisense_RNA"
+                        },
+                        {
+                            "label": "autocatalytically_spliced_intron"
+                        },
+                        {
+                            "label": "hammerhead_ribozyme"
+                        },
+                        {
+                            "label": "lncRNA"
+                        },
+                        {
+                            "label": "miRNA"
+                        },
+                        {
+                            "label": "misc_RNA"
+                        },
+                        {
+                            "label": "ncRNA"
+                        },
+                        {
+                            "label": "piRNA"
+                        },
+                        {
+                            "label": "pre_miRNA"
+                        },
+                        {
+                            "label": "precursor_RNA"
+                        },
+                        {
+                            "label": "rRNA"
+                        },
+                        {
+                            "label": "ribozyme"
+                        },
+                        {
+                            "label": "sRNA"
+                        },
+                        {
+                            "label": "scRNA"
+                        },
+                        {
+                            "label": "scaRNA"
+                        },
+                        {
+                            "label": "snRNA"
+                        },
+                        {
+                            "label": "snoRNA"
+                        },
+                        {
+                            "label": "tRNA"
+                        },
+                        {
+                            "label": "telomerase_RNA"
+                        },
+                        {
+                            "label": "vault_RNA"
+                        }
+                    ]
+                },
+                {
+                    "label": "promoter"
+                },
+                {
+                    "label": "super_enhancer"
+                }
+            ]
+        },
+        {
+            "label": "ontology",
+            "children": [
+                {
+                    "label": "cell_line_or_tissue"
+                },
+                {
+                    "label": "experimental_factor"
+                },
+                {
+                    "label": "gene_ontology"
+                }
+            ]
+        },
+        {
+            "label": "threeD_structures",
+            "children": [
+                {
+                    "label": "AB_compartment"
+                },
+                {
+                    "label": "FIRE_region"
+                },
+                {
+                    "label": "TAD"
+                },
+                {
+                    "label": "loop"
+                }
+            ]
+        },
+        {
+            "label": "variants",
+            "children": [
+                {
+                    "label": "sequence_variant",
+                    "children": [
+                        {
+                            "label": "deletion"
+                        },
+                        {
+                            "label": "indel"
+                        },
+                        {
+                            "label": "insertion"
+                        },
+                        {
+                            "label": "mnv"
+                        },
+                        {
+                            "label": "sequence_SNP"
+                        },
+                        {
+                            "label": "sequence_deletion"
+                        },
+                        {
+                            "label": "sequence_indel"
+                        },
+                        {
+                            "label": "sequence_insertion"
+                        },
+                        {
+                            "label": "snp"
+                        }
+                    ]
+                },
+                {
+                    "label": "structural_variant",
+                    "children": [
+                        {
+                            "label": "copy_number_variation",
+                            "children": [
+                                {
+                                    "label": "copy_number_gain"
+                                },
+                                {
+                                    "label": "copy_number_loss"
+                                }
+                            ]
+                        },
+                        {
+                            "label": "gain_loss"
+                        },
+                        {
+                            "label": "insertion"
+                        },
+                        {
+                            "label": "mobile_element_deletion",
+                            "children": [
+                                {
+                                    "label": "alu_deletion"
+                                },
+                                {
+                                    "label": "herv_deletion"
+                                },
+                                {
+                                    "label": "line1_deletion"
+                                },
+                                {
+                                    "label": "sva_deletion"
+                                }
+                            ]
+                        },
+                        {
+                            "label": "mobile_element_insertion",
+                            "children": [
+                                {
+                                    "label": "alu_insertion"
+                                },
+                                {
+                                    "label": "herv_insertion"
+                                },
+                                {
+                                    "label": "line1_insertion"
+                                },
+                                {
+                                    "label": "sva_insertion"
+                                }
+                            ]
+                        },
+                        {
+                            "label": "tandem_duplication"
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}
