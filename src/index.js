@@ -54,7 +54,7 @@ root.render(
           <Route path="/match" element={<MatchPage />} />
           <Route path="/" element={<LandingPage />} />
           <Route path="/debug" element={<DebugPage />} />
-          <Route path="/querydebug" element={<QueryPage />} />
+          <Route path="/graphquery" element={<QueryPage />} />
         </Routes>
         <PkbFooter />
       </BrowserRouter>

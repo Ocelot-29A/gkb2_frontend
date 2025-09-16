@@ -1,12 +1,12 @@
 import React, {
-  useEffect,
-  useRef,
-  useState,
+    useEffect,
+    useRef,
+    useState,
 } from 'react';
 
 import {
-  useDispatch,
-  useSelector,
+    useDispatch,
+    useSelector,
 } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 
@@ -14,14 +14,14 @@ import ArrowOutwardIcon from '@mui/icons-material/ArrowOutward';
 import CloseIcon from '@mui/icons-material/Close';
 import SearchIcon from '@mui/icons-material/Search';
 import {
-  Autocomplete,
-  Box,
-  Button,
-  Container,
-  Link,
-  Paper,
-  TextField,
-  Typography,
+    Autocomplete,
+    Box,
+    Button,
+    Container,
+    Link,
+    Paper,
+    TextField,
+    Typography,
 } from '@mui/material';
 
 import apiImage from '../image/api.svg';
@@ -30,39 +30,13 @@ import complexImage from '../image/complex.svg';
 import dumpImage from '../image/dump.svg';
 import geneImage from '../image/gene.svg';
 import regulationImage from '../image/regulation.svg';
-import { queryCypherToGraph } from '../redux/cypherToGraphSlice';
 import { queryRephrase } from '../redux/rephraseSlice';
+import ExampleQueries from '../schema/landing_sample_questions.json';
 import {
-  AlertMessage,
-  LandingPageCard,
-  LoadingMessage,
+    AlertMessage,
+    LandingPageCard,
+    LoadingMessage,
 } from './SupportingMaterial';
-
-const ExampleQueries = {
-    "default": [
-        "[placeholder] These are major example questions",
-        "Which cis-regulatory elements are found near the promoter of TP53?",
-        "What SNPs are annotated in the enhancer region on chr6:32000000–32100000?",
-        "What variants are located within 5kb upstream of the CFTR gene?",
-        "Is rs123456 located in a known cis-regulatory element?",
-    ],
-    "gene": [
-        "[placeholder] These are example questions about genes and variants",
-        "Which cis-regulatory elements are found near the promoter of TP53?",
-        "What SNPs are annotated in the enhancer region on chr6:32000000–32100000?",
-        "What variants are located within 5kb upstream of the CFTR gene?",
-        "Is rs123456 located in a known cis-regulatory element?"
-    ],
-    "regulation": [
-        "[placeholder] These are example questions about regulation and traits",
-    ],
-    "chromatin": [
-        "[placeholder] These are example questions about chromatin interactions",
-    ],
-    "complex": [
-        "[placeholder] These are example questions about complex regulation",
-    ]
-}
 
 const ExampleClasses = {
     "gene": {
@@ -158,13 +132,13 @@ function LandingPage() {
                     return;
                 }
                 navigate(`/match?input=${encodeURIComponent(query)}&cypher_query=${encodeURIComponent(response.cypher_query)}&question=${encodeURIComponent(response.rephrase)}`);
-                dispatch(queryCypherToGraph(response.cypher_query)).then((res) => {
-                    const response2 = res.payload;
-                    console.log("Rephrase response:", response);
-                    
-                }).catch((error) => {
-                    console.error("Error fetching visual pattern:", error);
-                });
+                // dispatch(queryCypherToGraph(response.cypher_query)).then((res) => {
+                //     const response2 = res.payload;
+                //     console.log("Rephrase response:", response);
+
+                // }).catch((error) => {
+                //     console.error("Error fetching visual pattern:", error);
+                // });
 
             }
         });

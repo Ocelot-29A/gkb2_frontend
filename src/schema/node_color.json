@@ -1,0 +1,9 @@
+{
+    "gene": "#dbeafe",
+    "coding_elements": "#bfdbfe",
+    "non_coding_elements": "#e9d5ff",
+    "variants": "#bbf7d0",
+    "threeD_structures": "#fde68a",
+    "epigenomic_features": "#fed7aa",
+    "ontology": "#fecaca"
+}

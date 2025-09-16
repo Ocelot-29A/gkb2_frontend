@@ -5,7 +5,6 @@ import {
     createSlice,
 } from '@reduxjs/toolkit';
 import { QueryStatus } from '@reduxjs/toolkit/query';
-import { flaskBackendAxiosInstanceGKB2 } from '../axios/axios';
 
 export const queryRephrase = createAsyncThunk("/gkb_translator",
     async (payload) => {

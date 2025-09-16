@@ -1,0 +1,26 @@
+{
+    "default": [
+        "[placeholder] These are major example questions",
+        "Which gene is regulated by rs177069?",
+        "Which cis-regulatory elements are found near the promoter of TP53?",
+        "What SNPs are annotated in the enhancer region on chr6:32000000–32100000?",
+        "What variants are located within 5kb upstream of the CFTR gene?",
+        "Is rs123456 located in a known cis-regulatory element?"
+    ],
+    "gene": [
+        "[placeholder] These are example questions about genes and variants",
+        "Which cis-regulatory elements are found near the promoter of TP53?",
+        "What SNPs are annotated in the enhancer region on chr6:32000000–32100000?",
+        "What variants are located within 5kb upstream of the CFTR gene?",
+        "Is rs123456 located in a known cis-regulatory element?"
+    ],
+    "regulation": [
+        "[placeholder] These are example questions about regulation and traits"
+    ],
+    "chromatin": [
+        "[placeholder] These are example questions about chromatin interactions"
+    ],
+    "complex": [
+        "[placeholder] These are example questions about complex regulation"
+    ]
+}
