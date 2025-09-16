@@ -39,6 +39,9 @@ import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 
 // Utility functions
+export const getLabel = (data) => {
+    return data.name || data.nodeId || typeToVisu(data.nodeType) || data.id;
+}
 
 export function typeToVisu(type) {
   if (!type) return "";
@@ -569,7 +572,7 @@ export function InfoPanel({ selectedNode }) {
   // }
 
   const label = (selectedNode && selectedNode.length) ? (
-    selectedNode.slice(0, 2).map((node) => (node.label)).join(", ") +
+    selectedNode.slice(0, 2).map((node) => (getLabel(node))).join(", ") +
     (selectedNode.length > 2 ? ", ..." : "")
   ) : <span style={{ color: "#6B7280" }}>None</span>
 

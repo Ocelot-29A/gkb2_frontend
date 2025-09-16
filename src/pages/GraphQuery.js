@@ -38,7 +38,8 @@ import {
     FunctionButton2,
     InfoPanel,
     NodeLabelPopup,
-    typeToVisu
+    typeToVisu,
+    getLabel
 } from '../components/ToolPanel';
 import {
     editEdge,
@@ -48,13 +49,10 @@ import {
     removeNode,
     undo,
     updateNodePosition,
-    updateViewport,
+    updateViewport
 } from '../redux/querySlice';
 import { queryQueryToCypher } from '../redux/queryToCypher';
 
-const getLabel = (data) => {
-    return data.name || data.nodeId || typeToVisu(data.nodeType) || data.id;
-}
 
 export const nodeAutoWidth = (node) => {
     const cxt = document.createElement('canvas').getContext("2d");
