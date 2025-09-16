@@ -19,11 +19,6 @@ import {
     AccordionSummary,
     Box,
     Button,
-    Dialog,
-    DialogActions,
-    DialogContent,
-    DialogContentText,
-    DialogTitle,
     Stack,
     TextField,
     Typography,
@@ -36,10 +31,9 @@ import {
     BioEntityPanel,
     FunctionButton,
     FunctionButton2,
+    getLabel,
     InfoPanel,
     NodeLabelPopup,
-    typeToVisu,
-    getLabel
 } from '../components/ToolPanel';
 import {
     editEdge,
@@ -49,10 +43,8 @@ import {
     removeNode,
     undo,
     updateNodePosition,
-    updateViewport
+    updateViewport,
 } from '../redux/querySlice';
-import { queryQueryToCypher } from '../redux/queryToCypher';
-
 
 export const nodeAutoWidth = (node) => {
     const cxt = document.createElement('canvas').getContext("2d");
@@ -566,10 +558,10 @@ export default function QueryPage() {
             return acc;
         }, {});
 
-        dispatch(queryQueryToCypher({ nodes: queryNodes, edges: queryEdges, graphical_query: true })).then(res => {
-            console.log("Cypher Query:\n" + res.payload.cypher_query);
-            log("Generated Cypher Query:\n" + res.payload.cypher_query);
-        });
+        // dispatch(queryAddVirtualEdge({ nodes: queryNodes, edges: queryEdges, graphical_query: true })).then(res => {
+        //     console.log("Cypher Query:\n" + res.payload.cypher_query);
+        //     log("Generated Cypher Query:\n" + res.payload.cypher_query);
+        // });
     }
 
     const handleAddNode = (dict) => {

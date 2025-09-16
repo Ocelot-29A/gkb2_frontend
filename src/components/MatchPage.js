@@ -7,7 +7,10 @@ import React, {
 } from 'react';
 
 import Cytoscape from 'cytoscape';
-import { useDispatch, useSelector } from 'react-redux';
+import {
+  useDispatch,
+  useSelector,
+} from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 
 import {
@@ -22,14 +25,16 @@ import {
 } from '@mui/material';
 import Popper from '@mui/material/Popper';
 
+import { queryCypherToGraph } from '../redux/cypherToGraphSlice';
 import { queryVocab } from '../redux/inputToVocabSlice'; // Import the action
 import { queryQueryResult } from '../redux/queryResultSlice';
-import { queryCypherToGraph } from '../redux/cypherToGraphSlice';
+import NodeColors from '../schema/node_color.json';
 import {
   nodeAutoWidth,
   textAutoWidth,
 } from './style.js';
 import { AlertMessage } from './SupportingMaterial';
+import { typeToTypeList } from './ToolPanel';
 
 const textBoxStyles = {
   "gene": {
@@ -83,7 +88,7 @@ const MatchGraphViewer = ({ query }) => {
   const cyRef = useRef(null);
   const dispatch = useDispatch();
 
-  const {cypherToGraph} = useSelector((state) => state.cypherToGraph);
+  const { cypherToGraph } = useSelector((state) => state.cypherToGraph);
 
   useEffect(() => {
     dispatch(queryCypherToGraph(query));
@@ -96,7 +101,7 @@ const MatchGraphViewer = ({ query }) => {
       return;
     }
     const graph = cypherToGraph.graph.results[0];
-    
+
 
     // Create Cytoscape nodes
     const cyNodes = graph.nodes.map((node, index) => {
@@ -105,11 +110,11 @@ const MatchGraphViewer = ({ query }) => {
         group: "nodes",
         data: {
           id: node["~id"],
-          label: node.name || (nodeLabels?.[type] || type) || 'Unknown',
-          color: nodeColors[type] || "#CCCCCC",
+          label: node.name || node.id || (nodeLabels?.[type] || type) || 'Unknown',
+          color: NodeColors[type] || NodeColors[typeToTypeList(type)?.[0]] || "#CCCCCC",
         },
       };
-  });
+    });
 
     const cyEdges = graph.edges.map((edge, index) => {
       const type = edge?.["~type"];
@@ -117,16 +122,17 @@ const MatchGraphViewer = ({ query }) => {
         group: "edges",
         data: {
           id: edge["~id"],
-          label: edgeLabels?.[type] || 
-               // first letter uppercase, _ to space
-               type[0]?.toUpperCase() + type.slice(1).toLowerCase().replace(/_/g, ' ') || 'Unknown',
+          label: edgeLabels?.[type] ||
+            // first letter uppercase, _ to space
+            type[0]?.toUpperCase() + type.slice(1).toLowerCase().replace(/_/g, ' ') || 'Unknown',
           source: edge["~start"],
-        target: edge["~end"],
-      },};
+          target: edge["~end"],
+        },
+      };
     });
 
     console.log("Cytoscape nodes:", cyNodes);
-      console.log("Cytoscape edges:", cyEdges);
+    console.log("Cytoscape edges:", cyEdges);
 
     if (cyRef.current) {
       cyRef.current.destroy();
@@ -149,7 +155,7 @@ const MatchGraphViewer = ({ query }) => {
             'text-valign': 'center',
             'text-halign': 'center',
             'font-size': '20px',
-            'padding': '15px',
+            'padding': '10px',
             'corner-radius': '16px',
             'color': 'black',
             'width': nodeAutoWidth,
@@ -174,11 +180,11 @@ const MatchGraphViewer = ({ query }) => {
       layout: {
         name: 'breadthfirst',
         directed: true,
-        spacingFactor: 1,
+        spacingFactor: 1.75,
         fit: true,
         transform: function (node, position) {
           // transpose
-          return { x: position.y, y: position.x };
+          return { x: position.y, y: position.x / 3 };
         },
         avoidOverlap: true
       },
@@ -187,6 +193,7 @@ const MatchGraphViewer = ({ query }) => {
       maxZoom: 1,
       userZoomingEnabled: false,
       userPanningEnabled: false,
+      autoungrabify: true,
     });
 
     cyRef.current = cy;
@@ -510,7 +517,7 @@ export const SearchComponent = ({ questionSchema, clearTrigger = 0, values, upda
           acc2[index] = defaultValue;
           acc3[index] = (
             !(['gene', 'sequence_variant'].includes(key))
-            || ['@@{sequence_variant}{SNPs}', '@@{gene}{genes}'].includes(part)
+            || ['@@{sequence_variant}{SNP}', '@@{gene}{gene}'].includes(part)
           )
         }
         return [acc1, acc2, acc3];
@@ -695,9 +702,9 @@ function MatchPage() {
   const [warning, setWarning] = useState('');
 
   const navigate = useNavigate();
-  const dispatch = useDispatch();
-  const [emptyPattern, setEmptyPattern] = useState('');
-  const [visualPattern, setVisualPattern] = useState("");
+  // const dispatch = useDispatch();
+  // const [emptyPattern, setEmptyPattern] = useState('');
+  // const [visualPattern, setVisualPattern] = useState("");
   const [searchInput, setSearchInput] = useState(''); // user input question
   const [clearTrigger, clearInputComponent] = useState(0); // 0/1 trigger to clear all input
   const [defaultCypherQuery, setDefaultCypherQuery] = useState('');
@@ -735,11 +742,11 @@ function MatchPage() {
       console.log("cypher:", cypher);
       setDefaultCypherQuery(cypher);
     }
-    if (params.get("pattern")) {
-      const pattern = decodeURIComponent(params.get("pattern"));
-      console.log("pattern:", pattern);
-      setEmptyPattern(pattern);
-    }
+    // if (params.get("pattern")) {
+    //   const pattern = decodeURIComponent(params.get("pattern"));
+    //   console.log("pattern:", pattern);
+    //   setEmptyPattern(pattern);
+    // }
   }, []);
 
   // Handle submit button click
@@ -749,27 +756,27 @@ function MatchPage() {
     const replacedQuestion = question.replace(/@@\{(.*?)\}\{(.*?)\}/g, (match, key, defaultValue) => {
       return `@@{${key}}{${inputDict[key] || defaultValue}}`;
     });
-    navigate(`/result?question=${encodeURIComponent(replacedQuestion)}`);
+    navigate(`/result?question=${encodeURIComponent(replacedQuestion)}&cypher_query=${encodeURIComponent(cypherQuery)}`);
   };
 
-  useEffect(() => {
-    let connectedString = emptyPattern || '';
-    console.log("inputDict:", inputDict);
-    // if (inputDict['gene']) {
-    //   connectedString = connectedString.replace(/\{gene@.*?@}/, `{gene@${inputDict['gene']}@}`);
-    // }
-    // if (inputDict['cell']) {
-    //   connectedString = connectedString.replace(/\{ontology@.*?@}/, `{ontology@${inputDict['cell']}@}`);
-    // }
-    // if (inputDict['snp']) {
-    //   connectedString = connectedString.replace(/\{snp@.*?@}/, `{snp@${inputDict['snp']}@}`);
-    // }
-    Object.entries(inputDict).forEach(([key, value]) => {
-      connectedString = connectedString.replace(new RegExp(`@@\\{${key}\\}\\{.*?\\}`, 'g'), `@@{${key}}{${value}}`);
-    });
-    setVisualPattern(connectedString);
-    console.log("Updated visual pattern:", connectedString);
-  }, [emptyPattern, inputDict]);
+  // useEffect(() => {
+  //   let connectedString = emptyPattern || '';
+  //   console.log("inputDict:", inputDict);
+  //   // if (inputDict['gene']) {
+  //   //   connectedString = connectedString.replace(/\{gene@.*?@}/, `{gene@${inputDict['gene']}@}`);
+  //   // }
+  //   // if (inputDict['cell']) {
+  //   //   connectedString = connectedString.replace(/\{ontology@.*?@}/, `{ontology@${inputDict['cell']}@}`);
+  //   // }
+  //   // if (inputDict['snp']) {
+  //   //   connectedString = connectedString.replace(/\{snp@.*?@}/, `{snp@${inputDict['snp']}@}`);
+  //   // }
+  //   Object.entries(inputDict).forEach(([key, value]) => {
+  //     connectedString = connectedString.replace(new RegExp(`@@\\{${key}\\}\\{.*?\\}`, 'g'), `@@{${key}}{${value}}`);
+  //   });
+  //   setVisualPattern(connectedString);
+  //   console.log("Updated visual pattern:", connectedString);
+  // }, [emptyPattern, inputDict]);
 
   return (
     <Container maxWidth={false} disableGutters sx={{

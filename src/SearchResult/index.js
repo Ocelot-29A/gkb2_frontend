@@ -44,7 +44,9 @@ import {
 } from '../components/MatchPage';
 import SubNavBar from '../components/SubNavBar';
 import VisuImage from '../image/output.png';
+import { queryAddVirtualEdge } from '../redux/addVirtualEdge';
 import { queryArticles } from '../redux/articlesSlice';
+import { queryOnPrem } from '../redux/onPremSlice';
 import { setProcessedQuestion } from '../redux/processedQuestionSlice';
 import { queryImage } from '../redux/typeToImageSlice';
 import sampleResponse from '../schema/demo_query_result.json';
@@ -169,6 +171,7 @@ function SearchResult() {
     const [inputDict, setInputDict] = useState({}); // input values
     const [warning, setWarning] = useState('');
     const [cypherQuery, setCypherQuery] = useState('');
+    const [defaultQuery, setDefaultQuery] = useState('');
 
     // scroll to active reference after it is set
     const timeoutRef = useRef(null);
@@ -195,12 +198,10 @@ function SearchResult() {
 
 
     const handleSubmit = () => {
-        //return; //disable for now
-        //redirect to result page with question replaced with input values
-        const replacedQuestion = question.replace(/\{(.*?)@(.*?)@\}/g, (match, key, defaultValue) => {
-            return `{${key}@${inputDict[key] || defaultValue}@}`;
+        const replacedQuestion = question.replace(/@@\{(.*?)\}\{(.*?)\}/g, (match, key, defaultValue) => {
+            return `@@{${key}}{${inputDict[key] || defaultValue}}`;
         });
-        navigate(`/result?question=${encodeURIComponent(replacedQuestion)}`);
+        navigate(`/result?question=${encodeURIComponent(replacedQuestion)}&cypher_query=${encodeURIComponent(cypherQuery)}`);
     };
 
     // initialize the reference data from aiSchema w/ replacements
@@ -256,6 +257,14 @@ function SearchResult() {
         // const lead_snp = params.get('lead_snp');
         // const credible_set_id = params.get('credible_set_id');
         setQuestion(params.get('question') || '');
+        setDefaultQuery(params.get('cypher_query') || '');
+        setCypherQuery(params.get('cypher_query') || '');
+        dispatch(queryAddVirtualEdge({ cypher: params.get('cypher_query') || '' })).then((response) => {
+            const data = response.payload || {};
+            dispatch(queryOnPrem({ cypher: data.cypher_virtual_edge })).then((onPremResponse) => {
+                console.log('onPremResponse', onPremResponse);
+            });
+        });
         console.log(params);
 
         const noop = () => async (dispatch, getState) => {
@@ -457,9 +466,11 @@ function SearchResult() {
                     }}>
                         {question && <SearchComponent
                             questionSchema={question}
+                            values={inputDict}
                             updateValues={setInputDict}
                             setInputStatus={setInputStatus}
                             sx={{ fontSize: '20px' }}
+                            defaultQuery={defaultQuery}
                             setQuery={setCypherQuery}
                         />}
                     </Box>

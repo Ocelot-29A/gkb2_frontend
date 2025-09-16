@@ -5,19 +5,23 @@ import React, {
 
 import { NestedMenuItem } from 'mui-nested-menu';
 
+import {
+  ExpandLess,
+  ExpandMore,
+} from '@mui/icons-material';
 import AddIcon from '@mui/icons-material/Add';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
 import {
   Box,
   Button,
+  Checkbox,
   Collapse,
   Dialog,
   DialogActions,
   DialogContent,
   DialogContentText,
   DialogTitle,
-  Checkbox,
-  FormControlLabel,
-  FormGroup,
   IconButton,
   List,
   ListItem,
@@ -33,23 +37,23 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
+
 import NodeSchema from '../schema/clean_node_schema.json';
-import { ExpandLess, ExpandMore } from '@mui/icons-material';
-import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import NodeColors from '../schema/node_color.json';
 
 // Utility functions
 export const getLabel = (data) => {
-    return data.name || data.nodeId || typeToVisu(data.nodeType) || data.id;
+  return data.name || data.nodeId || typeToVisu(data.nodeType) || data.id;
 }
 
 export function typeToVisu(type) {
   if (!type) return "";
   return type.charAt(0).toUpperCase() + type.slice(1).replace(/_/g, ' ');
 }
+
 export function typeToTypeList(type) {
   function findPath(node, target, path = []) {
-    if (node.label === target) {
+    if (node.label.toLowerCase() === target.toLowerCase()) {
       return [...path, node.label];
     }
 
@@ -65,6 +69,10 @@ export function typeToTypeList(type) {
   return findPath(NodeSchema, type)?.slice(1) || [];
 }
 
+export function isType(type) {
+  return !!typeToTypeList(type).length;
+}
+
 export function typeListToType(types) {
   const typeSet = new Set(types);
 
@@ -77,26 +85,13 @@ export function typeListToType(types) {
     }
 
     if (typeSet.has(node.label)) {
-        return node.label;
+      return node.label;
     }
 
     return null;
   }
 
   return dfs(NodeSchema);
-}
-
-function collectDescendants(node, indent = 0) {
-  let result = [{
-    label: node.label,
-    indent: indent
-  }];
-  if (node.children) {
-    for (const child of node.children) {
-      result = result.concat(collectDescendants(child, indent + 1));
-    }
-  }
-  return result;
 }
 
 // Component
@@ -157,102 +152,102 @@ export default function TypeSelector({ superType, handleChangeType, defaultType 
 }
 
 export function NodeLabelPopup({ open, cyEle, onClose, onConfirm }) {
-    const [inputProperty, setInputProperty] = useState({
-        label: cyEle?.label || "",
-        _label: cyEle?._label || "",
-    });
+  const [inputProperty, setInputProperty] = useState({
+    label: cyEle?.label || "",
+    _label: cyEle?._label || "",
+  });
 
-    // Update input when cyEle changes
-    React.useEffect(() => {
-        if (cyEle) {
-            setInputProperty({
-                label: cyEle.label || "",
-                _label: cyEle._label || "",
-            });
-        }
-    }, [cyEle, open]);
+  // Update input when cyEle changes
+  React.useEffect(() => {
+    if (cyEle) {
+      setInputProperty({
+        label: cyEle.label || "",
+        _label: cyEle._label || "",
+      });
+    }
+  }, [cyEle, open]);
 
-    const handleConfirm = () => {
-      const newNode = {
-        ...cyEle,
-        ...inputProperty
-      };
-      onConfirm(newNode);
+  const handleConfirm = () => {
+    const newNode = {
+      ...cyEle,
+      ...inputProperty
     };
+    onConfirm(newNode);
+  };
 
-    const superType = typeToTypeList(cyEle?.nodeType || "")[0] || "Entity";
+  const superType = typeToTypeList(cyEle?.nodeType || "")[0] || "Entity";
 
-    return (
-        <Dialog open={open} onClose={onClose}>
-            <DialogTitle>Edit Node</DialogTitle>
-            <DialogContent>
-                <DialogContentText>
-                    Set the type of the node.
-                </DialogContentText>
-                <TypeSelector superType={superType} defaultType={cyEle?.nodeType} handleChangeType={(newType) => {
-                    setInputProperty((prev) => ({ ...prev, nodeType: newType }));
-                }} />
-                <DialogContentText>
-                    Edit the name of the node. (WIP)
-                </DialogContentText>
-                <TextField
-                    autoFocus
-                    margin="dense"
-                    label="Node Label"
-                    type="text"
-                    fullWidth
-                    value={inputProperty.label}
-                    onChange={(e) => setInputProperty((prev) => ({ ...prev, label: e.target.value }))}
-                />
-                <TextField
-                    autoFocus
-                    margin="dense"
-                    label="Node Label 2"
-                    type="text"
-                    fullWidth
-                    value={inputProperty._label}
-                    onChange={(e) => setInputProperty((prev) => ({ ...prev, _label: e.target.value }))}
-                />
-            </DialogContent>
-            <DialogActions>
-                <Button onClick={onClose} color="secondary">
-                    Quit
-                </Button>
-                <Button
-                    onClick={() => {
-                        handleConfirm();
-                        onClose();
-                    }}
-                    color="primary"
-                >
-                    Confirm
-                </Button>
-            </DialogActions>
-        </Dialog>
-    );
+  return (
+    <Dialog open={open} onClose={onClose}>
+      <DialogTitle>Edit Node</DialogTitle>
+      <DialogContent>
+        <DialogContentText>
+          Set the type of the node.
+        </DialogContentText>
+        <TypeSelector superType={superType} defaultType={cyEle?.nodeType} handleChangeType={(newType) => {
+          setInputProperty((prev) => ({ ...prev, nodeType: newType }));
+        }} />
+        <DialogContentText>
+          Edit the name of the node. (WIP)
+        </DialogContentText>
+        <TextField
+          autoFocus
+          margin="dense"
+          label="Node Label"
+          type="text"
+          fullWidth
+          value={inputProperty.label}
+          onChange={(e) => setInputProperty((prev) => ({ ...prev, label: e.target.value }))}
+        />
+        <TextField
+          autoFocus
+          margin="dense"
+          label="Node Label 2"
+          type="text"
+          fullWidth
+          value={inputProperty._label}
+          onChange={(e) => setInputProperty((prev) => ({ ...prev, _label: e.target.value }))}
+        />
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose} color="secondary">
+          Quit
+        </Button>
+        <Button
+          onClick={() => {
+            handleConfirm();
+            onClose();
+          }}
+          color="primary"
+        >
+          Confirm
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
 }
 
 const entityTypes = [
-  { "label": "Gene", "color": "#dbeafe", "type": "gene" },
+  { "label": "Gene", "type": "gene" },
 
-  { "label": "Other Coding Element", "color": "#bfdbfe", "type": "coding_elements" },
+  { "label": "Other Coding Element", "type": "coding_elements" },
 
-  { "label": "Non Coding Element", "color": "#e9d5ff", "type": "non_coding_elements" },
+  { "label": "Non Coding Element", "type": "non_coding_elements" },
 
-  { "label": "Variants", "color": "#bbf7d0", "type": "variants" },
+  { "label": "Variants", "type": "variants" },
 
-  { "label": "ThreeD Structure", "color": "#fde68a", "type": "threeD_structures" },
+  { "label": "ThreeD Structure", "type": "threeD_structures" },
 
-  { "label": "Chromatin Organization", "color": "#fed7aa", "type": "epigenomic_features" },
+  { "label": "Chromatin Organization", "type": "epigenomic_features" },
 
-  { "label": "Ontology Term (GO, CL...)", "color": "#fecaca", "type": "ontology" }
+  { "label": "Ontology Term (GO, CL...)", "type": "ontology" }
 ]
 
 
 const commonTypes = [
-  { label: "Gene", color: "#dbeafe", type: "gene" },
-  { label: "Other Coding Element", color: "#bfdbfe", type: "coding_elements" },
-  { label: "Non Coding Element", color: "#e9d5ff", type: "non_coding_elements" },
+  { label: "Gene", type: "gene" },
+  { label: "Other Coding Element", type: "coding_elements" },
+  { label: "Non Coding Element", type: "non_coding_elements" },
   { label: "All Entities", color: "#F566AC" },
 ];
 
@@ -336,7 +331,7 @@ export function AddNodeButton({ handleAddNode }) {
       <MenuItem
         onClick={() => {
           handleClose();
-          handleAddNode({ nodeType: entity.type, color: entity.color });
+          handleAddNode({ nodeType: entity.type, color: entity.color || NodeColors[entity.type] || "#000000" });
         }}
       >
         <ListItemIcon sx={{ minWidth: '0px' }}>
@@ -344,7 +339,7 @@ export function AddNodeButton({ handleAddNode }) {
             sx={{
               width: "16px",
               height: "16px",
-              backgroundColor: entity.color,
+              backgroundColor: entity.color || NodeColors[entity.type] || "#000000",
               borderRadius: "2px",
               marginRight: "8px",
             }}
@@ -406,7 +401,7 @@ export function AddNodeButton({ handleAddNode }) {
                     mx: "12px",
                     width: "16px",
                     height: "16px",
-                    backgroundColor: entity.color,
+                    backgroundColor: entity.color || NodeColors[entity.type] || "#000000",
                     borderRadius: "2px",
                   }}
                 />
@@ -441,11 +436,9 @@ export function BioEntityPanel({ handleAddNode, handleChangeMode }) {
       background: '#F4F9FF',
       width: '340px',
       borderRadius: '10px',
-      border: '1px solid #7F7D7D',
       overflow: 'hidden',
       border: '1px solid #E5E7EB',
       boxShadow: '0px 2px 12px 0px #00000014'
-
     }}>
       {/* Tabs */}
       <Tabs
@@ -521,7 +514,7 @@ export function BioEntityPanel({ handleAddNode, handleChangeMode }) {
                     sx={{
                       width: "16px",
                       height: "16px",
-                      backgroundColor: entity.color,
+                      backgroundColor: entity.color || NodeColors[entity.type] || "#000000",
                       borderRadius: "2px",
                       marginRight: "8px",
                     }}
@@ -532,7 +525,13 @@ export function BioEntityPanel({ handleAddNode, handleChangeMode }) {
                   primaryTypographyProps={{ fontSize: 14, fontWeight: 500 }}
                 />
                 <ListItemSecondaryAction>
-                  <IconButton edge="end" size="small" color="primary" onClick={() => handleAddNode({ nodeType: entity.type, color: entity.color })}>
+                  <IconButton edge="end" size="small" color="primary"
+                    onClick={
+                      () => handleAddNode({
+                        nodeType: entity.type,
+                        color: entity.color || NodeColors[entity.type] || "#000000"
+                      })
+                    }>
                     <AddIcon />
                   </IconButton>
                 </ListItemSecondaryAction>
