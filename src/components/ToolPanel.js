@@ -38,16 +38,17 @@ import {
   Typography,
 } from '@mui/material';
 
+import EdgeSchema from '../schema/clean_edge_schema.json';
 import NodeSchema from '../schema/clean_node_schema.json';
 import NodeColors from '../schema/node_color.json';
 
 // Utility functions
 export const getLabel = (data) => {
-  return data.name || data.nodeId || typeToVisu(data.nodeType) || data.id;
+  return typeToVisu(data.edgeType) || data.name || data.nodeId || typeToVisu(data.nodeType) || data.id;
 }
 
 export function typeToVisu(type) {
-  if (!type) return "";
+  if (!type) return undefined;
   return type.charAt(0).toUpperCase() + type.slice(1).replace(/_/g, ' ');
 }
 
@@ -94,8 +95,24 @@ export function typeListToType(types) {
   return dfs(NodeSchema);
 }
 
+
+function typeIncludes(supertype, subtype) {
+  if (supertype?.[0] === '~') return !typeIncludes(supertype.slice(1), subtype);
+  if (subtype === supertype) return true;
+  const path = typeToTypeList(subtype);
+  return path.includes(supertype);
+}
+
+export function getEdges(nodeTypeFrom, nodeTypeTo) {
+  return Object.keys(EdgeSchema).filter((edgeType) => {
+    const edge = EdgeSchema[edgeType];
+    return typeIncludes(edge.from, nodeTypeFrom) &&
+      typeIncludes(edge.to, nodeTypeTo);
+  });
+}
+
 // Component
-export default function TypeSelector({ superType, handleChangeType, defaultType }) {
+export default function NodeTypeSelector({ superType, handleChangeType, defaultType }) {
   const [selected, setSelected] = useState(defaultType);
   const [openNodes, setOpenNodes] = useState({}); // track open/close per node
 
@@ -184,7 +201,7 @@ export function NodeLabelPopup({ open, cyEle, onClose, onConfirm }) {
         <DialogContentText>
           Set the type of the node.
         </DialogContentText>
-        <TypeSelector superType={superType} defaultType={cyEle?.nodeType} handleChangeType={(newType) => {
+        <NodeTypeSelector superType={superType} defaultType={cyEle?.nodeType} handleChangeType={(newType) => {
           setInputProperty((prev) => ({ ...prev, nodeType: newType }));
         }} />
         <DialogContentText>
@@ -226,6 +243,90 @@ export function NodeLabelPopup({ open, cyEle, onClose, onConfirm }) {
     </Dialog>
   );
 }
+
+export function EdgeTypeSelector({ sourceType, targetType, handleChangeType, defaultType }) {
+  console.log("EdgeTypeSelector", sourceType, targetType, defaultType);
+  const [selected, setSelected] = useState(defaultType);
+  const [typeList, setTypeList] = useState([]);
+
+  useEffect(() => {
+    setSelected(defaultType);
+  }, [defaultType]);
+
+  useEffect(() => {
+    const edges = getEdges(sourceType, targetType);
+    setTypeList(edges);
+  }, [sourceType, targetType]);
+
+  useEffect(() => {
+    handleChangeType(selected);
+  }, [selected, handleChangeType]);
+
+  if (!EdgeSchema[defaultType]) return <Typography>Invalid type: {defaultType}</Typography>;
+
+  const handleSelect = (label) => {
+    setSelected(label);
+  };
+
+  return <Box>
+    {typeList.map((edgeType) => (
+      <Box sx={{ display: 'flex', alignItems: 'center', pl: 0 }}>
+        <Checkbox
+          checked={selected === edgeType}
+          onChange={() => handleSelect(edgeType)}
+          icon={<RadioButtonUncheckedIcon />}
+          checkedIcon={<CheckCircleIcon />}
+        />
+        <Typography>{typeToVisu(edgeType)}</Typography>
+      </Box>
+    ))}
+  </Box>;
+}
+
+export function EdgeLabelPopup({ open, cyEle, edgeTypes, onClose, onConfirm }) {
+  const [inputProperty, setInputProperty] = useState({});
+
+  const handleConfirm = () => {
+    const newNode = {
+      ...cyEle,
+      ...inputProperty
+    };
+    onConfirm(newNode);
+  };
+
+  return (
+    <Dialog open={open} onClose={onClose}>
+      <DialogTitle>Edit Node</DialogTitle>
+      <DialogContent>
+        <DialogContentText>
+          Set the type of the node.
+        </DialogContentText>
+        <EdgeTypeSelector
+          sourceType={edgeTypes.sourceType}
+          targetType={edgeTypes.targetType}
+          defaultType={cyEle?.edgeType}
+          handleChangeType={(newType) => {
+            setInputProperty((prev) => ({ ...prev, edgeType: newType }));
+          }} />
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose} color="secondary">
+          Quit
+        </Button>
+        <Button
+          onClick={() => {
+            handleConfirm();
+            onClose();
+          }}
+          color="primary"
+        >
+          Confirm
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
 
 const entityTypes = [
   { "label": "Gene", "type": "gene" },
@@ -419,8 +520,7 @@ export function AddNodeButton({ handleAddNode }) {
 }
 
 
-
-export function BioEntityPanel({ handleAddNode, handleChangeMode }) {
+export function BioEntityPanel({ handleAddNode, handleAddEdge, currSourceTarget, handleChangeMode }) {
   const [tab, setTab] = useState(0);
 
   useEffect(() => {
@@ -432,130 +532,233 @@ export function BioEntityPanel({ handleAddNode, handleChangeMode }) {
   };
 
   return (
-    <Paper elevation={3} sx={{
-      background: '#F4F9FF',
-      width: '340px',
-      borderRadius: '10px',
-      overflow: 'hidden',
-      border: '1px solid #E5E7EB',
-      boxShadow: '0px 2px 12px 0px #00000014'
-    }}>
-      {/* Tabs */}
-      <Tabs
-        value={tab}
-        onChange={handleTabChange}
-        centered
-        variant="fullWidth"
-        textColor="primary"
-        indicatorColor="primary"
-        sx={{
-          mb: 2,
-          //make not chosen tab's background color light gray
-          "& .MuiTab-root": {
-            backgroundColor: "#C8E7FF",
-          },
-          "& .Mui-selected": {
-            backgroundColor: "white",
-          },
-        }}
-      >
-        <Tab label="Add Node" />
-        <Tab label="Add Edge" />
-      </Tabs>
+    <>
+      <div style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        width: '100%',
+        height: '100%',
+        backgroundColor: 'rgba(0, 0, 0, 0.3)',
+        zIndex: 999,
+        mouseEvents: 'none',
+        display: currSourceTarget.isDrag ? 'block' : 'none'
+      }}>
+      </div>
+      <Paper elevation={3} sx={{
+        background: '#F4F9FF',
+        width: '340px',
+        borderRadius: '10px',
+        overflow: 'hidden',
+        zIndex: 1000,
+        border: '1px solid #E5E7EB',
+        boxShadow: '0px 2px 12px 0px #00000014'
+      }}>
+        {/* Tabs */}
+        <Tabs
+          value={tab}
+          onChange={handleTabChange}
+          centered
+          variant="fullWidth"
+          textColor="primary"
+          indicatorColor="primary"
+          sx={{
+            mb: 2,
+            //make not chosen tab's background color light gray
+            "& .MuiTab-root": {
+              backgroundColor: "#C8E7FF",
+            },
+            "& .Mui-selected": {
+              backgroundColor: "white",
+            },
+          }}
+        >
+          <Tab label="Add Node" disabled={currSourceTarget.isDrag} />
+          <Tab label="Add Edge" />
+        </Tabs>
 
-      {/* Tab content */}
-      {tab === 0 && (
-        <Box sx={{ px: "20px" }}>
-          {/* Quick Add */}
-          <Typography
-            variant="subtitle1"
-            sx={{ fontWeight: 600, mt: 2, mb: 1 }}
-          >
-            Quick Add Entity
-          </Typography>
-          <Typography variant="body2" sx={{ color: "text.secondary", mb: 1 }}>
-            If you know the specific Entity, search and add directly.
-          </Typography>
+        {/* Tab content */}
+        {tab === 0 && (
+          <Box sx={{ px: "20px" }}>
+            {/* Quick Add */}
+            <Typography
+              variant="subtitle1"
+              sx={{ fontWeight: 600, mt: 2, mb: 1 }}
+            >
+              Quick Add Entity
+            </Typography>
+            <Typography variant="body2" sx={{ color: "text.secondary", mb: 1 }}>
+              If you know the specific Entity, search and add directly.
+            </Typography>
 
-          <TextField
-            placeholder="Search for specific bio entity"
-            fullWidth
-            size="small"
-            sx={{ mb: 1, backgroundColor: "white" }}
-          />
-          <Typography variant="caption" sx={{ color: "text.secondary" }}>
-            Example: CFTR, TP53
-          </Typography>
+            <TextField
+              placeholder="Search for specific bio entity"
+              fullWidth
+              size="small"
+              sx={{ mb: 1, backgroundColor: "white" }}
+            />
+            <Typography variant="caption" sx={{ color: "text.secondary" }}>
+              Example: CFTR, TP53
+            </Typography>
 
-          {/* Bio Entity List */}
-          <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>
-            Bio Entity List
-          </Typography>
-          <Typography sx={{ fontFamily: "Inter", fontSize: "14px", fontWeight: 500, color: "#6B7280" }}>
-            If you can choose about the specific entity, add a general bio
-            entity from the list.
-          </Typography>
+            {/* Bio Entity List */}
+            <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>
+              Bio Entity List
+            </Typography>
+            <Typography sx={{ fontFamily: "Inter", fontSize: "14px", fontWeight: 500, color: "#6B7280" }}>
+              If you can choose about the specific entity, add a general bio
+              entity from the list.
+            </Typography>
 
-          <List dense>
-            {entityTypes.map((entity, i) => (
-              <ListItem
-                key={i}
-                sx={{
-                  backgroundColor: "white",
-                  borderRadius: 2,
-                  mb: 1,
-                  py: 1,
-                  px: 2,
-                }}
-              >
-                <ListItemIcon sx={{ minWidth: '0px' }}>
-                  {/* add a square of the same color as the entity using box */}
-                  <Box
-                    sx={{
-                      width: "16px",
-                      height: "16px",
-                      backgroundColor: entity.color || NodeColors[entity.type] || "#000000",
-                      borderRadius: "2px",
-                      marginRight: "8px",
-                    }}
+            <List dense>
+              {entityTypes.map((entity, i) => (
+                <ListItem
+                  key={i}
+                  sx={{
+                    backgroundColor: "white",
+                    borderRadius: 2,
+                    mb: 1,
+                    py: 1,
+                    px: 2,
+                  }}
+                >
+                  <ListItemIcon sx={{ minWidth: '0px' }}>
+                    {/* add a square of the same color as the entity using box */}
+                    <Box
+                      sx={{
+                        width: "16px",
+                        height: "16px",
+                        backgroundColor: entity.color || NodeColors[entity.type] || "#000000",
+                        borderRadius: "2px",
+                        marginRight: "8px",
+                      }}
+                    />
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={entity.label}
+                    primaryTypographyProps={{ fontSize: 14, fontWeight: 500 }}
                   />
-                </ListItemIcon>
-                <ListItemText
-                  primary={entity.label}
-                  primaryTypographyProps={{ fontSize: 14, fontWeight: 500 }}
-                />
-                <ListItemSecondaryAction>
-                  <IconButton edge="end" size="small" color="primary"
-                    onClick={
-                      () => handleAddNode({
-                        nodeType: entity.type,
-                        color: entity.color || NodeColors[entity.type] || "#000000"
-                      })
-                    }>
-                    <AddIcon />
-                  </IconButton>
-                </ListItemSecondaryAction>
-              </ListItem>
-            ))}
-          </List>
-        </Box>
-      )}
+                  <ListItemSecondaryAction>
+                    <IconButton edge="end" size="small" color="primary"
+                      onClick={
+                        () => handleAddNode({
+                          nodeType: entity.type,
+                          color: entity.color || NodeColors[entity.type] || "#000000"
+                        })
+                      }>
+                      <AddIcon />
+                    </IconButton>
+                  </ListItemSecondaryAction>
+                </ListItem>
+              ))}
+            </List>
+          </Box>
+        )}
 
-      {tab === 1 && (
-        <Box>
-          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-            Edge Content Placeholder
-          </Typography>
-          <Typography variant="body2" sx={{ color: "text.secondary" }}>
-            Similar structure as Add Node can go here.
-          </Typography>
-        </Box>
-      )}
-    </Paper>
+        {tab === 1 && (
+          <Box sx={{ px: "20px" }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+              Edge Content Placeholder
+            </Typography>
+            {
+              currSourceTarget.source && currSourceTarget.target ? (
+                <Box sx={{ mt: 2 }}>
+                  <Typography variant="body1" sx={{ mb: 1 }}>
+                    Add edge from <strong>{getLabel(currSourceTarget.source)}</strong> to <strong>{getLabel(currSourceTarget.target)}</strong>
+                  </Typography>
+                  {getEdges(currSourceTarget.source.nodeType, currSourceTarget.target.nodeType).length ? (
+                    <List dense>
+                      {getEdges(currSourceTarget.source.nodeType, currSourceTarget.target.nodeType).map((edgeType, i) => (
+                        <ListItem
+                          key={i}
+                          sx={{
+                            backgroundColor: "white",
+                            borderRadius: 2,
+                            mb: 1,
+                            py: 1,
+                            px: 2,
+                            height: "40px",
+                          }}
+                        >
+                          <ListItemText
+                            primary={
+                              <Box
+                                sx={{
+                                  display: "flex",
+                                  position: "relative",
+                                  alignItems: "center",
+                                  backgroundColor: "white", // prevent interference
+                                  px: 1,
+                                  py: 0.5,
+                                  borderRadius: 1,
+                                  minWidth: 200, // longer width
+                                }}
+                              >
+                                <Typography
+                                  sx={{
+                                    fontSize: 14,
+                                    fontWeight: 500,
+                                    ml: 1,
+                                    whiteSpace: "nowrap",
+                                    position: "absolute",
+                                    left: "0",
+                                  }}
+                                >
+                                  {"───────────────────▶"}
+                                </Typography>
+                                <Typography
+                                  sx={{
+                                    display: "flex",
+                                    position: "absolute",
+                                    left: "37%",
+                                    transform: "translateX(-50%)",
+                                    fontSize: 14,
+                                    fontWeight: 500,
+                                    flexGrow: 1,
+                                    backgroundColor: "white"
+                                  }}
+                                >
+                                  {typeToVisu(edgeType)}
+                                </Typography>
+
+                              </Box>
+                            }
+                          />
+                          <ListItemSecondaryAction>
+                            <IconButton edge="end" size="small" color="primary"
+                              onClick={
+                                () => handleAddEdge(
+                                  currSourceTarget.source,
+                                  currSourceTarget.target,
+                                  edgeType
+                                )
+                              }>
+                              <AddIcon />
+                            </IconButton>
+                          </ListItemSecondaryAction>
+                        </ListItem>
+                      ))}
+                    </List>
+                  ) : (
+                    <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                      No edges available.
+                    </Typography>
+                  )}
+                </Box>
+              ) : (
+                <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                  No source or target selected.
+                </Typography>
+              )}
+
+          </Box>
+        )}
+      </Paper>
+    </>
   );
 }
 
-export function InfoPanel({ selectedNode }) {
+export function InfoPanel({ selected }) {
   // print the first two labels, add ", ..." if more
   // let label = "";
   // if (selectedNode) {
@@ -570,9 +773,9 @@ export function InfoPanel({ selectedNode }) {
   //   }
   // }
 
-  const label = (selectedNode && selectedNode.length) ? (
-    selectedNode.slice(0, 2).map((node) => (getLabel(node))).join(", ") +
-    (selectedNode.length > 2 ? ", ..." : "")
+  const label = (selected && selected.length) ? (
+    selected.slice(0, 2).map((node) => (getLabel(node))).join(", ") +
+    (selected.length > 2 ? ", ..." : "")
   ) : <span style={{ color: "#6B7280" }}>None</span>
 
   return (
@@ -585,7 +788,7 @@ export function InfoPanel({ selectedNode }) {
           lineHeight: "25px",
         }}
       >
-        Selected Node
+        Selected Node(s) and/or Edge(s):
       </Typography>
       <Typography sx={{
         fontFamily: "Inter",

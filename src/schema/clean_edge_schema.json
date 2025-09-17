@@ -1,0 +1,74 @@
+{
+    "GWAS_association": {
+        "from": "sequence_variant",
+        "to": "ontology"
+    },
+    "eQTL_of": {
+        "from": "sequence_variant",
+        "to": "gene"
+    },
+    "express_in": {
+        "from": "gene",
+        "to": "cell_line_or_tissue"
+    },
+    "function_annotation": {
+        "from": "gene",
+        "to": "gene_ontology"
+    },
+    "include": {
+        "from": "transcript",
+        "to": "exon"
+    },
+    "ligand_receptor_pair": {
+        "from": "gene",
+        "to": "gene"
+    },
+    "mapping": {
+        "from": "ontology",
+        "to": "ontology"
+    },
+    "protein_interaction": {
+        "from": "gene",
+        "to": "gene"
+    },
+    "regulate": {
+        "from": "enhancer",
+        "to": "gene"
+    },
+    "replaced_by": {
+        "from": "ontology",
+        "to": "ontology"
+    },
+    "subclass_of": {
+        "from": "ontology",
+        "to": "ontology"
+    },
+    "transcribe_into": {
+        "from": "gene",
+        "to": "transcript"
+    },
+    "translate_into": {
+        "from": "transcript",
+        "to": "protein"
+    },
+    "downstream_of": {
+        "from": "~ontology",
+        "to": "~ontology"
+    },
+    "overlap": {
+        "from": "~ontology",
+        "to": "~ontology"
+    },
+    "locate_in": {
+        "from": "~ontology",
+        "to": "~ontology"
+    },
+    "upstream_of": {
+        "from": "~ontology",
+        "to": "~ontology"
+    },
+    "same_chr": {
+        "from": "~ontology",
+        "to": "~ontology"
+    }
+}
