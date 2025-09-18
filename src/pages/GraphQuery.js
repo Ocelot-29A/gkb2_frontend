@@ -11,6 +11,7 @@ import {
 } from 'react-redux';
 
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import ShareIcon from '@mui/icons-material/Share';
 import RedoIcon from '@mui/icons-material/Redo';
 import UndoIcon from '@mui/icons-material/Undo';
 import {
@@ -19,6 +20,7 @@ import {
     AccordionSummary,
     Box,
     Button,
+    IconButton,
     Stack,
     TextField,
     Typography,
@@ -47,6 +49,7 @@ import {
     updateNodePosition,
     updateViewport,
 } from '../redux/querySlice';
+import CloseIcon from '@mui/icons-material/Close';
 
 export const nodeAutoWidth = (node) => {
     const cxt = document.createElement('canvas').getContext("2d");
@@ -232,17 +235,15 @@ export default function QueryPage() {
         dragEdgeRef.current = dragEdge;
     }, [dragEdge]);
 
-    const [quickEdgeMode, setQuickEdgeMode] = useState(false);
+    const [edgeEditMode, setEdgeEditMode] = useState(false);
     const [sourceTarget, setSourceTarget] = useState({ source: null, target: null });
     useEffect(() => {
-        console.log(1);
         if (sourceTarget.isDrag) return;
-        console.log(2);
-        if (selected.length === 2 && selected[0].type === 'node' && selected[1].type === 'node') {
-            console.log(3);
+        if (selected.length === 1 && selected[0].type === 'node') {
+            setSourceTarget({ source: selected[0], target: null });
+        } else if (selected.length === 2 && selected[0].type === 'node' && selected[1].type === 'node') {
             setSourceTarget({ source: selected[0], target: selected[1] });
         } else {
-            console.log(4);
             setSourceTarget({ source: null, target: null });
         }
     }, [selected, sourceTarget.isDrag]);
@@ -546,11 +547,12 @@ export default function QueryPage() {
         }
     };
 
-    const handleAddEdge1 = (edgeLabel, nodeLabel) => {
-        if (selected.length !== 1 || selected[0].type !== 'node') return;
-        const nodeUid = dispatch(addNodeThunk({ ...defaultNode, label: nodeLabel }, findWithCenter(selected[0].position)));
-        dispatch(addEdgeThunk({ label: edgeLabel, source: selected[0].id, target: nodeUid }));
-        log(`Added edge "${edgeLabel}" from "${selected[0].label}" to new node "${nodeLabel}"`);
+    const handleAddEdge1 = (source, targetType, targetColor, type) => {
+        const sourceNode = cyRef.current.$id(source.id);
+        const nodeUid = dispatch(addNodeThunk({ ...defaultNode, nodeType: targetType, color: targetColor }, findWithCenter(sourceNode.position())));
+        // dispatch(addEdgeThunk({ label: edgeLabel, source: selected[0].id, target: nodeUid }));
+        dispatch(addEdgeThunk({ ...defaultEdge, edgeType: type, source: source.id, target: nodeUid }));
+        log(`Added edge "${type}" from "${getLabel(source)}" to new node "${typeToVisu(targetType)}"`);
         unselectAll();
     }
 
@@ -618,7 +620,7 @@ export default function QueryPage() {
         // setPopupOpen(true);
     }
 
-    function CyHandler({ cyRef, quickEdgeMode, sourceTarget }) {
+    function CyHandler({ cyRef, edgeEditMode, sourceTarget }) {
         const dispatch = useDispatch();
 
         // useEffect to toggle between quick edge mode and normal mode
@@ -761,7 +763,7 @@ export default function QueryPage() {
             };
             if (!cyRef.current) return;
             const cy = cyRef.current;
-            console.log("Binding events, quickEdgeMode:", quickEdgeMode);
+            console.log("Binding events, edgeEditMode:", edgeEditMode);
 
             cy.removeAllListeners(); // cleanup before re-binding
             bindSelectionHandlers();
@@ -769,7 +771,7 @@ export default function QueryPage() {
             bindViewportHandlers();
             bindPositionHandlers();
 
-            if (quickEdgeMode && !sourceTarget.isDrag) {
+            if (edgeEditMode && !sourceTarget.isDrag) {
                 cy.nodes().ungrabify();
                 bindDragEdgeHandlers();
             } else {
@@ -779,24 +781,23 @@ export default function QueryPage() {
             return () => {
                 cy.removeAllListeners();
             };
-        }, [cyRef, quickEdgeMode, dispatch, sourceTarget]);
+        }, [cyRef, edgeEditMode, dispatch, sourceTarget]);
 
         return <></>;
     }
 
     return (
-        <Box p={2}>
+        <Box sx={{px: '90px'}}>
             <Box>
                 <Stack spacing={1} direction="column">
                     <Stack spacing={1} direction="row">
-                        <Stack spacing={1} direction="column" flexGrow={1}>
-
-
+                        <Stack spacing={0} direction="column" flexGrow={1}>
                             <Box sx={{
-                                border: "1px solid #E5E7EB",
+                                border: edgeEditMode ? "2px solid #1A74FF" : "2px solid #E5E7EB",
                                 boxShadow: "0px 2px 12px 0px #00000014",
                                 borderRadius: "8px",
-                                overflow: 'hidden'
+                                overflow: 'hidden',
+                                position: 'relative'
                             }}>
                                 <Box sx={{ background: 'white', padding: '10px', height: '55px', borderBottom: '1px solid #E1E8ED', alignContent: 'center' }}>
                                     <Typography sx={{
@@ -820,6 +821,19 @@ export default function QueryPage() {
                                         right: 0,
                                     }}>
                                         <Stack spacing={1} direction="row">
+                                            <FunctionButton
+                                                onClick={() => setEdgeEditMode(!edgeEditMode)}
+                                                startIcon={<ShareIcon sx={{ color: "black" }} />}
+                                                sx={{
+                                                    backgroundColor: "#E2EEFF",
+                                                    border: edgeEditMode?"2px solid #1A74FF":"1px solid #D1D5DB",
+                                                    "&:hover": {
+                                                        backgroundColor: "#C8E7FF",
+                                                    }
+                                                }}
+                                                >
+                                                Add Edge
+                                            </FunctionButton>
                                             <AddNodeButton handleAddNode={handleAddNode} />
                                             <FunctionButton onClick={handleDelete} startIcon={<DeleteOutlineIcon />}>Delete</FunctionButton>
                                             <FunctionButton onClick={() => { log("Undo last action"); dispatch(undo()); unselectAll(); }} startIcon={<UndoIcon />}>Undo</FunctionButton>
@@ -851,9 +865,15 @@ export default function QueryPage() {
                                         <div
                                             style={{ padding: "5px 10px", cursor: "pointer" }}
                                             onClick={() => {
-                                                log(`Removed node: ${contextTapElement.id}`);
-                                                dispatch(removeNode(contextTapElement.id));
                                                 setMenuVisible(false);
+                                                if (!contextTapElement) return;
+                                                if (contextTapElement.type === 'edge') {
+                                                    log(`Removed edge: ${contextTapElement.id}`);
+                                                    dispatch(removeEdge(contextTapElement.id));
+                                                } else {
+                                                    log(`Removed node: ${contextTapElement.id}`);
+                                                    dispatch(removeNode(contextTapElement.id));
+                                                }
                                             }}
                                         >
                                             {`Remove ${contextTapElement.type === 'node' ? 'Node' : 'Edge'}`}
@@ -862,9 +882,8 @@ export default function QueryPage() {
                                 )}
                                 <Box id="cy-container" sx={{ height: '518px', padding: '10px', background: 'white' }}>
                                 </Box>
-                                <CyHandler id="cy-handler" cyRef={cyRef} quickEdgeMode={quickEdgeMode} sourceTarget={sourceTarget} />
-
-
+                                <CyHandler id="cy-handler" cyRef={cyRef} edgeEditMode={edgeEditMode} sourceTarget={sourceTarget} />
+                       
                                 {/* Node Label Modal */}
                                 {popupOpen && contextTapElement?.type === "node" && (
                                     <NodeLabelPopup
@@ -885,6 +904,42 @@ export default function QueryPage() {
                                     />
                                 )}
                             </Box>
+                            <Box sx={{ width: '100%', height: 0, position: 'relative'}}>
+                                <Box sx={{ 
+                                    width: 'calc(100% - 24px)', 
+                                    height: '25px', 
+                                    borderRadius: '8px',
+                                    px: '12px',
+                                    background: 'linear-gradient(180deg, #E2EEFF 0%, #D0EFFE 100%)', 
+                                    position: 'absolute', 
+                                    top: 0, 
+                                    left: 0,
+                                    transform: 'translateY(-25px)',
+                                    display: edgeEditMode ? 'flex' : 'none',
+                                    alignItems: 'center',
+                                }}>
+                                    <ShareIcon sx={{ fontSize: '18px', color: '#1C3C68' }} />
+                                    <Typography sx={{
+                                        fontFamily: "Inter",
+                                        fontSize: "14px",
+                                        color: "#1C3C68",
+                                        display: 'inline-block',
+                                        marginLeft: '8px'
+                                    }}>
+                                        Edge Addition Mode
+                                    </Typography>
+                                    <IconButton
+                                        onClick={() => setEdgeEditMode(false)}
+                                        sx={{
+                                            marginLeft: 'auto',
+                                            height: '18px',
+                                            width: '18px'
+                                        }}>
+                                        <CloseIcon sx={{ fontSize: '18px', color: '#1C3C68' }} />
+                                    </IconButton>
+                                </Box>
+                            </Box>
+
                             <Box sx={{
                                 background: 'white',
                                 height: '67px',
@@ -893,7 +948,8 @@ export default function QueryPage() {
                                 boxShadow: "0px 2px 12px 0px #00000014",
                                 borderRadius: "8px",
                                 flexGrow: 1,
-                                alignContent: "center"
+                                alignContent: "center",
+                                marginTop: '8px'
                             }}>
                                 <InfoPanel selected={selected} />
                             </Box>
@@ -901,8 +957,10 @@ export default function QueryPage() {
                         <BioEntityPanel
                             handleAddNode={handleAddNode}
                             handleAddEdge={handleAddEdge2}
+                            handleAddEdgeFrom={handleAddEdge1}
                             currSourceTarget={sourceTarget}
-                            handleChangeMode={setQuickEdgeMode}
+                            edgeEditMode={edgeEditMode}
+                            handleChangeMode={setEdgeEditMode}
                         />
                         {/* <Box sx={{ background: 'white', width: '300px', padding: '10px', borderRadius: '10px', border: '1px solid #7F7D7D' }}>
                             {panelMode === "editNode" &&

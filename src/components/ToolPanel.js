@@ -104,11 +104,19 @@ function typeIncludes(supertype, subtype) {
 }
 
 export function getEdges(nodeTypeFrom, nodeTypeTo) {
-  return Object.keys(EdgeSchema).filter((edgeType) => {
-    const edge = EdgeSchema[edgeType];
-    return typeIncludes(edge.from, nodeTypeFrom) &&
-      typeIncludes(edge.to, nodeTypeTo);
-  });
+  if (nodeTypeTo) {
+    return Object.keys(EdgeSchema).filter((edgeType) => {
+      const edge = EdgeSchema[edgeType];
+      return typeIncludes(edge.from, nodeTypeFrom) &&
+        typeIncludes(edge.to, nodeTypeTo);
+    }).map((edgeType) => ({ type: edgeType }));
+  }
+  else {
+    return Object.keys(EdgeSchema).filter((edgeType) => {
+      const edge = EdgeSchema[edgeType];
+      return typeIncludes(edge.from, nodeTypeFrom) && edge.to?.[0] !== '~';
+    }).map((edgeType) => ({ type: edgeType, to: EdgeSchema[edgeType].to }));
+  }
 }
 
 // Component
@@ -537,16 +545,7 @@ export function AddNodeButton({ handleAddNode }) {
 }
 
 
-export function BioEntityPanel({ handleAddNode, handleAddEdge, currSourceTarget, handleChangeMode }) {
-  const [tab, setTab] = useState(0);
-
-  useEffect(() => {
-    handleChangeMode(tab === 1);
-  }, [tab, handleChangeMode]);
-
-  const handleTabChange = (event, newValue) => {
-    setTab(newValue);
-  };
+export function BioEntityPanel({ handleAddNode, handleAddEdge, handleAddEdgeFrom, currSourceTarget, edgeEditMode, handleChangeMode }) {
 
   return (
     <>
@@ -573,34 +572,35 @@ export function BioEntityPanel({ handleAddNode, handleAddEdge, currSourceTarget,
       }}>
         {/* Tabs */}
         <Tabs
-          value={tab}
-          onChange={handleTabChange}
+          value={edgeEditMode ? 1 : 0}
+          onChange={(e, v) => handleChangeMode(v === 1)}
           centered
           variant="fullWidth"
           textColor="primary"
           indicatorColor="primary"
           sx={{
-            mb: 2,
             //make not chosen tab's background color light gray
             "& .MuiTab-root": {
-              backgroundColor: "#C8E7FF",
+              background: "#F8FAFC",
             },
             "& .Mui-selected": {
-              backgroundColor: "white",
-            },
+              background: "linear-gradient(180deg, #E2EEFF 0%, #D0EFFE 100%)",
+            }
+            , borderBottom: '1px solid #E2E8F0'
           }}
         >
           <Tab label="Add Node" disabled={currSourceTarget.isDrag} />
           <Tab label="Add Edge" />
         </Tabs>
 
+        <Box sx={{mt: 2, px: "20px", flex: 1, display: 'flex'}}>
         {/* Tab content */}
-        {tab === 0 && (
-          <Box sx={{ px: "20px" }}>
+        {!edgeEditMode && (
+          <Box>
             {/* Quick Add */}
             <Typography
               variant="subtitle1"
-              sx={{ fontWeight: 600, mt: 2, mb: 1 }}
+              sx={{ fontWeight: 600, mb: 1 }}
             >
               Quick Add Entity
             </Typography>
@@ -672,20 +672,22 @@ export function BioEntityPanel({ handleAddNode, handleAddEdge, currSourceTarget,
           </Box>
         )}
 
-        {tab === 1 && (
-          <Box sx={{ px: "20px" }}>
+        {edgeEditMode && (
+          <Box>
             <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-              Edge Content Placeholder
+              Create Edge
             </Typography>
             {
-              currSourceTarget.source && currSourceTarget.target ? (
+              // Source + Target selected
+              currSourceTarget.source ? (
                 <Box sx={{ mt: 2 }}>
                   <Typography variant="body1" sx={{ mb: 1 }}>
-                    Add edge from <strong>{getLabel(currSourceTarget.source)}</strong> to <strong>{getLabel(currSourceTarget.target)}</strong>
+                    Add edge from <strong>{getLabel(currSourceTarget.source)}</strong>
+                    {currSourceTarget.target ? <> to <strong>{getLabel(currSourceTarget.target)}</strong></> : null}
                   </Typography>
-                  {getEdges(currSourceTarget.source.nodeType, currSourceTarget.target.nodeType).length ? (
+                  {getEdges(currSourceTarget.source.nodeType, currSourceTarget.target?.nodeType).length ? (
                     <List dense>
-                      {getEdges(currSourceTarget.source.nodeType, currSourceTarget.target.nodeType).map((edgeType, i) => (
+                      {getEdges(currSourceTarget.source.nodeType, currSourceTarget.target?.nodeType).map(({type:edgeType, to}, i) => (
                         <ListItem
                           key={i}
                           sx={{
@@ -693,7 +695,7 @@ export function BioEntityPanel({ handleAddNode, handleAddEdge, currSourceTarget,
                             borderRadius: 2,
                             mb: 1,
                             py: 1,
-                            px: 2,
+                            px: to ? 1 : 2,
                             height: "40px",
                           }}
                         >
@@ -715,19 +717,18 @@ export function BioEntityPanel({ handleAddNode, handleAddEdge, currSourceTarget,
                                   sx={{
                                     fontSize: 14,
                                     fontWeight: 500,
-                                    ml: 1,
                                     whiteSpace: "nowrap",
                                     position: "absolute",
                                     left: "0",
                                   }}
                                 >
-                                  {"───────────────────▶"}
+                                  {to ? "──────────────▶" :"───────────────────▶"}
                                 </Typography>
                                 <Typography
                                   sx={{
                                     display: "flex",
                                     position: "absolute",
-                                    left: "37%",
+                                    left: to ? "25%" : "32%",
                                     transform: "translateX(-50%)",
                                     fontSize: 14,
                                     fontWeight: 500,
@@ -737,18 +738,52 @@ export function BioEntityPanel({ handleAddNode, handleAddEdge, currSourceTarget,
                                 >
                                   {typeToVisu(edgeType)}
                                 </Typography>
-
+                                <Box sx={{
+                                  position: "absolute", 
+                                  left: "71%",
+                                  transform: "translateX(-50%)",
+                                  display: "flex", 
+                                  alignItems: "center"
+                                  }}>
+                                  {to ? (
+                                    <Typography
+                                      sx={{
+                                        fontSize: 12,
+                                        fontWeight: 500,
+                                        ml: 1,
+                                        p: '2px 4px',
+                                        borderRadius: '8px',
+                                        border: '1px solid black',
+                                        whiteSpace: "nowrap",
+                                        backgroundColor: NodeColors[typeToTypeList(to)[0]] || "none",
+                                      }}
+                                    >
+                                      {typeToVisu(to)}
+                                    </Typography>
+                                  ) : null}
+                                </Box>
                               </Box>
                             }
                           />
-                          <ListItemSecondaryAction>
+                          <ListItemSecondaryAction sx={{ right: to ? '8px' : '16px' }}>
                             <IconButton edge="end" size="small" color="primary"
                               onClick={
-                                () => handleAddEdge(
-                                  currSourceTarget.source,
-                                  currSourceTarget.target,
-                                  edgeType
-                                )
+                                () => {
+                                  if (to) {
+                                    handleAddEdgeFrom(
+                                      currSourceTarget.source,
+                                      to,
+                                      NodeColors[typeToTypeList(to)[0]] || "white",
+                                      edgeType
+                                    );
+                                  } else {
+                                    handleAddEdge(
+                                      currSourceTarget.source,
+                                      currSourceTarget.target,
+                                      edgeType
+                                    );
+                                  }
+                                }
                               }>
                               <AddIcon />
                             </IconButton>
@@ -762,14 +797,17 @@ export function BioEntityPanel({ handleAddNode, handleAddEdge, currSourceTarget,
                     </Typography>
                   )}
                 </Box>
-              ) : (
-                <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                  No source or target selected.
-                </Typography>
-              )}
+              ) :
+                  // No source or target selected
+                  (
+                    <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                      No source or target selected.
+                    </Typography>
+                  )}
 
           </Box>
         )}
+        </Box>
       </Paper>
     </>
   );
