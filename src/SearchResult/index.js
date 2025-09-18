@@ -261,7 +261,7 @@ function SearchResult() {
         setCypherQuery(params.get('cypher_query') || '');
         dispatch(queryAddVirtualEdge({ cypher: params.get('cypher_query') || '' })).then((response) => {
             const data = response.payload || {};
-            dispatch(queryOnPrem({ cypher: data.cypher_virtual_edge })).then((onPremResponse) => {
+            dispatch(queryOnPrem({ query: data.cypher_virtual_edge })).then((onPremResponse) => {
                 console.log('onPremResponse', onPremResponse);
             });
         });
