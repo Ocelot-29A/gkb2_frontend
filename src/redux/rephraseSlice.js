@@ -5,13 +5,12 @@ import {
     createSlice,
 } from '@reduxjs/toolkit';
 import { QueryStatus } from '@reduxjs/toolkit/query';
+import { flaskBackendAxiosInstanceGKB2 } from '../axios/axios';
 
-export const queryRephrase = createAsyncThunk("/gkb_translator",
+export const queryRephrase = createAsyncThunk("/aiRephrase",
     async (payload) => {
-        return await axios.create({
-            baseURL: 'https://glkb.dcmb.med.umich.edu/api/external'
-        })
-            .get("/gkb_translator", { params: payload })
+        return await flaskBackendAxiosInstanceGKB2
+            .post("/aiRephrase", payload)
             .then((response) => response.data)
             .catch((response) => {
                 console.log(response);
@@ -29,7 +28,7 @@ export const queryRephrase = createAsyncThunk("/gkb_translator",
     });
 
 export const rephraseSlice = createSlice({
-    name: "gkb_translator",
+    name: "ai_rephrase",
     initialState: {
         rephrase: {},
         queryRephraseStatus: QueryStatus.uninitialized, // This is auto updated

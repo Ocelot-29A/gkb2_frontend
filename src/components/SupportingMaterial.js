@@ -101,12 +101,12 @@ export const AlertMessage = ({ type = "info", content, sx = {}, open = true, onC
 };
 
 export const LoadingMessage = ({ sx = {}, open = true, onClose = () => { }, onCancel = () => { } }) => {
-  const [duration, setDuration] = useState(5000);
+  const [duration, setDuration] = useState(10000);
   const [timer, setTimer] = useState(null);
   useEffect(() => {
     // when closed
     if (!open) {
-      setDuration(5000);
+      setDuration(10000);
       if (timer) {
         clearTimeout(timer);
       }

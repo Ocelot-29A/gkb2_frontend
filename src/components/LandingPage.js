@@ -124,14 +124,14 @@ function LandingPage() {
 
         //     }
         // });
-        dispatch(queryRephrase({ question: query })).then((res) => {
+        dispatch(queryRephrase({ text: query })).then((res) => {
             const response = res.payload;
             if (refCurrentQuery.current === query) {
                 if (!response.in_scope) {
                     setShowWarning("Question is out of scope.");
                     return;
                 }
-                navigate(`/match?input=${encodeURIComponent(query)}&cypher_query=${encodeURIComponent(response.cypher_query)}&question=${encodeURIComponent(response.rephrase)}`);
+                navigate(`/match?input=${encodeURIComponent(response.original_question)}&cypher_query=${encodeURIComponent(response.cypher_query)}&question=${encodeURIComponent(response.rephrase)}`);
                 // dispatch(queryCypherToGraph(response.cypher_query)).then((res) => {
                 //     const response2 = res.payload;
                 //     console.log("Rephrase response:", response);

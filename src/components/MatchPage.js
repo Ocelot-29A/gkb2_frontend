@@ -729,8 +729,8 @@ function MatchPage() {
       console.log("input:", input);
       //const styledInput = input.replace(/\(([^)]+)\)/g, (match, p1) => <span style={{ color: '#3872f6' }}>({p1})</span>);
       const styledInput =
-        input.split(/(\s+|\{.*?\}|\(.*?\))/).map((part, index) => {
-          if (part.startsWith('(') && part.endsWith(')')) {
+        input.split(/([^{]+|\{.*?\})/).map((part, index) => {
+          if (part.startsWith('{') && part.endsWith('}')) {
             return <span key={index} style={{ color: '#3872f6' }}>{part.slice(1, -1)}</span>;
           }
           return part;
