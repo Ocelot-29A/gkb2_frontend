@@ -211,6 +211,7 @@ export default function QueryPage() {
     const [menuVisible, setMenuVisible] = useState(false);
     const [contextTapElement, setContextTapElement] = useState(null);
     const [contextEdgeTypes, setContextEdgeTypes] = useState({});
+    const [contextNodeTypes, setContextNodeTypes] = useState({});
 
     // ========== Drag to add edge states ==========
     const [dragFrom, setDragFrom] = useState(null);
@@ -292,8 +293,19 @@ export default function QueryPage() {
                 sourceType: cyRef.current.$id(element.data().source).data().nodeType || "Entity",
                 targetType: cyRef.current.$id(element.data().target).data().nodeType || "Entity"
             });
+            setContextNodeTypes({});
         } else {
             setContextEdgeTypes({});
+            setContextNodeTypes({
+                inEdgeTypes: edges
+                    .filter(e => e.data.target === element.id())
+                    .map(e => e.data.edgeType || null).filter((e) => e !== null)
+                    .filter((value, index, self) => self.indexOf(value) === index),
+                outEdgeTypes: edges
+                    .filter(e => e.data.source === element.id())
+                    .map(e => e.data.edgeType || null).filter((e) => e !== null)
+                    .filter((value, index, self) => self.indexOf(value) === index),
+            });
         }
         setMenuPos({ x, y });
         setMenuVisible(true);
@@ -858,6 +870,7 @@ export default function QueryPage() {
                                     <NodeLabelPopup
                                         open={popupOpen && contextTapElement?.type === "node"}
                                         cyEle={contextTapElement}
+                                        nodeTypes={contextNodeTypes}
                                         onClose={() => setPopupOpen(false)}
                                         onConfirm={handleConfirm}
                                     />

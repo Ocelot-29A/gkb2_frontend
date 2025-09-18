@@ -112,7 +112,7 @@ export function getEdges(nodeTypeFrom, nodeTypeTo) {
 }
 
 // Component
-export default function NodeTypeSelector({ superType, handleChangeType, defaultType }) {
+export default function NodeTypeSelector({ superType, handleChangeType, defaultType, typeConstraint = [] }) {
   const [selected, setSelected] = useState(defaultType);
   const [openNodes, setOpenNodes] = useState({}); // track open/close per node
 
@@ -139,6 +139,7 @@ export default function NodeTypeSelector({ superType, handleChangeType, defaultT
   const renderNode = (node, indent = 0) => {
     const hasChildren = node.children && node.children.length > 0;
     const isOpen = !!openNodes[node.label];
+    const disabled = typeConstraint.map(t => typeIncludes(t, node.label)).includes(false);
 
     return (
       <Box key={node.label}>
@@ -153,8 +154,9 @@ export default function NodeTypeSelector({ superType, handleChangeType, defaultT
             onChange={() => handleSelect(node.label)}
             icon={<RadioButtonUncheckedIcon />}
             checkedIcon={<CheckCircleIcon />}
+            disabled={disabled}
           />
-          <Typography>{typeToVisu(node.label)}</Typography>
+          <Typography sx={{ color: disabled ? 'text.disabled' : 'text.primary' }}>{typeToVisu(node.label)}</Typography>
         </Box>
         {hasChildren && (
           <Collapse in={isOpen} timeout="auto" unmountOnExit>
@@ -168,11 +170,26 @@ export default function NodeTypeSelector({ superType, handleChangeType, defaultT
   return <Box>{renderNode(rootNode)}</Box>;
 }
 
-export function NodeLabelPopup({ open, cyEle, onClose, onConfirm }) {
+export function NodeLabelPopup({ open, cyEle, nodeTypes, onClose, onConfirm }) {
   const [inputProperty, setInputProperty] = useState({
     label: cyEle?.label || "",
     _label: cyEle?._label || "",
   });
+
+  const [typeConstraint, setTypeConstraint] = useState([]);
+  useEffect(() => {
+    if (nodeTypes) {
+      const types =
+        [
+          ...nodeTypes.inEdgeTypes.map(et => EdgeSchema[et]?.to).filter(t => !!t),
+          ...nodeTypes.outEdgeTypes.map(et => EdgeSchema[et]?.from).filter(t => !!t),
+        ]
+          .filter((value, index, self) => self.indexOf(value) === index);
+      setTypeConstraint(types);
+    } else {
+      setTypeConstraint([]);
+    }
+  }, [nodeTypes]);
 
   // Update input when cyEle changes
   React.useEffect(() => {
@@ -203,7 +220,7 @@ export function NodeLabelPopup({ open, cyEle, onClose, onConfirm }) {
         </DialogContentText>
         <NodeTypeSelector superType={superType} defaultType={cyEle?.nodeType} handleChangeType={(newType) => {
           setInputProperty((prev) => ({ ...prev, nodeType: newType }));
-        }} />
+        }} typeConstraint={typeConstraint} />
         <DialogContentText>
           Edit the name of the node. (WIP)
         </DialogContentText>

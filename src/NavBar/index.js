@@ -29,7 +29,7 @@ function NavBar() {
     },
     {
       label: 'Advanced Query',
-      link: '/'
+      link: '/graphquery'
     },
     {
       label: 'API',
