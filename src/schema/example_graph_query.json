@@ -1,0 +1,35 @@
+﻿[
+  {
+    "nodes": [
+      {
+        "identity": "aaa",
+        "labels": [
+          "sequence_variant",
+          "variants"
+        ],
+        "properties": {
+          "end_loc": 120000000,
+          "start_loc": 121000000
+        }
+      },
+      {
+        "identity": "bbb",
+        "labels": [
+          "gene_ontology",
+          "ontology"
+        ],
+        "properties": {
+          "id": "GO_0006954"
+        }
+      }
+    ],
+    "edges": [
+      {
+        "identity": "ccc",
+        "start": "aaa",
+        "end": "bbb",
+        "type": "GWAS_association"
+      }
+    ]
+  }
+]

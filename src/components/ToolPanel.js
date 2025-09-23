@@ -179,6 +179,7 @@ export function NodeLabelPopup({ open, cyEle, nodeTypes, onClose, onConfirm }) {
     nodeId: cyEle?.nodeId || "",
     name: cyEle?.name || "",
   });
+  const [nodeMode, setNodeMode] = useState('none'); // 'none', 'id', 'loc'
 
   const [typeConstraint, setTypeConstraint] = useState([]);
   useEffect(() => {
@@ -213,14 +214,24 @@ export function NodeLabelPopup({ open, cyEle, nodeTypes, onClose, onConfirm }) {
         nodeId: cyEle?.nodeId || "",
         name: cyEle?.name || "",
       });
+      setNodeMode(
+        (cyEle?.nodeId || cyEle?.name) ? 'id' :
+          (cyEle?.start_loc || cyEle?.end_loc) ? 'loc' : 'none'
+      );
     }
   }, [cyEle, open]);
 
   const handleConfirm = () => {
+    const { nodeId, name, start_loc, end_loc, ...rest } = inputProperty;
+    const { nodeId: nodeIdOld, name: nameOld, start_loc: startLocOld, end_loc: endLocOld, ...restOld } = cyEle || {};
     const newNode = {
-      ...cyEle,
-      ...inputProperty
+      ...restOld,
+      ...rest,
+      ...(nodeMode === 'id' ? { nodeId: nodeId, name: name } : { nodeId: '', name: '' }),
+      ...((nodeMode === 'loc' && start_loc) ? { start_loc: Number(start_loc) } : { start_loc: '' }),
+      ...((nodeMode === 'loc' && end_loc) ? { end_loc: Number(end_loc) } : { end_loc: '' }),
     };
+    console.log('Confirm node edit:', newNode);
     onConfirm(newNode);
   };
 
@@ -243,28 +254,68 @@ export function NodeLabelPopup({ open, cyEle, nodeTypes, onClose, onConfirm }) {
             }
           }
         } typeConstraint={typeConstraint} />
-        <DialogContentText>
-          Edit the name of the node. (WIP)
-        </DialogContentText>
-        <InputComponent
-          key="input-component"
-          type={nodeTypeChosen}
-          setTermString={setTermString}
-          setInputStatus={setInputStatus}
-          disabled={false}
-          clearTrigger={clearTrigger}
-          defaultValue={cyEle?.name || cyEle?.nodeId || ''}
-          sx={inputSx}
-        />
-        <FunctionButton
-          sx={{ height: '30px' }}
-          onClick={setClearTrigger.bind(this, clearTrigger + 1)}
-        >
-          Clear Input
-        </FunctionButton>
-        <Typography sx={{ mt: 2, fontSize: '14px', color: inputStatus === 'valid' ? 'green' : inputStatus === 'invalid' ? 'red' : 'black' }}>
-          {inputStatus === 'valid' ? 'Valid input' : inputStatus === 'invalid' ? 'Invalid input' : 'Please enter a valid identifier'}
-        </Typography>
+        <Box sx={{
+          width: 'calc(100% - 42px)',
+          padding: '10px 20px',
+          marginTop: '20px',
+          border: '1px solid #E5E7EB',
+        }}>
+          <DialogContentText>
+            <Checkbox
+              checked={nodeMode === 'id'}
+              onChange={() => setNodeMode(nodeMode === 'id' ? 'none' : 'id')}
+              icon={<RadioButtonUncheckedIcon />}
+              checkedIcon={<CheckCircleIcon />}
+            />
+            Edit the name of the node. (WIP)
+          </DialogContentText>
+          <InputComponent
+            key="input-component"
+            type={nodeTypeChosen}
+            setTermString={setTermString}
+            setInputStatus={setInputStatus}
+            disabled={nodeMode !== 'id'}
+            clearTrigger={clearTrigger}
+            defaultValue={cyEle?.name || cyEle?.nodeId || ''}
+            sx={inputSx}
+          />
+          <FunctionButton
+            sx={{ height: '30px' }}
+            onClick={setClearTrigger.bind(this, clearTrigger + 1)}
+          >
+            Clear Input
+          </FunctionButton>
+          <Typography sx={{ mt: 2, fontSize: '14px', color: inputStatus === 'valid' ? 'green' : inputStatus === 'invalid' ? 'red' : 'black' }}>
+            {inputStatus === 'valid' ? 'Valid input' : inputStatus === 'invalid' ? 'Invalid input' : 'Please enter a valid identifier'}
+          </Typography>
+          <DialogContentText>
+            <Checkbox
+              checked={nodeMode === 'loc'}
+              onChange={() => setNodeMode(nodeMode === 'loc' ? 'none' : 'loc')}
+              icon={<RadioButtonUncheckedIcon />}
+              checkedIcon={<CheckCircleIcon />}
+            />
+            Edit the location of the node. (WIP)
+          </DialogContentText>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Start Location"
+            type="text"
+            fullWidth
+            value={inputProperty.start_loc}
+            onChange={(e) => setInputProperty((prev) => ({ ...prev, start_loc: e.target.value.replace(/[^0-9]/g, "") }))}
+          />
+          <TextField
+            autoFocus
+            margin="dense"
+            label="End Location"
+            type="text"
+            fullWidth
+            value={inputProperty.end_loc}
+            onChange={(e) => setInputProperty((prev) => ({ ...prev, end_loc: e.target.value.replace(/[^0-9]/g, "") }))}
+          />
+        </Box>
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose} color="secondary">

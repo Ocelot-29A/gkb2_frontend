@@ -1,0 +1,58 @@
+﻿[
+  {
+    "nodes": [
+      {
+        "identity": 33709732,
+        "labels": [
+          "sequence_variant",
+          "variants"
+        ],
+        "properties": {
+          "end_loc": 120951160,
+          "data_version": "2021-08-05",
+          "link": "https://www.ebi.ac.uk/gwas/search?query=rs2650000",
+          "start_loc": 120951159,
+          "id": "rs2650000",
+          "chr": "12",
+          "data_source": "GWAS_Catalog",
+          "source_file": "GWAS-SNP_trait.txt.node.csv"
+        },
+        "elementId": "4:4ca9a7b0-e44a-44b4-bb5c-e54df9992598:33709732"
+      },
+      {
+        "identity": 31793697,
+        "labels": [
+          "gene_ontology",
+          "ontology"
+        ],
+        "properties": {
+          "id": "GO_0006954"
+        },
+        "elementId": "4:4ca9a7b0-e44a-44b4-bb5c-e54df9992598:31793697"
+      }
+    ],
+    "edges": [
+      {
+        "identity": 297539059,
+        "start": 33709732,
+        "end": 31793697,
+        "type": "GWAS_association",
+        "properties": {
+          "risk_allele": "A",
+          "pubmed_id": "19060910",
+          "risk_frequency": "0.45",
+          "mlog_pvalue": "10.522878745280336",
+          "data_version": "2021-08-05",
+          "intergenic": "False",
+          "context": "intron_variant",
+          "accession": "GCST000292",
+          "data_source": "GWAS_Catalog",
+          "source_file": "GWAS-SNP_trait.txt.edge.csv"
+        },
+        "elementId": "5:4ca9a7b0-e44a-44b4-bb5c-e54df9992598:297539059",
+        "startNodeElementId": "4:4ca9a7b0-e44a-44b4-bb5c-e54df9992598:33709732",
+        "endNodeElementId": "4:4ca9a7b0-e44a-44b4-bb5c-e54df9992598:31793697"
+      }
+    ]
+  }
+]
