@@ -180,9 +180,11 @@ export function NodeLabelPopup({ open, cyEle, nodeTypes, onClose, onConfirm }) {
     name: cyEle?.name || "",
   });
   const [nodeMode, setNodeMode] = useState('none'); // 'none', 'id', 'loc'
+  const [errorMessage, setErrorMessage] = useState('');
 
   const [typeConstraint, setTypeConstraint] = useState([]);
   useEffect(() => {
+    setErrorMessage('');
     if (nodeTypes) {
       const types =
         [
@@ -197,6 +199,7 @@ export function NodeLabelPopup({ open, cyEle, nodeTypes, onClose, onConfirm }) {
   }, [nodeTypes]);
 
   useEffect(() => {
+    setErrorMessage('');
     if (!termString) {
       setInputProperty({ nodeType: nodeTypeChosen, nodeId: '', name: '' });
       return;
@@ -209,6 +212,7 @@ export function NodeLabelPopup({ open, cyEle, nodeTypes, onClose, onConfirm }) {
   // Update input when cyEle changes
   React.useEffect(() => {
     if (cyEle) {
+      setErrorMessage('');
       setInputProperty({
         nodeType: cyEle?.nodeType || "",
         nodeId: cyEle?.nodeId || "",
@@ -232,7 +236,16 @@ export function NodeLabelPopup({ open, cyEle, nodeTypes, onClose, onConfirm }) {
       ...((nodeMode === 'loc' && end_loc) ? { end_loc: Number(end_loc) } : { end_loc: '' }),
     };
     console.log('Confirm node edit:', newNode);
-    onConfirm(newNode);
+    if (
+      (nodeMode === 'id' && !nodeId) ||
+      (nodeMode === 'loc' && (!start_loc && !end_loc))
+    ) {
+      setErrorMessage('Missing required fields');
+    } else {
+      setErrorMessage('');
+      onConfirm(newNode);
+      onClose();
+    }
   };
 
   const superType = typeToTypeList(cyEle?.nodeType || "")[0] || "Entity";
@@ -288,33 +301,39 @@ export function NodeLabelPopup({ open, cyEle, nodeTypes, onClose, onConfirm }) {
           <Typography sx={{ mt: 2, fontSize: '14px', color: inputStatus === 'valid' ? 'green' : inputStatus === 'invalid' ? 'red' : 'black' }}>
             {inputStatus === 'valid' ? 'Valid input' : inputStatus === 'invalid' ? 'Invalid input' : 'Please enter a valid identifier'}
           </Typography>
-          <DialogContentText>
-            <Checkbox
-              checked={nodeMode === 'loc'}
-              onChange={() => setNodeMode(nodeMode === 'loc' ? 'none' : 'loc')}
-              icon={<RadioButtonUncheckedIcon />}
-              checkedIcon={<CheckCircleIcon />}
+          {/* Edit location */}
+          {superType !== "ontology" && <>
+            <DialogContentText>
+              <Checkbox
+                checked={nodeMode === 'loc'}
+                onChange={() => setNodeMode(nodeMode === 'loc' ? 'none' : 'loc')}
+                icon={<RadioButtonUncheckedIcon />}
+                checkedIcon={<CheckCircleIcon />}
+              />
+              Edit the location of the node. (WIP)
+            </DialogContentText>
+            <TextField
+              autoFocus
+              margin="dense"
+              label="Start Location"
+              type="text"
+              fullWidth
+              value={inputProperty.start_loc}
+              disabled={nodeMode !== 'loc'}
+              onChange={(e) => setInputProperty((prev) => ({ ...prev, start_loc: e.target.value.replace(/[^0-9]/g, "") }))}
             />
-            Edit the location of the node. (WIP)
-          </DialogContentText>
-          <TextField
-            autoFocus
-            margin="dense"
-            label="Start Location"
-            type="text"
-            fullWidth
-            value={inputProperty.start_loc}
-            onChange={(e) => setInputProperty((prev) => ({ ...prev, start_loc: e.target.value.replace(/[^0-9]/g, "") }))}
-          />
-          <TextField
-            autoFocus
-            margin="dense"
-            label="End Location"
-            type="text"
-            fullWidth
-            value={inputProperty.end_loc}
-            onChange={(e) => setInputProperty((prev) => ({ ...prev, end_loc: e.target.value.replace(/[^0-9]/g, "") }))}
-          />
+            <TextField
+              autoFocus
+              margin="dense"
+              label="End Location"
+              type="text"
+              fullWidth
+              value={inputProperty.end_loc}
+              disabled={nodeMode !== 'loc'}
+              onChange={(e) => setInputProperty((prev) => ({ ...prev, end_loc: e.target.value.replace(/[^0-9]/g, "") }))}
+            />
+          </>}
+          {errorMessage && <Typography sx={{ mt: 2, fontSize: '14px', color: 'red' }}>{errorMessage}</Typography>}
         </Box>
       </DialogContent>
       <DialogActions>
@@ -324,7 +343,6 @@ export function NodeLabelPopup({ open, cyEle, nodeTypes, onClose, onConfirm }) {
         <Button
           onClick={() => {
             handleConfirm();
-            onClose();
           }}
           color="primary"
         >
