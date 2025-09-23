@@ -559,9 +559,12 @@ export default function QueryPage() {
 
     const handleAddEdge2 = (source, target, type) => {
         if (sourceTarget.isDrag) {
-            cyRef.current.$id(dragEdge).remove();
+            cyRef.current.$id(dragEdge)?.remove();
             setDragEdge(null);
             setSourceTarget({ source: null, target: null });
+            if (!source || !target || source.id === target.id) {
+                return;
+            }
         }
         dispatch(addEdgeThunk({ ...defaultEdge, edgeType: type, source: source.id, target: target.id }));
         log(`Added edge "${type}" from "${getLabel(source)}" to "${getLabel(target)}"`);
@@ -812,8 +815,9 @@ export default function QueryPage() {
         <Box sx={{ px: '90px' }}>
             <Box>
                 <Stack spacing={1} direction="column">
-                    <Stack spacing={1} direction="row">
-                        <Stack spacing={0} direction="column" flexGrow={1}>
+                    <Stack spacing={1} direction="row" sx={{ alignItems: 'stretch' }}>
+                        {/* Left Content Area */}
+                        <Stack spacing={0} direction="column" flexGrow={1} sx={{ width: 'calc(100% - 340px)' }}>
                             <Box sx={{
                                 border: edgeEditMode ? "2px solid #1A74FF" : "2px solid #E5E7EB",
                                 boxShadow: "0px 2px 12px 0px #00000014",
@@ -976,6 +980,7 @@ export default function QueryPage() {
                                 <InfoPanel selected={selected} />
                             </Box>
                         </Stack>
+                        {/* Right Panel */}
                         <BioEntityPanel
                             handleAddNode={handleAddNode}
                             handleAddEdge={handleAddEdge2}

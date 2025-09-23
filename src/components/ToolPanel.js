@@ -11,6 +11,7 @@ import {
 } from '@mui/icons-material';
 import AddIcon from '@mui/icons-material/Add';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
 import {
   Box,
@@ -629,9 +630,19 @@ export function AddNodeButton({ handleAddNode }) {
 
 
 export function BioEntityPanel({ handleAddNode, handleAddEdge, handleAddEdgeFrom, currSourceTarget, edgeEditMode, handleChangeMode }) {
+  const [edgeList, setEdgeList] = useState([]);
+
+  useEffect(() => {
+    if (currSourceTarget?.source?.nodeType) {
+      const edges = getEdges(currSourceTarget?.source?.nodeType, currSourceTarget?.target?.nodeType);
+      setEdgeList(edges);
+    }
+  }, [currSourceTarget]);
 
   return (
-    <>
+    <div style={{
+      width: '340px', display: 'flex', height: '-webkit-fill-available', flexGrow: 1
+    }}>
       <div style={{
         position: 'absolute',
         top: 0,
@@ -665,6 +676,7 @@ export function BioEntityPanel({ handleAddNode, handleAddEdge, handleAddEdgeFrom
             //make not chosen tab's background color light gray
             "& .MuiTab-root": {
               background: "#F8FAFC",
+              height: '50px',
             },
             "& .Mui-selected": {
               background: "linear-gradient(180deg, #E2EEFF 0%, #D0EFFE 100%)",
@@ -676,7 +688,7 @@ export function BioEntityPanel({ handleAddNode, handleAddEdge, handleAddEdgeFrom
           <Tab label="Add Edge" />
         </Tabs>
 
-        <Box sx={{ mt: 2, px: "20px", flex: 1, display: 'flex' }}>
+        <Box sx={{ mt: 2, px: "20px", flex: 1, display: 'flex', width: 'calc(100% - 40px)', height: 'calc(100% - 74px)', overflowY: 'auto' }}>
           {/* Tab content */}
           {!edgeEditMode && (
             <Box>
@@ -756,130 +768,140 @@ export function BioEntityPanel({ handleAddNode, handleAddEdge, handleAddEdgeFrom
           )}
 
           {edgeEditMode && (
-            <Box>
+            <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column' }}>
               <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
                 Create Edge
               </Typography>
               {
                 // Source + Target selected
                 currSourceTarget.source ? (
-                  <Box sx={{ mt: 2 }}>
-                    <Typography variant="body1" sx={{ mb: 1 }}>
-                      Add edge from <strong>{getLabel(currSourceTarget.source)}</strong>
-                      {currSourceTarget.target ? <> to <strong>{getLabel(currSourceTarget.target)}</strong></> : null}
-                    </Typography>
-                    {getEdges(currSourceTarget.source.nodeType, currSourceTarget.target?.nodeType).length ? (
-                      <List dense>
-                        {getEdges(currSourceTarget.source.nodeType, currSourceTarget.target?.nodeType).map(({ type: edgeType, to }, i) => (
-                          <ListItem
-                            key={i}
-                            sx={{
-                              backgroundColor: "white",
-                              borderRadius: 2,
-                              mb: 1,
-                              py: 1,
-                              px: to ? 1 : 2,
-                              height: "40px",
-                            }}
-                          >
-                            <ListItemText
-                              primary={
-                                <Box
-                                  sx={{
-                                    display: "flex",
-                                    position: "relative",
-                                    alignItems: "center",
-                                    backgroundColor: "white", // prevent interference
-                                    px: 1,
-                                    py: 0.5,
-                                    borderRadius: 1,
-                                    minWidth: 200, // longer width
-                                  }}
-                                >
-                                  <Typography
-                                    sx={{
-                                      fontSize: 14,
-                                      fontWeight: 500,
-                                      whiteSpace: "nowrap",
-                                      position: "absolute",
-                                      left: "0",
-                                    }}
-                                  >
-                                    {to ? "──────────────▶" : "───────────────────▶"}
-                                  </Typography>
-                                  <Typography
+                  <>
+                    <Box sx={{ mt: 2 }}>
+                      <Typography variant="body1" sx={{ mb: 1 }}>
+                        Add edge from <strong>{getLabel(currSourceTarget.source)}</strong>
+                        {currSourceTarget.target ? <> to <strong>{getLabel(currSourceTarget.target)}</strong></> : null}
+                      </Typography>
+                      {edgeList.length ? (
+                        <List dense>
+                          {edgeList.map(({ type: edgeType, to }, i) => (
+                            <ListItem
+                              key={i}
+                              sx={{
+                                backgroundColor: "white",
+                                borderRadius: 2,
+                                mb: 1,
+                                py: 1,
+                                px: to ? 1 : 2,
+                                height: "40px",
+                              }}
+                            >
+                              <ListItemText
+                                primary={
+                                  <Box
                                     sx={{
                                       display: "flex",
-                                      position: "absolute",
-                                      left: to ? "25%" : "32%",
-                                      transform: "translateX(-50%)",
-                                      fontSize: 14,
-                                      fontWeight: 500,
-                                      flexGrow: 1,
-                                      backgroundColor: "white"
+                                      position: "relative",
+                                      alignItems: "center",
+                                      backgroundColor: "white", // prevent interference
+                                      px: 1,
+                                      py: 0.5,
+                                      borderRadius: 1,
+                                      minWidth: 200, // longer width
                                     }}
                                   >
-                                    {typeToVisu(edgeType)}
-                                  </Typography>
-                                  <Box sx={{
-                                    position: "absolute",
-                                    left: "71%",
-                                    transform: "translateX(-50%)",
-                                    display: "flex",
-                                    alignItems: "center"
-                                  }}>
-                                    {to ? (
-                                      <Typography
-                                        sx={{
-                                          fontSize: 12,
-                                          fontWeight: 500,
-                                          ml: 1,
-                                          p: '2px 4px',
-                                          borderRadius: '8px',
-                                          border: '1px solid black',
-                                          whiteSpace: "nowrap",
-                                          backgroundColor: NodeColors[typeToTypeList(to)[0]] || "none",
-                                        }}
-                                      >
-                                        {typeToVisu(to)}
-                                      </Typography>
-                                    ) : null}
+                                    <Typography
+                                      sx={{
+                                        fontSize: 14,
+                                        fontWeight: 500,
+                                        whiteSpace: "nowrap",
+                                        position: "absolute",
+                                        left: "0",
+                                      }}
+                                    >
+                                      {to ? "──────────────▶" : "───────────────────▶"}
+                                    </Typography>
+                                    <Typography
+                                      sx={{
+                                        display: "flex",
+                                        position: "absolute",
+                                        left: to ? "25%" : "32%",
+                                        transform: "translateX(-50%)",
+                                        fontSize: 14,
+                                        fontWeight: 500,
+                                        flexGrow: 1,
+                                        backgroundColor: "white"
+                                      }}
+                                    >
+                                      {typeToVisu(edgeType)}
+                                    </Typography>
+                                    <Box sx={{
+                                      position: "absolute",
+                                      left: "71%",
+                                      transform: "translateX(-50%)",
+                                      display: "flex",
+                                      alignItems: "center"
+                                    }}>
+                                      {to ? (
+                                        <Typography
+                                          sx={{
+                                            fontSize: 12,
+                                            fontWeight: 500,
+                                            ml: 1,
+                                            p: '2px 4px',
+                                            borderRadius: '8px',
+                                            border: '1px solid black',
+                                            whiteSpace: "nowrap",
+                                            backgroundColor: NodeColors[typeToTypeList(to)[0]] || "none",
+                                          }}
+                                        >
+                                          {typeToVisu(to)}
+                                        </Typography>
+                                      ) : null}
+                                    </Box>
                                   </Box>
-                                </Box>
-                              }
-                            />
-                            <ListItemSecondaryAction sx={{ right: to ? '8px' : '16px' }}>
-                              <IconButton edge="end" size="small" color="primary"
-                                onClick={
-                                  () => {
-                                    if (to) {
-                                      handleAddEdgeFrom(
-                                        currSourceTarget.source,
-                                        to,
-                                        NodeColors[typeToTypeList(to)[0]] || "white",
-                                        edgeType
-                                      );
-                                    } else {
-                                      handleAddEdge(
-                                        currSourceTarget.source,
-                                        currSourceTarget.target,
-                                        edgeType
-                                      );
+                                }
+                              />
+                              <ListItemSecondaryAction sx={{ right: to ? '8px' : '16px' }}>
+                                <IconButton edge="end" size="small" color="primary"
+                                  onClick={
+                                    () => {
+                                      if (to) {
+                                        handleAddEdgeFrom(
+                                          currSourceTarget.source,
+                                          to,
+                                          NodeColors[typeToTypeList(to)[0]] || "white",
+                                          edgeType
+                                        );
+                                      } else {
+                                        handleAddEdge(
+                                          currSourceTarget.source,
+                                          currSourceTarget.target,
+                                          edgeType
+                                        );
+                                      }
                                     }
-                                  }
-                                }>
-                                <AddIcon />
-                              </IconButton>
-                            </ListItemSecondaryAction>
-                          </ListItem>
-                        ))}
-                      </List>
-                    ) : (
-                      <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                        No edges available.
-                      </Typography>
-                    )}
-                  </Box>
+                                  }>
+                                  <AddIcon />
+                                </IconButton>
+                              </ListItemSecondaryAction>
+                            </ListItem>
+                          ))}
+                        </List>
+                      ) : (
+                        <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                          No edges available.
+                        </Typography>
+                      )}
+
+                    </Box>
+                    {currSourceTarget.isDrag && <FunctionButton
+                      startIcon={<DeleteOutlineIcon />}
+                      sx={{ mt: 'auto', mb: '10px', width: '100%' }}
+                      onClick={() => handleAddEdge(null, null, null)}
+                    >
+                      Discard Edge Creation
+                    </FunctionButton>}
+                  </>
                 ) :
                   // No source or target selected
                   (
@@ -892,7 +914,7 @@ export function BioEntityPanel({ handleAddNode, handleAddEdge, handleAddEdgeFrom
           )}
         </Box>
       </Paper>
-    </>
+    </div>
   );
 }
 
