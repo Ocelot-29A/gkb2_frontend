@@ -41,6 +41,7 @@ import {
 import EdgeSchema from '../schema/clean_edge_schema.json';
 import NodeSchema from '../schema/clean_node_schema.json';
 import NodeColors from '../schema/node_color.json';
+import { InputComponent } from './MatchPage';
 
 // Utility functions
 export const getLabel = (data) => {
@@ -120,28 +121,18 @@ export function getEdges(nodeTypeFrom, nodeTypeTo) {
 }
 
 // Component
-export default function NodeTypeSelector({ superType, handleChangeType, defaultType, typeConstraint = [] }) {
-  const [selected, setSelected] = useState(defaultType);
+export default function NodeTypeSelector({ superType, handleChangeType, nodeType, typeConstraint = [] }) {
   const [openNodes, setOpenNodes] = useState({}); // track open/close per node
 
   useEffect(() => {
-    setSelected(defaultType);
-    setOpenNodes(Object.fromEntries(typeToTypeList(defaultType).slice(0, -1).map(t => [t, true])));
-  }, [defaultType]);
-
-  useEffect(() => {
-    handleChangeType(selected);
-  }, [selected, handleChangeType]);
+    setOpenNodes(Object.fromEntries(typeToTypeList(nodeType).slice(0, -1).map(t => [t, true])));
+  }, [nodeType]);
 
   const rootNode = NodeSchema.children.find(c => c.label === superType);
   if (!rootNode) return <Typography>Invalid type: {superType}</Typography>;
 
   const handleToggle = (label) => {
     setOpenNodes(prev => ({ ...prev, [label]: !prev[label] }));
-  };
-
-  const handleSelect = (label) => {
-    setSelected(label);
   };
 
   const renderNode = (node, indent = 0) => {
@@ -158,8 +149,8 @@ export default function NodeTypeSelector({ superType, handleChangeType, defaultT
             </IconButton>
           ) : <Box sx={{ width: 34 }} />} {/* Placeholder for alignment */}
           <Checkbox
-            checked={selected === node.label}
-            onChange={() => handleSelect(node.label)}
+            checked={nodeType === node.label}
+            onChange={() => handleChangeType(node.label)}
             icon={<RadioButtonUncheckedIcon />}
             checkedIcon={<CheckCircleIcon />}
             disabled={disabled}
@@ -179,10 +170,16 @@ export default function NodeTypeSelector({ superType, handleChangeType, defaultT
 }
 
 export function NodeLabelPopup({ open, cyEle, nodeTypes, onClose, onConfirm }) {
+  const [inputStatus, setInputStatus] = useState('initial');
+  const [clearTrigger, setClearTrigger] = useState(0);
+  const [termString, setTermString] = useState('');
+  const [nodeTypeChosen, setNodeTypeChosen] = useState(cyEle?.nodeType || '');
   const [inputProperty, setInputProperty] = useState({
-    label: cyEle?.label || "",
-    _label: cyEle?._label || "",
+    nodeType: cyEle?.nodeType || "",
+    nodeId: cyEle?.nodeId || "",
+    name: cyEle?.name || "",
   });
+  const [nodeMode, setNodeMode] = useState('none'); // 'none', 'id', 'loc'
 
   const [typeConstraint, setTypeConstraint] = useState([]);
   useEffect(() => {
@@ -199,26 +196,47 @@ export function NodeLabelPopup({ open, cyEle, nodeTypes, onClose, onConfirm }) {
     }
   }, [nodeTypes]);
 
+  useEffect(() => {
+    if (!termString) {
+      setInputProperty({ nodeType: nodeTypeChosen, nodeId: '', name: '' });
+      return;
+    }
+    const [type, nodeId, nodeName] = termString.split('@');
+    setInputProperty((prev) => ({ ...prev, nodeType: type, nodeId: nodeId, name: nodeName }));
+    setNodeTypeChosen(type);
+  }, [termString, nodeTypeChosen]);
+
   // Update input when cyEle changes
   React.useEffect(() => {
     if (cyEle) {
       setInputProperty({
-        label: cyEle.label || "",
-        _label: cyEle._label || "",
+        nodeType: cyEle?.nodeType || "",
+        nodeId: cyEle?.nodeId || "",
+        name: cyEle?.name || "",
       });
+      setNodeMode(
+        (cyEle?.nodeId || cyEle?.name) ? 'id' :
+          (cyEle?.start_loc || cyEle?.end_loc) ? 'loc' : 'none'
+      );
     }
   }, [cyEle, open]);
 
   const handleConfirm = () => {
+    const { nodeId, name, start_loc, end_loc, ...rest } = inputProperty;
+    const { nodeId: nodeIdOld, name: nameOld, start_loc: startLocOld, end_loc: endLocOld, ...restOld } = cyEle || {};
     const newNode = {
-      ...cyEle,
-      ...inputProperty
+      ...restOld,
+      ...rest,
+      ...(nodeMode === 'id' ? { nodeId: nodeId, name: name } : { nodeId: '', name: '' }),
+      ...((nodeMode === 'loc' && start_loc) ? { start_loc: Number(start_loc) } : { start_loc: '' }),
+      ...((nodeMode === 'loc' && end_loc) ? { end_loc: Number(end_loc) } : { end_loc: '' }),
     };
+    console.log('Confirm node edit:', newNode);
     onConfirm(newNode);
   };
 
   const superType = typeToTypeList(cyEle?.nodeType || "")[0] || "Entity";
-
+  const inputSx = { fontSize: '16px' };
   return (
     <Dialog open={open} onClose={onClose}>
       <DialogTitle>Edit Node</DialogTitle>
@@ -226,30 +244,78 @@ export function NodeLabelPopup({ open, cyEle, nodeTypes, onClose, onConfirm }) {
         <DialogContentText>
           Set the type of the node.
         </DialogContentText>
-        <NodeTypeSelector superType={superType} defaultType={cyEle?.nodeType} handleChangeType={(newType) => {
-          setInputProperty((prev) => ({ ...prev, nodeType: newType }));
-        }} typeConstraint={typeConstraint} />
-        <DialogContentText>
-          Edit the name of the node. (WIP)
-        </DialogContentText>
-        <TextField
-          autoFocus
-          margin="dense"
-          label="Node Label"
-          type="text"
-          fullWidth
-          value={inputProperty.label}
-          onChange={(e) => setInputProperty((prev) => ({ ...prev, label: e.target.value }))}
-        />
-        <TextField
-          autoFocus
-          margin="dense"
-          label="Node Label 2"
-          type="text"
-          fullWidth
-          value={inputProperty._label}
-          onChange={(e) => setInputProperty((prev) => ({ ...prev, _label: e.target.value }))}
-        />
+        <NodeTypeSelector superType={superType} nodeType={nodeTypeChosen} handleChangeType={
+          (newType) => {
+            setNodeTypeChosen(newType);
+            if (inputProperty.nodeType !== newType) {
+              setClearTrigger(clearTrigger + 1);
+              setTermString('');
+              setInputProperty((prev) => ({ ...prev, nodeType: newType, nodeId: '', name: '' }));
+            }
+          }
+        } typeConstraint={typeConstraint} />
+        <Box sx={{
+          width: 'calc(100% - 42px)',
+          padding: '10px 20px',
+          marginTop: '20px',
+          border: '1px solid #E5E7EB',
+        }}>
+          <DialogContentText>
+            <Checkbox
+              checked={nodeMode === 'id'}
+              onChange={() => setNodeMode(nodeMode === 'id' ? 'none' : 'id')}
+              icon={<RadioButtonUncheckedIcon />}
+              checkedIcon={<CheckCircleIcon />}
+            />
+            Edit the name of the node. (WIP)
+          </DialogContentText>
+          <InputComponent
+            key="input-component"
+            type={nodeTypeChosen}
+            setTermString={setTermString}
+            setInputStatus={setInputStatus}
+            disabled={nodeMode !== 'id'}
+            clearTrigger={clearTrigger}
+            defaultValue={cyEle?.name || cyEle?.nodeId || ''}
+            sx={inputSx}
+          />
+          <FunctionButton
+            sx={{ height: '30px' }}
+            onClick={setClearTrigger.bind(this, clearTrigger + 1)}
+          >
+            Clear Input
+          </FunctionButton>
+          <Typography sx={{ mt: 2, fontSize: '14px', color: inputStatus === 'valid' ? 'green' : inputStatus === 'invalid' ? 'red' : 'black' }}>
+            {inputStatus === 'valid' ? 'Valid input' : inputStatus === 'invalid' ? 'Invalid input' : 'Please enter a valid identifier'}
+          </Typography>
+          <DialogContentText>
+            <Checkbox
+              checked={nodeMode === 'loc'}
+              onChange={() => setNodeMode(nodeMode === 'loc' ? 'none' : 'loc')}
+              icon={<RadioButtonUncheckedIcon />}
+              checkedIcon={<CheckCircleIcon />}
+            />
+            Edit the location of the node. (WIP)
+          </DialogContentText>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Start Location"
+            type="text"
+            fullWidth
+            value={inputProperty.start_loc}
+            onChange={(e) => setInputProperty((prev) => ({ ...prev, start_loc: e.target.value.replace(/[^0-9]/g, "") }))}
+          />
+          <TextField
+            autoFocus
+            margin="dense"
+            label="End Location"
+            type="text"
+            fullWidth
+            value={inputProperty.end_loc}
+            onChange={(e) => setInputProperty((prev) => ({ ...prev, end_loc: e.target.value.replace(/[^0-9]/g, "") }))}
+          />
+        </Box>
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose} color="secondary">
@@ -270,7 +336,6 @@ export function NodeLabelPopup({ open, cyEle, nodeTypes, onClose, onConfirm }) {
 }
 
 export function EdgeTypeSelector({ sourceType, targetType, handleChangeType, defaultType }) {
-  console.log("EdgeTypeSelector", sourceType, targetType, defaultType);
   const [selected, setSelected] = useState(defaultType);
   const [typeList, setTypeList] = useState([]);
 
@@ -593,211 +658,211 @@ export function BioEntityPanel({ handleAddNode, handleAddEdge, handleAddEdgeFrom
           <Tab label="Add Edge" />
         </Tabs>
 
-        <Box sx={{mt: 2, px: "20px", flex: 1, display: 'flex'}}>
-        {/* Tab content */}
-        {!edgeEditMode && (
-          <Box>
-            {/* Quick Add */}
-            <Typography
-              variant="subtitle1"
-              sx={{ fontWeight: 600, mb: 1 }}
-            >
-              Quick Add Entity
-            </Typography>
-            <Typography variant="body2" sx={{ color: "text.secondary", mb: 1 }}>
-              If you know the specific Entity, search and add directly.
-            </Typography>
+        <Box sx={{ mt: 2, px: "20px", flex: 1, display: 'flex' }}>
+          {/* Tab content */}
+          {!edgeEditMode && (
+            <Box>
+              {/* Quick Add */}
+              <Typography
+                variant="subtitle1"
+                sx={{ fontWeight: 600, mb: 1 }}
+              >
+                Quick Add Entity
+              </Typography>
+              <Typography variant="body2" sx={{ color: "text.secondary", mb: 1 }}>
+                If you know the specific Entity, search and add directly.
+              </Typography>
 
-            <TextField
-              placeholder="Search for specific bio entity"
-              fullWidth
-              size="small"
-              sx={{ mb: 1, backgroundColor: "white" }}
-            />
-            <Typography variant="caption" sx={{ color: "text.secondary" }}>
-              Example: CFTR, TP53
-            </Typography>
+              <TextField
+                placeholder="Search for specific bio entity"
+                fullWidth
+                size="small"
+                sx={{ mb: 1, backgroundColor: "white" }}
+              />
+              <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                Example: CFTR, TP53
+              </Typography>
 
-            {/* Bio Entity List */}
-            <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>
-              Bio Entity List
-            </Typography>
-            <Typography sx={{ fontFamily: "Inter", fontSize: "14px", fontWeight: 500, color: "#6B7280" }}>
-              If you can choose about the specific entity, add a general bio
-              entity from the list.
-            </Typography>
+              {/* Bio Entity List */}
+              <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>
+                Bio Entity List
+              </Typography>
+              <Typography sx={{ fontFamily: "Inter", fontSize: "14px", fontWeight: 500, color: "#6B7280" }}>
+                If you can choose about the specific entity, add a general bio
+                entity from the list.
+              </Typography>
 
-            <List dense>
-              {entityTypes.map((entity, i) => (
-                <ListItem
-                  key={i}
-                  sx={{
-                    backgroundColor: "white",
-                    borderRadius: 2,
-                    mb: 1,
-                    py: 1,
-                    px: 2,
-                  }}
-                >
-                  <ListItemIcon sx={{ minWidth: '0px' }}>
-                    {/* add a square of the same color as the entity using box */}
-                    <Box
-                      sx={{
-                        width: "16px",
-                        height: "16px",
-                        backgroundColor: entity.color || NodeColors[entity.type] || "#000000",
-                        borderRadius: "2px",
-                        marginRight: "8px",
-                      }}
+              <List dense>
+                {entityTypes.map((entity, i) => (
+                  <ListItem
+                    key={i}
+                    sx={{
+                      backgroundColor: "white",
+                      borderRadius: 2,
+                      mb: 1,
+                      py: 1,
+                      px: 2,
+                    }}
+                  >
+                    <ListItemIcon sx={{ minWidth: '0px' }}>
+                      {/* add a square of the same color as the entity using box */}
+                      <Box
+                        sx={{
+                          width: "16px",
+                          height: "16px",
+                          backgroundColor: entity.color || NodeColors[entity.type] || "#000000",
+                          borderRadius: "2px",
+                          marginRight: "8px",
+                        }}
+                      />
+                    </ListItemIcon>
+                    <ListItemText
+                      primary={entity.label}
+                      primaryTypographyProps={{ fontSize: 14, fontWeight: 500 }}
                     />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary={entity.label}
-                    primaryTypographyProps={{ fontSize: 14, fontWeight: 500 }}
-                  />
-                  <ListItemSecondaryAction>
-                    <IconButton edge="end" size="small" color="primary"
-                      onClick={
-                        () => handleAddNode({
-                          nodeType: entity.type,
-                          color: entity.color || NodeColors[entity.type] || "#000000"
-                        })
-                      }>
-                      <AddIcon />
-                    </IconButton>
-                  </ListItemSecondaryAction>
-                </ListItem>
-              ))}
-            </List>
-          </Box>
-        )}
+                    <ListItemSecondaryAction>
+                      <IconButton edge="end" size="small" color="primary"
+                        onClick={
+                          () => handleAddNode({
+                            nodeType: entity.type,
+                            color: entity.color || NodeColors[entity.type] || "#000000"
+                          })
+                        }>
+                        <AddIcon />
+                      </IconButton>
+                    </ListItemSecondaryAction>
+                  </ListItem>
+                ))}
+              </List>
+            </Box>
+          )}
 
-        {edgeEditMode && (
-          <Box>
-            <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-              Create Edge
-            </Typography>
-            {
-              // Source + Target selected
-              currSourceTarget.source ? (
-                <Box sx={{ mt: 2 }}>
-                  <Typography variant="body1" sx={{ mb: 1 }}>
-                    Add edge from <strong>{getLabel(currSourceTarget.source)}</strong>
-                    {currSourceTarget.target ? <> to <strong>{getLabel(currSourceTarget.target)}</strong></> : null}
-                  </Typography>
-                  {getEdges(currSourceTarget.source.nodeType, currSourceTarget.target?.nodeType).length ? (
-                    <List dense>
-                      {getEdges(currSourceTarget.source.nodeType, currSourceTarget.target?.nodeType).map(({type:edgeType, to}, i) => (
-                        <ListItem
-                          key={i}
-                          sx={{
-                            backgroundColor: "white",
-                            borderRadius: 2,
-                            mb: 1,
-                            py: 1,
-                            px: to ? 1 : 2,
-                            height: "40px",
-                          }}
-                        >
-                          <ListItemText
-                            primary={
-                              <Box
-                                sx={{
-                                  display: "flex",
-                                  position: "relative",
-                                  alignItems: "center",
-                                  backgroundColor: "white", // prevent interference
-                                  px: 1,
-                                  py: 0.5,
-                                  borderRadius: 1,
-                                  minWidth: 200, // longer width
-                                }}
-                              >
-                                <Typography
-                                  sx={{
-                                    fontSize: 14,
-                                    fontWeight: 500,
-                                    whiteSpace: "nowrap",
-                                    position: "absolute",
-                                    left: "0",
-                                  }}
-                                >
-                                  {to ? "──────────────▶" :"───────────────────▶"}
-                                </Typography>
-                                <Typography
+          {edgeEditMode && (
+            <Box>
+              <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                Create Edge
+              </Typography>
+              {
+                // Source + Target selected
+                currSourceTarget.source ? (
+                  <Box sx={{ mt: 2 }}>
+                    <Typography variant="body1" sx={{ mb: 1 }}>
+                      Add edge from <strong>{getLabel(currSourceTarget.source)}</strong>
+                      {currSourceTarget.target ? <> to <strong>{getLabel(currSourceTarget.target)}</strong></> : null}
+                    </Typography>
+                    {getEdges(currSourceTarget.source.nodeType, currSourceTarget.target?.nodeType).length ? (
+                      <List dense>
+                        {getEdges(currSourceTarget.source.nodeType, currSourceTarget.target?.nodeType).map(({ type: edgeType, to }, i) => (
+                          <ListItem
+                            key={i}
+                            sx={{
+                              backgroundColor: "white",
+                              borderRadius: 2,
+                              mb: 1,
+                              py: 1,
+                              px: to ? 1 : 2,
+                              height: "40px",
+                            }}
+                          >
+                            <ListItemText
+                              primary={
+                                <Box
                                   sx={{
                                     display: "flex",
-                                    position: "absolute",
-                                    left: to ? "25%" : "32%",
-                                    transform: "translateX(-50%)",
-                                    fontSize: 14,
-                                    fontWeight: 500,
-                                    flexGrow: 1,
-                                    backgroundColor: "white"
+                                    position: "relative",
+                                    alignItems: "center",
+                                    backgroundColor: "white", // prevent interference
+                                    px: 1,
+                                    py: 0.5,
+                                    borderRadius: 1,
+                                    minWidth: 200, // longer width
                                   }}
                                 >
-                                  {typeToVisu(edgeType)}
-                                </Typography>
-                                <Box sx={{
-                                  position: "absolute", 
-                                  left: "71%",
-                                  transform: "translateX(-50%)",
-                                  display: "flex", 
-                                  alignItems: "center"
+                                  <Typography
+                                    sx={{
+                                      fontSize: 14,
+                                      fontWeight: 500,
+                                      whiteSpace: "nowrap",
+                                      position: "absolute",
+                                      left: "0",
+                                    }}
+                                  >
+                                    {to ? "──────────────▶" : "───────────────────▶"}
+                                  </Typography>
+                                  <Typography
+                                    sx={{
+                                      display: "flex",
+                                      position: "absolute",
+                                      left: to ? "25%" : "32%",
+                                      transform: "translateX(-50%)",
+                                      fontSize: 14,
+                                      fontWeight: 500,
+                                      flexGrow: 1,
+                                      backgroundColor: "white"
+                                    }}
+                                  >
+                                    {typeToVisu(edgeType)}
+                                  </Typography>
+                                  <Box sx={{
+                                    position: "absolute",
+                                    left: "71%",
+                                    transform: "translateX(-50%)",
+                                    display: "flex",
+                                    alignItems: "center"
                                   }}>
-                                  {to ? (
-                                    <Typography
-                                      sx={{
-                                        fontSize: 12,
-                                        fontWeight: 500,
-                                        ml: 1,
-                                        p: '2px 4px',
-                                        borderRadius: '8px',
-                                        border: '1px solid black',
-                                        whiteSpace: "nowrap",
-                                        backgroundColor: NodeColors[typeToTypeList(to)[0]] || "none",
-                                      }}
-                                    >
-                                      {typeToVisu(to)}
-                                    </Typography>
-                                  ) : null}
+                                    {to ? (
+                                      <Typography
+                                        sx={{
+                                          fontSize: 12,
+                                          fontWeight: 500,
+                                          ml: 1,
+                                          p: '2px 4px',
+                                          borderRadius: '8px',
+                                          border: '1px solid black',
+                                          whiteSpace: "nowrap",
+                                          backgroundColor: NodeColors[typeToTypeList(to)[0]] || "none",
+                                        }}
+                                      >
+                                        {typeToVisu(to)}
+                                      </Typography>
+                                    ) : null}
+                                  </Box>
                                 </Box>
-                              </Box>
-                            }
-                          />
-                          <ListItemSecondaryAction sx={{ right: to ? '8px' : '16px' }}>
-                            <IconButton edge="end" size="small" color="primary"
-                              onClick={
-                                () => {
-                                  if (to) {
-                                    handleAddEdgeFrom(
-                                      currSourceTarget.source,
-                                      to,
-                                      NodeColors[typeToTypeList(to)[0]] || "white",
-                                      edgeType
-                                    );
-                                  } else {
-                                    handleAddEdge(
-                                      currSourceTarget.source,
-                                      currSourceTarget.target,
-                                      edgeType
-                                    );
+                              }
+                            />
+                            <ListItemSecondaryAction sx={{ right: to ? '8px' : '16px' }}>
+                              <IconButton edge="end" size="small" color="primary"
+                                onClick={
+                                  () => {
+                                    if (to) {
+                                      handleAddEdgeFrom(
+                                        currSourceTarget.source,
+                                        to,
+                                        NodeColors[typeToTypeList(to)[0]] || "white",
+                                        edgeType
+                                      );
+                                    } else {
+                                      handleAddEdge(
+                                        currSourceTarget.source,
+                                        currSourceTarget.target,
+                                        edgeType
+                                      );
+                                    }
                                   }
-                                }
-                              }>
-                              <AddIcon />
-                            </IconButton>
-                          </ListItemSecondaryAction>
-                        </ListItem>
-                      ))}
-                    </List>
-                  ) : (
-                    <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                      No edges available.
-                    </Typography>
-                  )}
-                </Box>
-              ) :
+                                }>
+                                <AddIcon />
+                              </IconButton>
+                            </ListItemSecondaryAction>
+                          </ListItem>
+                        ))}
+                      </List>
+                    ) : (
+                      <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                        No edges available.
+                      </Typography>
+                    )}
+                  </Box>
+                ) :
                   // No source or target selected
                   (
                     <Typography variant="body2" sx={{ color: "text.secondary" }}>
@@ -805,8 +870,8 @@ export function BioEntityPanel({ handleAddNode, handleAddEdge, handleAddEdgeFrom
                     </Typography>
                   )}
 
-          </Box>
-        )}
+            </Box>
+          )}
         </Box>
       </Paper>
     </>

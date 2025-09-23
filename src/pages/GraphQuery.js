@@ -10,9 +10,10 @@ import {
     useSelector,
 } from 'react-redux';
 
+import CloseIcon from '@mui/icons-material/Close';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
-import ShareIcon from '@mui/icons-material/Share';
 import RedoIcon from '@mui/icons-material/Redo';
+import ShareIcon from '@mui/icons-material/Share';
 import UndoIcon from '@mui/icons-material/Undo';
 import {
     Accordion,
@@ -37,6 +38,7 @@ import {
     getLabel,
     InfoPanel,
     NodeLabelPopup,
+    typeToTypeList,
     typeToVisu,
 } from '../components/ToolPanel';
 import {
@@ -49,7 +51,6 @@ import {
     updateNodePosition,
     updateViewport,
 } from '../redux/querySlice';
-import CloseIcon from '@mui/icons-material/Close';
 
 export const nodeAutoWidth = (node) => {
     const cxt = document.createElement('canvas').getContext("2d");
@@ -594,15 +595,36 @@ export default function QueryPage() {
     };
 
     const handleSubmit = () => {
-        const queryNodes = nodes.reduce((acc, node) => {
-            acc[node.data.id] = { label: node.data.label, _label: node.data._label || "" };
-            return acc;
-        }, {});
+        const clean = (obj) => Object.fromEntries(
+            Object.entries(obj).filter(([_, v]) => v !== undefined)
+        );
+        const queryNodes = nodes.map(node => (
+            clean(
+                {
+                    identity: node.data.id,
+                    labels: typeToTypeList(node.data.nodeType || []).reverse(),
+                    properties: clean({
+                        id: node.data.nodeId,
+                        end_loc: node.data.end_loc,
+                        start_loc: node.data.start_loc
+                    }),
+                }
+            )
+        ));
 
-        const queryEdges = edges.reduce((acc, edge) => {
-            acc[edge.data.id] = { label: edge.data.label, from: edge.data.source, to: edge.data.target };
-            return acc;
-        }, {});
+        const queryEdges = edges.map(edge => (
+            clean(
+                {
+                    identity: edge.data.id,
+                    start: edge.data.source,
+                    end: edge.data.target,
+                    type: edge.data.edgeType,
+                }
+            )
+        ));
+
+        console.log("Graphical Query:", [{ nodes: queryNodes, edges: queryEdges }]);
+        setJsonInput(JSON.stringify([{ "$comment": "Graphical Query", nodes: queryNodes, edges: queryEdges }], null, 2));
 
         // dispatch(queryAddVirtualEdge({ nodes: queryNodes, edges: queryEdges, graphical_query: true })).then(res => {
         //     console.log("Cypher Query:\n" + res.payload.cypher_query);
@@ -787,7 +809,7 @@ export default function QueryPage() {
     }
 
     return (
-        <Box sx={{px: '90px'}}>
+        <Box sx={{ px: '90px' }}>
             <Box>
                 <Stack spacing={1} direction="column">
                     <Stack spacing={1} direction="row">
@@ -826,12 +848,12 @@ export default function QueryPage() {
                                                 startIcon={<ShareIcon sx={{ color: "black" }} />}
                                                 sx={{
                                                     backgroundColor: "#E2EEFF",
-                                                    border: edgeEditMode?"2px solid #1A74FF":"1px solid #D1D5DB",
+                                                    border: edgeEditMode ? "2px solid #1A74FF" : "1px solid #D1D5DB",
                                                     "&:hover": {
                                                         backgroundColor: "#C8E7FF",
                                                     }
                                                 }}
-                                                >
+                                            >
                                                 Add Edge
                                             </FunctionButton>
                                             <AddNodeButton handleAddNode={handleAddNode} />
@@ -883,7 +905,7 @@ export default function QueryPage() {
                                 <Box id="cy-container" sx={{ height: '518px', padding: '10px', background: 'white' }}>
                                 </Box>
                                 <CyHandler id="cy-handler" cyRef={cyRef} edgeEditMode={edgeEditMode} sourceTarget={sourceTarget} />
-                       
+
                                 {/* Node Label Modal */}
                                 {popupOpen && contextTapElement?.type === "node" && (
                                     <NodeLabelPopup
@@ -904,15 +926,15 @@ export default function QueryPage() {
                                     />
                                 )}
                             </Box>
-                            <Box sx={{ width: '100%', height: 0, position: 'relative'}}>
-                                <Box sx={{ 
-                                    width: 'calc(100% - 24px)', 
-                                    height: '25px', 
+                            <Box sx={{ width: '100%', height: 0, position: 'relative' }}>
+                                <Box sx={{
+                                    width: 'calc(100% - 24px)',
+                                    height: '25px',
                                     borderRadius: '8px',
                                     px: '12px',
-                                    background: 'linear-gradient(180deg, #E2EEFF 0%, #D0EFFE 100%)', 
-                                    position: 'absolute', 
-                                    top: 0, 
+                                    background: 'linear-gradient(180deg, #E2EEFF 0%, #D0EFFE 100%)',
+                                    position: 'absolute',
+                                    top: 0,
                                     left: 0,
                                     transform: 'translateY(-25px)',
                                     display: edgeEditMode ? 'flex' : 'none',
@@ -1074,9 +1096,9 @@ export default function QueryPage() {
                             <Button variant="contained" onClick={handleAddEdit}>Add/Edit</Button>
                             <Button variant="contained" onClick={() => {
                                 handleDeleteAll();
-                                const id1 = dispatch(addNodeThunk({ ...defaultNode, label: "gene" }, findDefault()));
-                                const id2 = dispatch(addNodeThunk({ ...defaultNode, label: "cell_line_or_tissue", _label: "transverse colon" }, findDefault()));
-                                dispatch(addEdgeThunk({ label: "express_in", source: id1, target: id2 }));
+                                const id1 = dispatch(addNodeThunk({ ...defaultNode, nodeType: "sequence_variant", "end_loc": 120000000, "start_loc": 121000000 }, findDefault()));
+                                const id2 = dispatch(addNodeThunk({ ...defaultNode, nodeType: "gene_ontology", nodeId: "GO_0006954" }, findDefault()));
+                                dispatch(addEdgeThunk({ edgeType: "GWAS_association", source: id1, target: id2 }));
                                 log("Added sample graph with 2 nodes and 1 edge");
                             }}>Add Sample Graph</Button>
                         </Stack>
