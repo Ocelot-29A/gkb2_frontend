@@ -30,11 +30,15 @@ import { queryVocab } from '../redux/inputToVocabSlice'; // Import the action
 import { queryQueryResult } from '../redux/queryResultSlice';
 import NodeColors from '../schema/node_color.json';
 import {
+  darkenHex,
   nodeAutoWidth,
   textAutoWidth,
 } from './style.js';
 import { AlertMessage } from './SupportingMaterial';
-import { typeToTypeList } from './ToolPanel';
+import {
+  typeToTypeList,
+  typeToVisu,
+} from './ToolPanel';
 
 const textBoxStyles = {
   "gene": {
@@ -52,22 +56,6 @@ const textBoxStyles = {
     backgroundColor: "rgba(255, 183, 127, 0.4)",
     borderRadius: "8px"
   }
-};
-
-const nodeColors = {
-  "gene": "#A4D0F6",
-  "sequence_variant": "#FFB371",
-  "cell_line_or_tissue": "#FFDE7D",
-  "ocr_cluster": "#61ECBC",
-  "literature": "#F5BEFF",
-};
-
-const nodeLabels = {
-  "gene": "Gene",
-  "sequence_variant": "Sequence Variant",
-  "cell_line_or_tissue": "Cell Line or Tissue",
-  "ocr_cluster": "OCR Cluster",
-  "literature": "Literature",
 };
 
 const edgeLabels = {
@@ -94,7 +82,6 @@ const MatchGraphViewer = ({ query }) => {
     dispatch(queryCypherToGraph(query));
   }, [query]);
 
-  console.log(1);
   useEffect(() => {
     console.log(cypherToGraph);
     if (!cypherToGraph?.graph?.results?.[0]) {
@@ -110,7 +97,7 @@ const MatchGraphViewer = ({ query }) => {
         group: "nodes",
         data: {
           id: node["~id"],
-          label: node.name || node.id || (nodeLabels?.[type] || type) || 'Unknown',
+          label: node.name || node.id || typeToVisu(type) || 'Unknown',
           color: NodeColors[type] || NodeColors[typeToTypeList(type)?.[0]] || "#CCCCCC",
         },
       };
@@ -217,7 +204,7 @@ const MatchGraphViewer = ({ query }) => {
   );
 };
 
-function InputComponent({ type, setValue, setInputStatus, disabled, clearTrigger, defaultValue, sx = { fontSize: '16px' } }) { // input state: valid, mismatch, empty
+export function InputComponent({ type, setValue = (() => { }), setTermString = (() => { }), setInputStatus, disabled, clearTrigger, defaultValue, sx = { fontSize: '16px' } }) { // input state: valid, mismatch, empty
   const dispatch = useDispatch();
   const [clearTriggerState, setClearTriggerState] = useState(clearTrigger);
   const [selfOptions, setSelfOptions] = useState([]);
@@ -226,9 +213,12 @@ function InputComponent({ type, setValue, setInputStatus, disabled, clearTrigger
   const [valIsLoading, setValIsLoading] = useState(false); // validation loading state
 
   const [validatedValue, setValidatedValue] = useState(''); // validated value after checking with vocab
+  const [validatedTermString, setValidatedTermString] = useState('');
+
   useEffect(() => {
     setValue(validatedValue);
-  }, [validatedValue]);
+    setTermString(validatedTermString);
+  }, [validatedValue, validatedTermString]);
 
   const [inputValue, setInputValue] = useState('');
   const inputValueRef = useRef(inputValue); // to keep the latest input value for async validation
@@ -263,6 +253,7 @@ function InputComponent({ type, setValue, setInputStatus, disabled, clearTrigger
     setInputValue('');
     setInputStatus('empty');
     setValidatedValue('');
+    setValidatedTermString('');
   }, [clearTrigger]);
 
   function updateSource(newInputValue) { // similarity match, specific for gene
@@ -282,7 +273,7 @@ function InputComponent({ type, setValue, setInputStatus, disabled, clearTrigger
             return `${item.name}(${item.id})`;
           });
           if (parsedResponse.length === 0) {
-            setSelfOptions([{ label: `${nodeLabels[type] || type} not found`, disabled: true, notFound: true }]);
+            setSelfOptions([{ label: `${typeToVisu(type)} not found`, disabled: true, notFound: true }]);
           } else {
             setSelfOptions(parsedResponse);
           }
@@ -309,30 +300,35 @@ function InputComponent({ type, setValue, setInputStatus, disabled, clearTrigger
         //   query: `SELECT snp FROM QTL_DATA WHERE snp = '${geneName}' LIMIT 1;`
         // })).unwrap()] : [])
       ]
-    ).then(([response, response2]) => {
+    ).then(([response]) => {
       if (newInputValue !== inputValueRef.current) return; // discard outdated response
+      const termString = response?.result || '';
+      const responseList = termString.split('@') || [''];
       if (validatedValue === newInputValue) {
         setValidatedValue(newInputValue);
+        setValidatedTermString(termString);
         setInputStatus('valid');
         return;
       } // skip repeated response
-      const responseList = (response?.result || '').split('@') || [''];
-      const id1 = type === responseList[0] ?
+      const id = (typeToTypeList(responseList[0]).includes(type) || type === 'All nodes') ?
         (type === 'gene' ? `${termName}` : responseList[1]) : //use gene name for now
         '';
-      const id2 = response2?.results?.[0]?.[type];
-      const id = id1 || id2 || '';
+      // const id2 = response2?.results?.[0]?.[type];
+      // const id = id1 || id2 || '';
       if (id) {
         if (type === 'gene') {
           setInputStatus('valid');
           setValidatedValue(id.toUpperCase());
+          setValidatedTermString(termString);
         }
         else {
           setInputStatus('valid');
           setValidatedValue(id);
+          setValidatedTermString(termString);
         }
       } else {
         setValidatedValue('');
+        setValidatedTermString('');
       }
     }).finally(() => {
       if (newInputValue === inputValueRef.current) {
@@ -340,6 +336,8 @@ function InputComponent({ type, setValue, setInputStatus, disabled, clearTrigger
       }
     });
   };
+
+  const signatureColor = darkenHex(NodeColors[typeToTypeList(type)?.[0]] || NodeColors['gene'], 10);
 
   return (
     <Box sx={{ display: 'inline-flex', alignItems: 'center' }} >
@@ -355,7 +353,9 @@ function InputComponent({ type, setValue, setInputStatus, disabled, clearTrigger
         getOptionDisabled={(option) => option.disabled}
         filterOptions={(options) => options}
         sx={{
-          ...(textBoxStyles[type] || textBoxStyles['Gene']),
+          border: `1px solid ${signatureColor}`,
+          backgroundColor: `${signatureColor}33`,
+          borderRadius: "8px",
           ...(disabled ? { border: '1px dashed #ACB1B0' } : {
             '& .MuiAutocomplete-endAdornment': {
               right: '-4px !important', // Adjust the position of the end adornment (clear button)
@@ -515,9 +515,9 @@ export const SearchComponent = ({ questionSchema, clearTrigger = 0, values, upda
 
           acc1[index] = key;
           acc2[index] = defaultValue;
-          acc3[index] = (
-            !(['gene', 'sequence_variant'].includes(key))
-            || ['@@{sequence_variant}{SNP}', '@@{gene}{gene}'].includes(part)
+          acc3[index] = ( // if fixed i.e. if being gene/snp and not general node
+            !(['gene', 'snp'].includes(key))
+            || ['@@{snp}{snp}', '@@{gene}{gene}'].includes(part)
           )
         }
         return [acc1, acc2, acc3];

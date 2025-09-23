@@ -18,9 +18,34 @@ export const textAutoWidth = (text, sx) => {
   const family = sx.fontFamily || 'Roboto';
   const weight = sx.fontWeight || 'normal';
   ctx.font = fStyle + ' ' + weight + ' ' + size + ' ' + family;
-  console.log(ctx.font);
-  console.log(ctx.measureText(text).width);
+
   return ctx.measureText(text).width;
+}
+
+export function darkenHex(hex, percent = 20) {
+  // Normalize short #RGB → #RRGGBB
+  if (hex.length === 4) {
+    hex = "#" + [...hex.slice(1)].map(c => c + c).join("");
+  }
+
+  // Extract RGB components
+  let r = parseInt(hex.slice(1, 3), 16);
+  let g = parseInt(hex.slice(3, 5), 16);
+  let b = parseInt(hex.slice(5, 7), 16);
+
+  // Apply darkening factor
+  const factor = (100 - percent) / 100;
+  r = Math.max(0, Math.min(255, Math.round(r * factor)));
+  g = Math.max(0, Math.min(255, Math.round(g * factor)));
+  b = Math.max(0, Math.min(255, Math.round(b * factor)));
+
+  // Convert back to hex
+  return (
+    "#" +
+    r.toString(16).padStart(2, "0") +
+    g.toString(16).padStart(2, "0") +
+    b.toString(16).padStart(2, "0")
+  );
 }
 
 const nodeAutoHeight = (node) => {

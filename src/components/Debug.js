@@ -1,6 +1,6 @@
 import React, {
-  useRef,
-  useState,
+    useRef,
+    useState,
 } from 'react';
 
 import axios from 'axios';
@@ -8,6 +8,7 @@ import axios from 'axios';
 import { Button } from '@mui/material';
 
 import sampleLinks from '../schema/sample_links.json';
+import { InputComponent } from './MatchPage';
 
 const api = axios.create({
     baseURL: "https://05mmsalcn1.execute-api.us-east-1.amazonaws.com/development",
@@ -56,6 +57,10 @@ export async function runGKB2ApiTests() {
 
 export default function DebugPage() {
     const [graphJson, setGraphJson] = useState("");
+    const [inputValue, setInputValue] = useState('');
+    const [termString, setTermString] = useState('');
+    const [inputStatus, setInputStatus] = useState('empty');
+    const [clearTrigger, setClearTrigger] = useState(0);
     // const cyRef = useRef(null);
     // const containerRef = useRef(null);
     // const [cy, setCy] = useState(null);
@@ -267,6 +272,27 @@ export default function DebugPage() {
                 >
                     Connection Test
                 </Button>
+                <InputComponent
+                    type="All nodes"
+                    setValue={setInputValue}
+                    setTermString={setTermString}
+                    setInputStatus={setInputStatus}
+                    disabled={false}
+                    clearTrigger={clearTrigger}
+                    defaultValue={"rs174574"}
+                    sx={{ fontSize: '16px' }}
+                />
+                <Button
+                    onClick={() => {
+                        setClearTrigger((prev) => prev + 1);
+                    }}
+                >
+                    Clear
+                </Button>
+                <h4>Input Value: {inputValue}</h4>
+                <h4>Term String: {termString}</h4>
+                <h4>Input Status: {inputStatus}</h4>
+                <hr style={{ margin: '20px 0' }} />
                 <h1>Links for Debug Quick Redirect</h1>
                 {[
                     ["match_page", "Match Page"],
