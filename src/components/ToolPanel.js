@@ -186,6 +186,7 @@ export function NodeLabelPopup({ open, cyEle, nodeTypes, onClose, onConfirm }) {
   const [typeConstraint, setTypeConstraint] = useState([]);
   useEffect(() => {
     setErrorMessage('');
+    if (!open) return;
     if (nodeTypes) {
       const types =
         [
@@ -197,34 +198,44 @@ export function NodeLabelPopup({ open, cyEle, nodeTypes, onClose, onConfirm }) {
     } else {
       setTypeConstraint([]);
     }
-  }, [nodeTypes]);
+  }, [open, nodeTypes]);
 
   useEffect(() => {
     setErrorMessage('');
     if (!termString) {
-      setInputProperty({ nodeType: nodeTypeChosen, nodeId: '', name: '' });
+      setInputProperty((prev) => ({ ...prev, nodeId: '', name: '' }));
       return;
     }
     const [type, nodeId, nodeName] = termString.split('@');
     setInputProperty((prev) => ({ ...prev, nodeType: type, nodeId: nodeId, name: nodeName }));
     setNodeTypeChosen(type);
-  }, [termString, nodeTypeChosen]);
+  }, [termString]);
 
   // Update input when cyEle changes
-  React.useEffect(() => {
+  useEffect(() => {
+    if (!open) return;
     if (cyEle) {
+      console.log('NodeLabelPopup cyEle changed:', cyEle);
       setErrorMessage('');
       setInputProperty({
         nodeType: cyEle?.nodeType || "",
         nodeId: cyEle?.nodeId || "",
         name: cyEle?.name || "",
+        start_loc: cyEle?.start_loc || "",
+        end_loc: cyEle?.end_loc || "",
       });
       setNodeMode(
         (cyEle?.nodeId || cyEle?.name) ? 'id' :
           (cyEle?.start_loc || cyEle?.end_loc) ? 'loc' : 'none'
       );
+      setNodeTypeChosen(cyEle?.nodeType || "");
     }
-  }, [cyEle, open]);
+  }, [open, cyEle]);
+
+  // start_loc listener
+  useEffect(() => {
+    console.log(inputProperty.start_loc);
+  }, [inputProperty.start_loc]);
 
   const handleConfirm = () => {
     const { nodeId, name, start_loc, end_loc, ...rest } = inputProperty;
@@ -236,7 +247,7 @@ export function NodeLabelPopup({ open, cyEle, nodeTypes, onClose, onConfirm }) {
       ...((nodeMode === 'loc' && start_loc) ? { start_loc: Number(start_loc) } : { start_loc: '' }),
       ...((nodeMode === 'loc' && end_loc) ? { end_loc: Number(end_loc) } : { end_loc: '' }),
     };
-    console.log('Confirm node edit:', newNode);
+    console.log('Confirm node edit:', inputProperty, newNode, nodeMode);
     if (
       (nodeMode === 'id' && !nodeId) ||
       (nodeMode === 'loc' && (!start_loc && !end_loc))
@@ -250,7 +261,6 @@ export function NodeLabelPopup({ open, cyEle, nodeTypes, onClose, onConfirm }) {
   };
 
   const superType = typeToTypeList(cyEle?.nodeType || "")[0] || "Entity";
-  const inputSx = { fontSize: '16px' };
   return (
     <Dialog open={open} onClose={onClose}>
       <DialogTitle>Edit Node</DialogTitle>
@@ -284,14 +294,12 @@ export function NodeLabelPopup({ open, cyEle, nodeTypes, onClose, onConfirm }) {
             Edit the name of the node. (WIP)
           </DialogContentText>
           <InputComponent
-            key="input-component"
             type={nodeTypeChosen}
             setTermString={setTermString}
             setInputStatus={setInputStatus}
             disabled={nodeMode !== 'id'}
             clearTrigger={clearTrigger}
             defaultValue={cyEle?.name || cyEle?.nodeId || ''}
-            sx={inputSx}
           />
           <FunctionButton
             sx={{ height: '30px' }}
@@ -319,9 +327,14 @@ export function NodeLabelPopup({ open, cyEle, nodeTypes, onClose, onConfirm }) {
               label="Start Location"
               type="text"
               fullWidth
-              value={inputProperty.start_loc}
+              value={inputProperty.start_loc || ""}
               disabled={nodeMode !== 'loc'}
-              onChange={(e) => setInputProperty((prev) => ({ ...prev, start_loc: e.target.value.replace(/[^0-9]/g, "") }))}
+              onChange={(e) => setInputProperty((prev) => {
+                console.log('changed to ', (
+                  { ...prev, start_loc: e.target.value.replace(/[^0-9]/g, "") }
+                ));
+                return { ...prev, start_loc: e.target.value.replace(/[^0-9]/g, "") };
+              })}
             />
             <TextField
               autoFocus
@@ -329,7 +342,7 @@ export function NodeLabelPopup({ open, cyEle, nodeTypes, onClose, onConfirm }) {
               label="End Location"
               type="text"
               fullWidth
-              value={inputProperty.end_loc}
+              value={inputProperty.end_loc || ""}
               disabled={nodeMode !== 'loc'}
               onChange={(e) => setInputProperty((prev) => ({ ...prev, end_loc: e.target.value.replace(/[^0-9]/g, "") }))}
             />
@@ -378,7 +391,7 @@ export function EdgeTypeSelector({ sourceType, targetType, handleChangeType, def
   };
 
   return <Box>
-    {typeList.map((edgeType) => (
+    {typeList.map(({ type: edgeType }) => (
       <Box sx={{ display: 'flex', alignItems: 'center', pl: 0 }}>
         <Checkbox
           checked={selected === edgeType}
@@ -628,6 +641,57 @@ export function AddNodeButton({ handleAddNode }) {
   );
 }
 
+export function CustomAddNode({ handleAddNode }) {
+  const [inputStatus, setInputStatus] = useState('initial');
+  const [termString, setTermString] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
+
+  const [clearTrigger, setClearTrigger] = useState(0);
+
+  useEffect(() => {
+    setErrorMessage('');
+  }, [termString]);
+
+  const handleConfirm = () => {
+    const [type, nodeId, nodeName] = termString.split('@');
+    if (!type || !isType(type)) {
+      setErrorMessage('Invalid or missing type');
+      return;
+    }
+    handleAddNode({
+      nodeType: type,
+      nodeId: nodeId || '',
+      name: nodeName || '',
+    });
+    setClearTrigger(clearTrigger + 1);
+  };
+
+  const inputSx = { fontSize: '16px', width: '120px !important' };
+  return <>
+    <Box>
+      <InputComponent
+        type={"term"}
+        setTermString={setTermString}
+        setInputStatus={setInputStatus}
+        disabled={false}
+        clearTrigger={clearTrigger}
+        defaultValue={''}
+        sx={inputSx}
+      />
+      <FunctionButton
+        sx={{ height: '30px' }}
+        onClick={handleConfirm}
+        disabled={inputStatus !== 'valid'}
+      >
+        Add Node
+      </FunctionButton>
+    </Box>
+    <Typography variant="caption" sx={{ color: "text.secondary" }}>
+      Example: CFTR, TP53
+    </Typography>
+  </>
+}
+
 
 export function BioEntityPanel({ handleAddNode, handleAddEdge, handleAddEdgeFrom, currSourceTarget, edgeEditMode, handleChangeMode }) {
   const [edgeList, setEdgeList] = useState([]);
@@ -703,15 +767,10 @@ export function BioEntityPanel({ handleAddNode, handleAddEdge, handleAddEdgeFrom
                 If you know the specific Entity, search and add directly.
               </Typography>
 
-              <TextField
-                placeholder="Search for specific bio entity"
-                fullWidth
-                size="small"
-                sx={{ mb: 1, backgroundColor: "white" }}
-              />
-              <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                Example: CFTR, TP53
-              </Typography>
+              <CustomAddNode handleAddNode={(node) => handleAddNode({
+                ...node,
+                color: node.color || NodeColors[node.nodeType] || "#000000"
+              })} />
 
               {/* Bio Entity List */}
               <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>

@@ -1,13 +1,14 @@
 import React, {
-    useEffect,
-    useRef,
-    useState,
+  useEffect,
+  useRef,
+  useState,
 } from 'react';
 
 import cytoscape from 'cytoscape';
+import { customAlphabet } from 'nanoid';
 import {
-    useDispatch,
-    useSelector,
+  useDispatch,
+  useSelector,
 } from 'react-redux';
 
 import CloseIcon from '@mui/icons-material/Close';
@@ -16,41 +17,51 @@ import RedoIcon from '@mui/icons-material/Redo';
 import ShareIcon from '@mui/icons-material/Share';
 import UndoIcon from '@mui/icons-material/Undo';
 import {
-    Accordion,
-    AccordionDetails,
-    AccordionSummary,
-    Box,
-    Button,
-    IconButton,
-    Stack,
-    TextField,
-    Typography,
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
+  Box,
+  Button,
+  IconButton,
+  Stack,
+  TextField,
+  Typography,
 } from '@mui/material';
-import { nanoid } from '@reduxjs/toolkit';
 
 import Logger from '../components/Logger';
 import {
-    AddNodeButton,
-    BioEntityPanel,
-    EdgeLabelPopup,
-    FunctionButton,
-    FunctionButton2,
-    getLabel,
-    InfoPanel,
-    NodeLabelPopup,
-    typeToTypeList,
-    typeToVisu,
+  AddNodeButton,
+  BioEntityPanel,
+  EdgeLabelPopup,
+  FunctionButton,
+  FunctionButton2,
+  getLabel,
+  InfoPanel,
+  NodeLabelPopup,
+  typeToTypeList,
+  typeToVisu,
 } from '../components/ToolPanel';
+import { queryOnPrem } from '../redux/onPremSlice';
 import {
-    editEdge,
-    editNode,
-    redo,
-    removeEdge,
-    removeNode,
-    undo,
-    updateNodePosition,
-    updateViewport,
+  editEdge,
+  editNode,
+  redo,
+  removeEdge,
+  removeNode,
+  undo,
+  updateNodePosition,
+  updateViewport,
 } from '../redux/querySlice';
+import { queryQueryToCypher } from '../redux/queryToCypherSlice';
+
+const fullAlphabet = "0123456789abcdefghijklmnopqrstuvwxyz";
+const firstAlphabet = "abcdefghijklmnopqrstuvwxyz";
+
+function nanoid(size = 21) {
+    const first = customAlphabet(firstAlphabet, 1)(); // 1 letter
+    const rest = customAlphabet(fullAlphabet, size - 1)(); // rest of ID
+    return first + rest;
+}
 
 export const nodeAutoWidth = (node) => {
     const cxt = document.createElement('canvas').getContext("2d");
@@ -627,7 +638,22 @@ export default function QueryPage() {
         ));
 
         console.log("Graphical Query:", [{ nodes: queryNodes, edges: queryEdges }]);
-        setJsonInput(JSON.stringify([{ "$comment": "Graphical Query", nodes: queryNodes, edges: queryEdges }], null, 2));
+        // setJsonInput(JSON.stringify([{ "$comment": "Graphical Query", nodes: queryNodes, edges: queryEdges }], null, 2));
+        dispatch(queryQueryToCypher([{ nodes: queryNodes, edges: queryEdges }])).then(res => {
+            console.log("Cypher Query:\n" + res.payload.cypher_query);
+            log("Generated Cypher Query:\n" + res.payload.cypher_query);
+            dispatch(queryOnPrem({ query: res.payload.cypher_query })).then(res2 => {
+                const result = res2.payload.result || [];
+                console.log("OnPrem Result:", result);
+                // setJsonInput(JSON.stringify(res2.payload, null, 2));
+                // add timestamp
+                log(`OnPrem returned ${result.length} results at ${new Date().toLocaleTimeString()}`);
+                if (result.length > 0) {
+                    log(`Sample result: ${JSON.stringify(result[0])}`);
+                }
+                setJsonInput(JSON.stringify([`$frontend.comment.datetime: ${new Date().toLocaleTimeString()}`, ...result], null, 2));
+            });
+        });
 
         // dispatch(queryAddVirtualEdge({ nodes: queryNodes, edges: queryEdges, graphical_query: true })).then(res => {
         //     console.log("Cypher Query:\n" + res.payload.cypher_query);
@@ -911,15 +937,13 @@ export default function QueryPage() {
                                 <CyHandler id="cy-handler" cyRef={cyRef} edgeEditMode={edgeEditMode} sourceTarget={sourceTarget} />
 
                                 {/* Node Label Modal */}
-                                {popupOpen && contextTapElement?.type === "node" && (
-                                    <NodeLabelPopup
-                                        open={popupOpen && contextTapElement?.type === "node"}
-                                        cyEle={contextTapElement}
-                                        nodeTypes={contextNodeTypes}
-                                        onClose={() => setPopupOpen(false)}
-                                        onConfirm={handleConfirm}
-                                    />
-                                )}
+                                <NodeLabelPopup
+                                    open={popupOpen && contextTapElement?.type === "node"}
+                                    cyEle={contextTapElement}
+                                    nodeTypes={contextNodeTypes}
+                                    onClose={() => setPopupOpen(false)}
+                                    onConfirm={handleConfirm}
+                                />
                                 {popupOpen && contextTapElement?.type === "edge" && (
                                     <EdgeLabelPopup
                                         open={popupOpen && contextTapElement?.type === "edge"}
@@ -1103,7 +1127,7 @@ export default function QueryPage() {
                                 handleDeleteAll();
                                 const id1 = dispatch(addNodeThunk({ ...defaultNode, nodeType: "sequence_variant", "end_loc": 120000000, "start_loc": 121000000 }, findDefault()));
                                 const id2 = dispatch(addNodeThunk({ ...defaultNode, nodeType: "gene_ontology", nodeId: "GO_0006954" }, findDefault()));
-                                dispatch(addEdgeThunk({ edgeType: "GWAS_association", source: id1, target: id2 }));
+                                dispatch(addEdgeThunk({ ...defaultEdge, edgeType: "GWAS_association", source: id1, target: id2 }));
                                 log("Added sample graph with 2 nodes and 1 edge");
                             }}>Add Sample Graph</Button>
                         </Stack>

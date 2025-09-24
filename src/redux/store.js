@@ -11,6 +11,7 @@ import processedQuestionReducer from './processedQuestionSlice';
 import queryResultPage from './queryResultPage';
 import queryResultReducer from './queryResultSlice';
 import queryReducer from './querySlice';
+import queryToCypherReducer from './queryToCypherSlice';
 import queryVisResultReducer from './queryVisResultSlice';
 import rephraseSliceReducer from './rephraseSlice';
 import searchReducer from './searchSlice';
@@ -37,6 +38,7 @@ const store = configureStore({
         cypherToGraph: cypherToGraphReducer,
         addVirtualEdge: addVirtualEdgeReducer,
         onPrem: onPremReducer,
+        queryToCypher: queryToCypherReducer,
     },
 });
 

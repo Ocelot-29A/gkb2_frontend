@@ -1,6 +1,6 @@
 import React, {
-    useRef,
-    useState,
+  useRef,
+  useState,
 } from 'react';
 
 import axios from 'axios';
@@ -280,7 +280,6 @@ export default function DebugPage() {
                     disabled={false}
                     clearTrigger={clearTrigger}
                     defaultValue={"rs174574"}
-                    sx={{ fontSize: '16px' }}
                 />
                 <Button
                     onClick={() => {

@@ -310,7 +310,7 @@ export function InputComponent({ type, setValue = (() => { }), setTermString = (
         setInputStatus('valid');
         return;
       } // skip repeated response
-      const id = (typeToTypeList(responseList[0]).includes(type) || type === 'All nodes') ?
+      const id = (typeToTypeList(responseList[0]).includes(type) || type === 'term') ?
         (type === 'gene' ? `${termName}` : responseList[1]) : //use gene name for now
         '';
       // const id2 = response2?.results?.[0]?.[type];
@@ -447,14 +447,14 @@ export function InputComponent({ type, setValue = (() => { }), setTermString = (
               type.toUpperCase()
             }
             sx={{
-              ...sx,
+              fontSize: sx.fontSize,
               width: 'auto !important',
               fontFamily: 'Open Sans',
               fontWeight: 600,
               mx: 1,
               '& .MuiAutocomplete-input': {
-                width: disabled ? `${textAutoWidth(defaultValue, { fontSize: sx.fontSize }) + 4}px !important` : `calc(${sx.fontSize} * 5) !important`,
-                ...sx,
+                width: sx.width ? sx.width : (disabled ? `${textAutoWidth(defaultValue, { fontSize: sx.fontSize }) + 4}px !important` : `calc(${sx.fontSize} * 5) !important`),
+                fontSize: sx.fontSize,
               },
               '& .MuiOutlinedInput-root': {
                 width: '100%',
