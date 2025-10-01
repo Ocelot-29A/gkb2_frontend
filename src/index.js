@@ -21,6 +21,7 @@ import NavBar from './NavBar';
 import ApiPage from './pages/ApiPage';
 import DocPage from './pages/DocPage';
 import QueryPage from './pages/GraphQuery';
+import GraphQueryResultPage from './pages/GraphQueryResultPage';
 import Ontology from './pages/Ontology';
 import Pipeline from './pages/Pipeline';
 import QTLDataSource from './pages/QTL_data_source';
@@ -55,6 +56,7 @@ root.render(
           <Route path="/" element={<LandingPage />} />
           <Route path="/debug" element={<DebugPage />} />
           <Route path="/graphquery" element={<QueryPage />} />
+          <Route path="/graphresult" element={<GraphQueryResultPage />} />
         </Routes>
         <PkbFooter />
       </BrowserRouter>

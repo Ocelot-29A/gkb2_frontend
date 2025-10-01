@@ -232,7 +232,7 @@ export function InputComponent({ type, setValue = (() => { }), setTermString = (
       setValidatedValue('');
       setInputStatus('mismatch');
       setSelfOptions([]); // to trigger rendering the dropdown
-      if (type === 'Gene') {
+      if (type === 'gene') {
         setSimIsLoading(true);
         updateSource(defaultValue, type);
       }
@@ -392,7 +392,7 @@ export function InputComponent({ type, setValue = (() => { }), setTermString = (
               setInputStatus('mismatch');
               inputChangeTimer.current = setTimeout(() => {
                 setSelfOptions([]); // to trigger rendering the dropdown
-                if (type === 'Gene') {
+                if (type === 'gene') {
                   setSimIsLoading(true);
                   updateSource(newInputValue, type);
                 }

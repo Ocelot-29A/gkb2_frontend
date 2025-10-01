@@ -844,6 +844,44 @@ export default function QueryPage() {
                     <Stack spacing={1} direction="row" sx={{ alignItems: 'stretch' }}>
                         {/* Left Content Area */}
                         <Stack spacing={0} direction="column" flexGrow={1} sx={{ width: 'calc(100% - 340px)' }}>
+                            <Box sx={{ width: '100%', height: 0, position: 'relative' }}>
+                                <Box sx={{
+                                    width: 'calc(100% - 24px - 4px)',
+                                    height: '25px',
+                                    borderRadius: '8px',
+                                    px: '12px',
+                                    background: 'linear-gradient(180deg, #E2EEFF 0%, #D0EFFE 100%)',
+                                    position: 'absolute',
+                                    top: 0,
+                                    left: 0,
+                                    transform: 'translateY(2px)',
+                                    zIndex: 1,
+                                    display: edgeEditMode ? 'flex' : 'none',
+                                    alignItems: 'center',
+                                    marginLeft: '2px',
+                                    marginRight: '2px',
+                                }}>
+                                    <ShareIcon sx={{ fontSize: '18px', color: '#1C3C68' }} />
+                                    <Typography sx={{
+                                        fontFamily: "Inter",
+                                        fontSize: "14px",
+                                        color: "#1C3C68",
+                                        display: 'inline-block',
+                                        marginLeft: '8px'
+                                    }}>
+                                        Edge Addition Mode: Drag to Create Edges
+                                    </Typography>
+                                    <IconButton
+                                        onClick={() => setEdgeEditMode(false)}
+                                        sx={{
+                                            marginLeft: 'auto',
+                                            height: '18px',
+                                            width: '18px'
+                                        }}>
+                                        <CloseIcon sx={{ fontSize: '18px', color: '#1C3C68' }} />
+                                    </IconButton>
+                                </Box>
+                            </Box>
                             <Box sx={{
                                 border: edgeEditMode ? "2px solid #1A74FF" : "2px solid #E5E7EB",
                                 boxShadow: "0px 2px 12px 0px #00000014",
@@ -954,41 +992,7 @@ export default function QueryPage() {
                                     />
                                 )}
                             </Box>
-                            <Box sx={{ width: '100%', height: 0, position: 'relative' }}>
-                                <Box sx={{
-                                    width: 'calc(100% - 24px)',
-                                    height: '25px',
-                                    borderRadius: '8px',
-                                    px: '12px',
-                                    background: 'linear-gradient(180deg, #E2EEFF 0%, #D0EFFE 100%)',
-                                    position: 'absolute',
-                                    top: 0,
-                                    left: 0,
-                                    transform: 'translateY(-25px)',
-                                    display: edgeEditMode ? 'flex' : 'none',
-                                    alignItems: 'center',
-                                }}>
-                                    <ShareIcon sx={{ fontSize: '18px', color: '#1C3C68' }} />
-                                    <Typography sx={{
-                                        fontFamily: "Inter",
-                                        fontSize: "14px",
-                                        color: "#1C3C68",
-                                        display: 'inline-block',
-                                        marginLeft: '8px'
-                                    }}>
-                                        Edge Addition Mode
-                                    </Typography>
-                                    <IconButton
-                                        onClick={() => setEdgeEditMode(false)}
-                                        sx={{
-                                            marginLeft: 'auto',
-                                            height: '18px',
-                                            width: '18px'
-                                        }}>
-                                        <CloseIcon sx={{ fontSize: '18px', color: '#1C3C68' }} />
-                                    </IconButton>
-                                </Box>
-                            </Box>
+
 
                             <Box sx={{
                                 background: 'white',
