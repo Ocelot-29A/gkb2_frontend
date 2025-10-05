@@ -273,13 +273,13 @@ export default function DebugPage() {
                     Connection Test
                 </Button>
                 <InputComponent
-                    type="All nodes"
+                    type="gene"
                     setValue={setInputValue}
                     setTermString={setTermString}
                     setInputStatus={setInputStatus}
                     disabled={false}
                     clearTrigger={clearTrigger}
-                    defaultValue={"rs174574"}
+                    defaultValue={"cftr"}
                 />
                 <Button
                     onClick={() => {

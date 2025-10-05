@@ -265,12 +265,13 @@ export function InputComponent({ type, setValue = (() => { }), setTermString = (
     }
     dispatch(queryQueryResult({
       isNeptune: false,
-      query: "SELECT id, name FROM gene_name WHERE name % '" + keyWord + "'ORDER BY similarity(name, '" + keyWord + "') DESC LIMIT 5;"
+      query: "SELECT DISTINCT ON (ensembl_id) ensembl_id AS id, name FROM ensembl_gene_transcript WHERE name % '" + keyWord + "' ORDER BY ensembl_id, similarity(name, '" + keyWord + "') DESC LIMIT 5;"
     })).unwrap()
       .then((response) => {
         if (response && newInputValue === inputValueRef.current) {
-          const parsedResponse = response.results[0].credible_sets.map((item, index) => {
-            return `${item.name}(${item.id})`;
+          const parsedResponse = response.results.map((item, index) => {
+            console.log(item);
+            return `${item.name} (${item.id})`;
           });
           if (parsedResponse.length === 0) {
             setSelfOptions([{ label: `${typeToVisu(type)} not found`, disabled: true, notFound: true }]);
@@ -311,7 +312,7 @@ export function InputComponent({ type, setValue = (() => { }), setTermString = (
         return;
       } // skip repeated response
       const id = (typeToTypeList(responseList[0]).includes(type) || type === 'term') ?
-        (type === 'gene' ? `${termName}` : responseList[1]) : //use gene name for now
+        (type === 'gene' ? `${termName} (${responseList[1]})` : responseList[1]) : //use gene name for now
         '';
       // const id2 = response2?.results?.[0]?.[type];
       // const id = id1 || id2 || '';
@@ -347,7 +348,7 @@ export function InputComponent({ type, setValue = (() => { }), setTermString = (
         options={(() => {
           const options = [...(validatedValue ? [validatedValue] : []), ...selfOptions];
           const uniqueOptions = [...new Set(options.map(option => option.label || option))];
-          return uniqueOptions.length > 0 ? (type === 'Gene' ? uniqueOptions : []) : [{ label: `No ${type} found`, disabled: true, notFound: true }];
+          return uniqueOptions.length > 0 ? (type === 'gene' ? uniqueOptions : []) : [{ label: `No ${type} found`, disabled: true, notFound: true }];
         })()}
         disabled={disabled}
         getOptionDisabled={(option) => option.disabled}
@@ -422,8 +423,8 @@ export function InputComponent({ type, setValue = (() => { }), setTermString = (
                     display: 'flex',
                     justifyContent: 'center',
                     alignItems: 'center',
-                    padding: type === 'Gene' ? 2 : 1,
-                    width: type === 'Gene' ? '200px' : '115px'
+                    padding: type === 'gene' ? 2 : 1,
+                    width: type === 'gene' ? '200px' : '115px'
                   }}
                 >
                   <CircularProgress size={20} />
