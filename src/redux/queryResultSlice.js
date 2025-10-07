@@ -4,12 +4,12 @@ import {
 } from '@reduxjs/toolkit';
 import { QueryStatus } from '@reduxjs/toolkit/query';
 
-import { flaskBackendAxiosInstanceNew } from '../axios/axios';
+import { flaskBackendAxiosInstanceGKB2 } from '../axios/axios';
 
 export const queryQueryResult = createAsyncThunk('/openCypherToQueryResult',
     async (payload) => {
-        return await flaskBackendAxiosInstanceNew
-            .post(payload.isNeptune ? '/openCypherToQueryResult' : '/RDSLambda',
+        return await flaskBackendAxiosInstanceGKB2
+            .post(payload.isNeptune ? '/openCypherToQueryResult' : '/RDSLambdaPostgreSQL',
                 { query: payload.query }, {
                 headers: {
                     "Content-Type": "application/json"
@@ -18,14 +18,7 @@ export const queryQueryResult = createAsyncThunk('/openCypherToQueryResult',
             .then((response) =>
                 payload.isNeptune || payload.rawResponse
                     ? response.data
-                    : {
-                        results: [{
-                            credible_sets: response.data.results.map((result) => ({
-                                ...result,
-                                credible_set_id: result.credible_set
-                            }))
-                        }]
-                    }
+                    : {results:response.data.result}
             )
             .catch((response) => {
                 console.log(response);
