@@ -1,15 +1,16 @@
 import React, {
-  useEffect,
-  useRef,
-  useState,
+    useEffect,
+    useRef,
+    useState,
 } from 'react';
 
 import cytoscape from 'cytoscape';
 import { customAlphabet } from 'nanoid';
 import {
-  useDispatch,
-  useSelector,
+    useDispatch,
+    useSelector,
 } from 'react-redux';
+import { useNavigate } from 'react-router-dom';
 
 import CloseIcon from '@mui/icons-material/Close';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
@@ -17,47 +18,47 @@ import RedoIcon from '@mui/icons-material/Redo';
 import ShareIcon from '@mui/icons-material/Share';
 import UndoIcon from '@mui/icons-material/Undo';
 import {
-  Accordion,
-  AccordionDetails,
-  AccordionSummary,
-  Box,
-  Button,
-  IconButton,
-  Stack,
-  TextField,
-  Typography,
+    Accordion,
+    AccordionDetails,
+    AccordionSummary,
+    Box,
+    Button,
+    IconButton,
+    Stack,
+    TextField,
+    Typography,
 } from '@mui/material';
 
 import Logger from '../components/Logger';
 import {
-  AddNodeButton,
-  BioEntityPanel,
-  EdgeLabelPopup,
-  FunctionButton,
-  FunctionButton2,
-  getLabel,
-  InfoPanel,
-  NodeLabelPopup,
-  typeToTypeList,
-  typeToVisu,
+    AddNodeButton,
+    BioEntityPanel,
+    EdgeLabelPopup,
+    FunctionButton,
+    FunctionButton2,
+    getLabel,
+    InfoPanel,
+    NodeLabelPopup,
+    typeToTypeList,
+    typeToVisu,
 } from '../components/ToolPanel';
 import { queryOnPrem } from '../redux/onPremSlice';
 import {
-  editEdge,
-  editNode,
-  redo,
-  removeEdge,
-  removeNode,
-  undo,
-  updateNodePosition,
-  updateViewport,
+    editEdge,
+    editNode,
+    redo,
+    removeEdge,
+    removeNode,
+    undo,
+    updateNodePosition,
+    updateViewport,
 } from '../redux/querySlice';
 import { queryQueryToCypher } from '../redux/queryToCypherSlice';
 
 const fullAlphabet = "0123456789abcdefghijklmnopqrstuvwxyz";
 const firstAlphabet = "abcdefghijklmnopqrstuvwxyz";
 
-function nanoid(size = 21) {
+function nanoid(size = 3) {
     const first = customAlphabet(firstAlphabet, 1)(); // 1 letter
     const rest = customAlphabet(fullAlphabet, size - 1)(); // rest of ID
     return first + rest;
@@ -182,6 +183,7 @@ const defaultEdge = {
 export default function QueryPage() {
     // ========== Graph Core States ==========
     const dispatch = useDispatch();
+    const navigate = useNavigate();
     const { nodes, edges, viewport } = useSelector(state => state.query);
     const viewportRef = useRef(viewport);
     useEffect(() => {
@@ -334,12 +336,10 @@ export default function QueryPage() {
 
     const handleConfirm = (newEle) => {
         if (newEle.type === "node") {
-            log(`Node name changed from "${contextTapElement.label}" to "${newEle.label}"`);
             dispatch(editNode({
                 node: newEle
             }));
         } else if (newEle.type === "edge") {
-            log(`Edge label changed from "${contextTapElement.label}" to "${newEle.label}"`);
             dispatch(editEdge(newEle));
         }
     };
@@ -616,7 +616,7 @@ export default function QueryPage() {
             clean(
                 {
                     identity: node.data.id,
-                    labels: typeToTypeList(node.data.nodeType || []).reverse(),
+                    labels: typeToTypeList(node.data.nodeType || []),
                     properties: clean({
                         id: node.data.nodeId,
                         end_loc: node.data.end_loc,
@@ -642,6 +642,8 @@ export default function QueryPage() {
         dispatch(queryQueryToCypher([{ nodes: queryNodes, edges: queryEdges }])).then(res => {
             console.log("Cypher Query:\n" + res.payload.cypher_query);
             log("Generated Cypher Query:\n" + res.payload.cypher_query);
+            navigate(`/graphresult?query=${encodeURIComponent(res.payload.cypher_query)}`);
+            return;
             dispatch(queryOnPrem({ query: res.payload.cypher_query })).then(res2 => {
                 const result = res2.payload.result || [];
                 console.log("OnPrem Result:", result);

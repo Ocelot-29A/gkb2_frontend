@@ -215,6 +215,16 @@ export function InputComponent({ type, setValue = (() => { }), setTermString = (
   const [validatedValue, setValidatedValue] = useState(''); // validated value after checking with vocab
   const [validatedTermString, setValidatedTermString] = useState('');
 
+  const [checkGene, setCheckGene] = useState(false);
+
+  useEffect(() => {
+    if (typeToTypeList('gene').includes(type) || type === 'term') {
+      setCheckGene(true);
+    } else {
+      setCheckGene(false);
+    }
+  }, [type]);
+
   useEffect(() => {
     setValue(validatedValue);
     setTermString(validatedTermString);
@@ -232,7 +242,7 @@ export function InputComponent({ type, setValue = (() => { }), setTermString = (
       setValidatedValue('');
       setInputStatus('mismatch');
       setSelfOptions([]); // to trigger rendering the dropdown
-      if (type === 'gene') {
+      if (checkGene) {
         setSimIsLoading(true);
         updateSource(defaultValue, type);
       }
@@ -264,14 +274,12 @@ export function InputComponent({ type, setValue = (() => { }), setTermString = (
       return;
     }
     dispatch(queryQueryResult({
-      isNeptune: false,
       query: "SELECT DISTINCT ON (ensembl_id) ensembl_id AS id, name FROM ensembl_gene_transcript WHERE name % '" + keyWord + "' ORDER BY ensembl_id, similarity(name, '" + keyWord + "') DESC LIMIT 5;"
     })).unwrap()
       .then((response) => {
         if (response && newInputValue === inputValueRef.current) {
           const parsedResponse = response.results.map((item, index) => {
-            console.log(item);
-            return `${item.name} (${item.id})`;
+            return { label: `${item.name} (${item.id})`, termString: `gene@${item.id}@${item.name}` };
           });
           if (parsedResponse.length === 0) {
             setSelfOptions([{ label: `${typeToVisu(type)} not found`, disabled: true, notFound: true }]);
@@ -288,6 +296,7 @@ export function InputComponent({ type, setValue = (() => { }), setTermString = (
 
   function updateValidation(newInputValue, type) { // validate the input value with vocab
     const termName = newInputValue.split('(')[0].trim();
+    console.log("Validating:", newInputValue, "as", type);
     // const typeMap = {
     //   "Gene": 'gene',
     //   "Cell line": 'cell_type',
@@ -295,15 +304,14 @@ export function InputComponent({ type, setValue = (() => { }), setTermString = (
     // };
     Promise.all(
       [dispatch(queryVocab({ input: termName })).unwrap(),
-        // ...(type === 'Sequence variant' ? [dispatch(queryQueryResult({
-        //   isNeptune: false,
-        //   rawResponse: true,
-        //   query: `SELECT snp FROM QTL_DATA WHERE snp = '${geneName}' LIMIT 1;`
-        // })).unwrap()] : [])
+      ...checkGene ? [dispatch(queryQueryResult({
+        query: "SELECT DISTINCT ON (ensembl_id) ensembl_id AS id, name FROM ensembl_gene_transcript WHERE LOWER(name) = LOWER('" + termName + "') ORDER BY ensembl_id LIMIT 5;"
+      })).unwrap()] : [],
       ]
-    ).then(([response]) => {
+    ).then(([response, response2]) => {
       if (newInputValue !== inputValueRef.current) return; // discard outdated response
-      const termString = response?.result || '';
+      const result2 = response2?.results?.[0];
+      const termString = result2 ? `gene@${result2.id}@${result2.name}` : response?.result || '';
       const responseList = termString.split('@') || [''];
       if (validatedValue === newInputValue) {
         setValidatedValue(newInputValue);
@@ -312,12 +320,12 @@ export function InputComponent({ type, setValue = (() => { }), setTermString = (
         return;
       } // skip repeated response
       const id = (typeToTypeList(responseList[0]).includes(type) || type === 'term') ?
-        (type === 'gene' ? `${termName} (${responseList[1]})` : responseList[1]) : //use gene name for now
+        (checkGene ? `${termName} (${responseList[1]})` : responseList[1]) : //use gene name for now
         '';
       // const id2 = response2?.results?.[0]?.[type];
       // const id = id1 || id2 || '';
       if (id) {
-        if (type === 'gene') {
+        if (checkGene) {
           setInputStatus('valid');
           setValidatedValue(id.toUpperCase());
           setValidatedTermString(termString);
@@ -346,9 +354,13 @@ export function InputComponent({ type, setValue = (() => { }), setTermString = (
         freeSolo
         autoFocus
         options={(() => {
-          const options = [...(validatedValue ? [validatedValue] : []), ...selfOptions];
-          const uniqueOptions = [...new Set(options.map(option => option.label || option))];
-          return uniqueOptions.length > 0 ? (type === 'gene' ? uniqueOptions : []) : [{ label: `No ${type} found`, disabled: true, notFound: true }];
+          const options = [...(validatedValue ? [{ label: validatedValue, termString: validatedTermString }] : []), ...selfOptions];
+          // const uniqueOptions = [...new Set(options.map(option => option.label || option))];
+          // keep the option dict, but remove duplicated labels
+          const uniqueOptions = options.filter((option, index, self) =>
+            index === self.findIndex((o) => (o.label) === (option.label))
+          );
+          return uniqueOptions.length > 0 ? (checkGene ? uniqueOptions : []) : [{ label: `No ${type} found`, disabled: true, notFound: true }];
         })()}
         disabled={disabled}
         getOptionDisabled={(option) => option.disabled}
@@ -380,10 +392,7 @@ export function InputComponent({ type, setValue = (() => { }), setTermString = (
             clearTimeout(inputChangeTimer.current);
           }
           if (reason === 'reset') {
-            if (newInputValue) {
-              setInputStatus('valid');
-              setValidatedValue(newInputValue);
-            } else {
+            if (!newInputValue) {
               setInputStatus('empty');
               setValidatedValue('');
             }
@@ -393,12 +402,12 @@ export function InputComponent({ type, setValue = (() => { }), setTermString = (
               setInputStatus('mismatch');
               inputChangeTimer.current = setTimeout(() => {
                 setSelfOptions([]); // to trigger rendering the dropdown
-                if (type === 'gene') {
+                setValIsLoading(true);
+                updateValidation(newInputValue, type);
+                if (checkGene) {
                   setSimIsLoading(true);
                   updateSource(newInputValue, type);
                 }
-                setValIsLoading(true);
-                updateValidation(newInputValue, type);
               }, 300); // Delay the input change handling
             } else {
               setInputStatus('empty');
@@ -409,7 +418,13 @@ export function InputComponent({ type, setValue = (() => { }), setTermString = (
 
           }
         }}
-        onChange={() => { }}
+        onChange={(event, option, reason) => {
+          if (reason === 'selectOption') {
+            setInputStatus('valid');
+            setValidatedValue(option.label || option);
+            setValidatedTermString(option.termString || '');
+          }
+        }}
         ListboxComponent={React.forwardRef(function ListboxComponent(props, ref) {
           if (!inputValue) {
             return <></>;
@@ -423,8 +438,8 @@ export function InputComponent({ type, setValue = (() => { }), setTermString = (
                     display: 'flex',
                     justifyContent: 'center',
                     alignItems: 'center',
-                    padding: type === 'gene' ? 2 : 1,
-                    width: type === 'gene' ? '200px' : '115px'
+                    padding: checkGene ? 2 : 1,
+                    width: checkGene ? '200px' : '115px'
                   }}
                 >
                   <CircularProgress size={20} />
@@ -529,7 +544,6 @@ export const SearchComponent = ({ questionSchema, clearTrigger = 0, values, upda
     setPartsMap(partsMap);
     setDefaultValues(defaultValues);
     setIsFixedMap(isFixedMap);
-    console.log("Default values set:", defaultValues);
   }, [questionSchema]);
 
   useEffect(() => {
@@ -717,7 +731,6 @@ function MatchPage() {
     const question = params.get('question');
     if (question) {
       setQuestion(decodeURIComponent(question));
-      console.log("question:", decodeURIComponent(question));
     } else {
       navigate('/');
     }

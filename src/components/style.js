@@ -48,7 +48,7 @@ export function darkenHex(hex, percent = 20) {
   );
 }
 
-const nodeAutoHeight = (node) => {
+export const nodeAutoHeight = (node) => {
   const ctx = document.createElement('canvas').getContext("2d");
   const fStyle = node.pstyle('font-style').strValue;
   const size = node.pstyle('font-size').pfValue + 'px';

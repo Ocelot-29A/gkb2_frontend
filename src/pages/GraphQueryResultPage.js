@@ -30,6 +30,10 @@ import {
 } from '@mui/material';
 
 import {
+  nodeAutoHeight,
+  nodeAutoWidth,
+} from '../components/style';
+import {
   typeToTypeList,
   typeToVisu,
 } from '../components/ToolPanel';
@@ -52,6 +56,7 @@ const GraphViewer = ({ query, onStatsUpdate, onNodeDataUpdate, onNodeSelect, sel
 
   useEffect(() => {
     // Load example data
+    if (!query || query.trim() === "") return;
     const loadExampleData = async () => {
       try {
         // const [resultResponse, positionResponse] = await Promise.all([
@@ -65,14 +70,14 @@ const GraphViewer = ({ query, onStatsUpdate, onNodeDataUpdate, onNodeSelect, sel
         const positionResponse = {};
 
 
-        const result = resultResponse.results[0];
+        const result = resultResponse[0];
         const positionData = positionResponse;
 
         const uniqueNodesMap = {};
-        result.nodes.forEach((node) => (uniqueNodesMap[node["~id"]] = node));
+        result.node_list.forEach((node) => (uniqueNodesMap[node["id"]] = node));
         const nodes = Object.values(uniqueNodesMap).map((node) => {
-          const type = node["~labels"].find((label) => NodeColors[label]) || "coding_elements";
-          const posData = positionData[node["~id"]] || {
+          const type = node["labels"]?.find((label) => NodeColors[label]) || "coding_elements";
+          const posData = positionData[node["id"]] || {
             x: Math.random() * 400 - 200,
             y: Math.random() * 300 - 150,
             Level: "Core",
@@ -83,17 +88,17 @@ const GraphViewer = ({ query, onStatsUpdate, onNodeDataUpdate, onNodeSelect, sel
           };
           return {
             data: {
-              id: node["~id"],
-              ...node["~properties"],
+              ...node,
               label: (
-                node["~labels"].includes("disease") || node["~labels"].includes("ontology")
-                  ? node["~properties"].id
-                  : (node["~labels"].includes("gene") || node["~labels"].includes("coding_elements"))
-                    ? (node["~properties"].name || node["~properties"].id)
-                    : node["~properties"].id
+                typeToVisu(node.name || node.id)
+                // node["labels"].includes("disease") || node["labels"].includes("ontology")
+                //   ? node["properties"].id
+                //   : (node["labels"].includes("gene") || node["labels"].includes("coding_elements"))
+                //     ? (node["properties"].name || node["properties"].id)
+                //     : node["properties"].id
               ),
               type,
-              labels: node["~labels"],
+              labels: node["labels"],
               Level: posData.Level,
               color: NodeColors[type] || NodeColors[typeToTypeList(type)?.[0]] || "#CCCCCC",
             },
@@ -101,16 +106,16 @@ const GraphViewer = ({ query, onStatsUpdate, onNodeDataUpdate, onNodeSelect, sel
           };
         });
 
-        const uniqueEdgesMap = {};
-        result.edges.forEach((edge, index) => (uniqueEdgesMap[edge["~id"] || index.toString()] = edge));
+        // const uniqueEdgesMap = {};
+        // result.edge_list.forEach((edge, index) => (uniqueEdgesMap[edge["id"] || index.toString()] = edge));
+        const uniqueEdgesMap = result.edge_list;
         const edges = Object.values(uniqueEdgesMap).map((edge) => ({
           data: {
-            id: edge["~id"],
-            source: edge["~start"],
-            target: edge["~end"],
-            type: edge["~type"],
-            label: edgeLabels[edge["~type"]] || edge["~type"].replace(/_/g, " "),
-            ...edge["~properties"],
+            ...edge,
+            source: edge[0].id,
+            target: edge[2].id,
+            type: edge[1],
+            label: edgeLabels[edge[1]] || edge[1].replace(/_/g, " "),
           },
         }));
 
@@ -126,48 +131,36 @@ const GraphViewer = ({ query, onStatsUpdate, onNodeDataUpdate, onNodeSelect, sel
               selector: 'node',
               style: {
                 shape: "round-rectangle",
-                "background-color": "data(color)",
+                "background-color": "white",
                 "border-width": "1px",
-                "border-color": "data(color)",
+                "border-color": "black",
                 label: "data(label)",
-                "font-size": "11px",
+                "font-size": "6px",
                 "text-valign": "center",
-                "text-halign": "center",
-                color: "black",
-                width: "label",
-                height: "label",
-                "text-margin-y": "0px",
-                padding: "6px",
+                color: "#fff",
+                width: nodeAutoWidth,
+                height: nodeAutoHeight,
+                "text-margin-y": "0.5px",
+                padding: "4px",
                 "text-outline-width": 0,
                 "text-outline-color": "#fff",
                 "text-outline-opacity": 0,
-                "min-width": "50px",
-                "min-height": "30px",
-                "text-max-width": "80px",
-                "text-wrap": "wrap",
-                "text-overflow-wrap": "anywhere",
               }
             },
             {
               selector: 'edge',
               style: {
-                width: 3,
-                "line-color": "#666",
-                "target-arrow-color": "#666",
-                "target-arrow-shape": "triangle",
-                "target-arrow-size": "8px",
+                width: 1,
+                "line-color": "#d3d3d3",
+                "target-arrow-color": "#545454",
+                "target-arrow-shape": "vee",
+                "arrow-scale": 0.4,
                 "curve-style": "bezier",
-                "label": (edge) => typeToVisu(edge.data().type || edge.data().label),
-                "font-size": "9px",
-                "text-background-opacity": 0.9,
-                "text-background-color": "#fff",
-                "text-background-padding": "3px",
-                "text-background-shape": "roundrectangle",
-                "color": "#333",
-                "text-rotation": "autorotate",
-                "text-margin-y": -12,
-                "text-border-width": 1,
-                "text-border-color": "#ddd",
+                "label": "data(label)",
+                "font-size": "4px",
+                "text-background-opacity": 1,
+                "text-background-color": "#F9FAFB",
+                "color": "#000",
               }
             },
             {
@@ -189,16 +182,10 @@ const GraphViewer = ({ query, onStatsUpdate, onNodeDataUpdate, onNodeSelect, sel
             {
               selector: 'node.highlighted',
               style: {
-                "border-width": "4px",
+                "border-width": "2px",
                 "border-color": "#ff6b6b",
                 "background-color": "data(color)",
                 "z-index": 999,
-                "width": "label",
-                "height": "label",
-                "min-width": "60px",
-                "min-height": "35px",
-                "font-size": "12px",
-                "font-weight": "bold"
               }
             }
           ],
@@ -211,15 +198,15 @@ const GraphViewer = ({ query, onStatsUpdate, onNodeDataUpdate, onNodeSelect, sel
 
         const layout = cyRef.current.layout({
           name: 'cose',
-          idealEdgeLength: 100,
+          idealEdgeLength: 40,
           nodeOverlap: 20,
           refresh: 20,
           fit: true,
-          padding: 30,
+          padding: 10,
           randomize: false,
-          componentSpacing: 100,
+          componentSpacing: 20,
           nodeRepulsion: 400000,
-          edgeElasticity: 100,
+          edgeElasticity: 10,
           nestingFactor: 5,
           gravity: 80,
           numIter: 1000,
@@ -279,7 +266,7 @@ const GraphViewer = ({ query, onStatsUpdate, onNodeDataUpdate, onNodeSelect, sel
         cyRef.current.destroy();
       }
     };
-  }, []);
+  }, [query]);
 
   useEffect(() => {
     if (cyRef.current) {
@@ -415,25 +402,27 @@ export default function GraphQueryResultPage() {
 
   const categorizeNodes = (nodes) => {
     const categories = {
-      'gene': [],
-      'sequence_variant': [],
-      'ontology': []
+      // 'gene': [],
+      // 'sequence_variant': [],
+      // 'ontology': []
+      other: []
     };
 
     nodes.forEach(node => {
-      const labels = node.data.labels || [];
+      // const labels = node.data.labels || [];
 
-      if (labels.includes('gene') || labels.includes('coding_elements')) {
-        categories['gene'].push(node);
-      }
-      else if (labels.includes('sequence_variant') || labels.includes('variants') ||
-        labels.includes('sequence_SNP') || labels.includes('sequence_insertion')) {
-        categories['sequence_variant'].push(node);
-      }
-      else if (labels.includes('ontology') || labels.includes('disease') ||
-        labels.includes('phenotype_or_disease')) {
-        categories['ontology'].push(node);
-      }
+      // if (labels.includes('gene') || labels.includes('coding_elements')) {
+      //   categories['gene'].push(node);
+      // }
+      // else if (labels.includes('sequence_variant') || labels.includes('variants') ||
+      //   labels.includes('sequence_SNP') || labels.includes('sequence_insertion')) {
+      //   categories['sequence_variant'].push(node);
+      // }
+      // else if (labels.includes('ontology') || labels.includes('disease') ||
+      //   labels.includes('phenotype_or_disease')) {
+      //   categories['ontology'].push(node);
+      // }
+      categories['other'].push(node);
     });
 
     Object.keys(categories).forEach(key => {
