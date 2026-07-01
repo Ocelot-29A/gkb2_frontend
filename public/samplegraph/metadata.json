@@ -1,0 +1,53 @@
+{
+  "input_node_count": 25,
+  "input_edge_count": 26,
+  "filtered_node_count": 25,
+  "filtered_edge_count": 26,
+  "hidden_node_count": 0,
+  "layout": {
+    "mode": "genome_track",
+    "genome_region": {
+      "x": -339.043,
+      "y": -46,
+      "width": 712.586,
+      "height": 482,
+      "lanes": [
+        {
+          "name": "Gene",
+          "y": 0
+        },
+        {
+          "name": "Transcript",
+          "y": 78
+        },
+        {
+          "name": "TSS_segment",
+          "y": 156
+        },
+        {
+          "name": "Exon",
+          "y": 234
+        },
+        {
+          "name": "CDS_segments",
+          "y": 312
+        },
+        {
+          "name": "UTR_segments",
+          "y": 390
+        },
+        {
+          "name": "other coordinate features",
+          "y": 468
+        }
+      ],
+      "groups": [
+        {
+          "genome_assembly": "GRCh38.p14",
+          "chr": "7",
+          "y": 0
+        }
+      ]
+    }
+  }
+}
