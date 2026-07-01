@@ -1,0 +1,203 @@
+{
+  "ENSG00000001626": {
+    "x": -158.043,
+    "y": 0,
+    "width": 340,
+    "height": 34,
+    "genome_start_x": -328.043,
+    "genome_end_x": 11.957,
+    "Level": "Core"
+  },
+  "TSS:7:117611616-117611617:1:3155c2bd56": {
+    "x": -70.777,
+    "y": 156,
+    "width": 0.001,
+    "height": 22,
+    "genome_start_x": -70.777,
+    "genome_end_x": -70.776,
+    "Level": "Neighbor"
+  },
+  "CDS:7:117611616-117611808:1:2522256865": {
+    "x": -70.701,
+    "y": 312,
+    "width": 0.152,
+    "height": 24,
+    "genome_start_x": -70.777,
+    "genome_end_x": -70.625,
+    "Level": "Neighbor"
+  },
+  "ENSE00001941450": {
+    "x": -70.701,
+    "y": 234,
+    "width": 0.152,
+    "height": 24,
+    "genome_start_x": -70.777,
+    "genome_end_x": -70.625,
+    "Level": "Neighbor"
+  },
+  "ENST00000468795": {
+    "x": -64.318,
+    "y": 78,
+    "width": 12.918,
+    "height": 28,
+    "genome_start_x": -70.777,
+    "genome_end_x": -57.859,
+    "Level": "Core"
+  },
+  "CDS:7:117614612-117614713:1:cc81d92f7c": {
+    "x": -68.362,
+    "y": 312,
+    "width": 0.08,
+    "height": 24,
+    "genome_start_x": -68.402,
+    "genome_end_x": -68.322,
+    "Level": "Neighbor"
+  },
+  "ENSE00000718699": {
+    "x": -68.362,
+    "y": 234,
+    "width": 0.08,
+    "height": 24,
+    "genome_start_x": -68.402,
+    "genome_end_x": -68.322,
+    "Level": "Neighbor"
+  },
+  "CDS:7:117627521-117627800:1:bcbebd38d6": {
+    "x": -58.057,
+    "y": 312,
+    "width": 0.221,
+    "height": 24,
+    "genome_start_x": -58.167,
+    "genome_end_x": -57.946,
+    "Level": "Neighbor"
+  },
+  "ENSE00001921300": {
+    "x": -58.013,
+    "y": 234,
+    "width": 0.308,
+    "height": 24,
+    "genome_start_x": -58.167,
+    "genome_end_x": -57.859,
+    "Level": "Neighbor"
+  },
+  "UTR:3prime_UTR:7:117627800-117627910:1:7c36f66925": {
+    "x": -57.903,
+    "y": 390,
+    "width": 0.087,
+    "height": 24,
+    "genome_start_x": -57.946,
+    "genome_end_x": -57.859,
+    "Level": "Neighbor"
+  },
+  "ENSG00000128534": {
+    "x": 238.043,
+    "y": 0,
+    "width": 180.0,
+    "height": 34,
+    "genome_start_x": 148.043,
+    "genome_end_x": 328.043,
+    "Level": "Core"
+  },
+  "TSS:7:118184155-118184156:1:a3b29a4645": {
+    "x": 149.663,
+    "y": 156,
+    "width": 0.009,
+    "height": 22,
+    "genome_start_x": 149.658,
+    "genome_end_x": 149.667,
+    "Level": "Neighbor"
+  },
+  "UTR:5prime_UTR:7:118184155-118184223:1:cae139ccbb": {
+    "x": 149.963,
+    "y": 390,
+    "width": 0.61,
+    "height": 24,
+    "genome_start_x": 149.658,
+    "genome_end_x": 150.268,
+    "Level": "Neighbor"
+  },
+  "ENSE00004696596": {
+    "x": 156.563,
+    "y": 234,
+    "width": 13.81,
+    "height": 24,
+    "genome_start_x": 149.658,
+    "genome_end_x": 163.468,
+    "Level": "Neighbor"
+  },
+  "ENST00001081202": {
+    "x": 185.672,
+    "y": 78,
+    "width": 72.027,
+    "height": 28,
+    "genome_start_x": 149.658,
+    "genome_end_x": 221.685,
+    "Level": "Core"
+  },
+  "CDS:7:118184223-118184529:1:3a60a83bb1": {
+    "x": 151.641,
+    "y": 312,
+    "width": 2.746,
+    "height": 24,
+    "genome_start_x": 150.268,
+    "genome_end_x": 153.014,
+    "Level": "Neighbor"
+  },
+  "UTR:3prime_UTR:7:118184529-118185694:1:0f289bc591": {
+    "x": 158.241,
+    "y": 390,
+    "width": 10.454,
+    "height": 24,
+    "genome_start_x": 153.014,
+    "genome_end_x": 163.468,
+    "Level": "Neighbor"
+  },
+  "ENSE00004696600": {
+    "x": 204.165,
+    "y": 234,
+    "width": 35.04,
+    "height": 24,
+    "genome_start_x": 186.645,
+    "genome_end_x": 221.685,
+    "Level": "Neighbor"
+  },
+  "UTR:3prime_UTR:7:118188277-118192182:1:795c07cce2": {
+    "x": 204.165,
+    "y": 390,
+    "width": 35.04,
+    "height": 24,
+    "genome_start_x": 186.645,
+    "genome_end_x": 221.685,
+    "Level": "Neighbor"
+  },
+  "GO:0120115": {
+    "x": 192.543,
+    "y": -95,
+    "Level": "Neighbor"
+  },
+  "GO:1902476": {
+    "x": -249.043,
+    "y": -230.0,
+    "Level": "Neighbor"
+  },
+  "GO:1904322": {
+    "x": -203.543,
+    "y": -455.166,
+    "Level": "Neighbor"
+  },
+  "GO:1990904": {
+    "x": 283.543,
+    "y": -455.166,
+    "Level": "Neighbor"
+  },
+  "ENSP00000419254": {
+    "x": -20.18,
+    "y": -230.0,
+    "Level": "Neighbor"
+  },
+  "ENSP00000751008": {
+    "x": 257.358,
+    "y": -95,
+    "Level": "Neighbor"
+  }
+}

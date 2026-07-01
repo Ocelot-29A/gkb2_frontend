@@ -25,6 +25,7 @@ import GraphQueryResultPage from './pages/GraphQueryResultPage';
 import Ontology from './pages/Ontology';
 import Pipeline from './pages/Pipeline';
 import QTLDataSource from './pages/QTL_data_source';
+import SampleGraphPage from './pages/SampleGraphPage';
 import StatPage from './pages/StatPage';
 import Tutorial from './pages/Tutorial';
 import UsecasesPage from './pages/UsecasePage';
@@ -55,6 +56,7 @@ root.render(
           <Route path="/match" element={<MatchPage />} />
           <Route path="/" element={<LandingPage />} />
           <Route path="/debug" element={<DebugPage />} />
+          <Route path="/samplegraph" element={<SampleGraphPage />} />
           <Route path="/graphquery" element={<QueryPage />} />
           <Route path="/graphresult" element={<GraphQueryResultPage />} />
         </Routes>

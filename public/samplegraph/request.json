@@ -1,0 +1,28 @@
+{
+  "cypher": [
+    {
+      "source": "neo4j",
+      "query": "MATCH (g:Gene) WHERE g.id IN [\"ENSG00000001626\", \"ENSG00000128534\"]\nCALL (g) {\n  MATCH (g)-[gt:HAS_TRANSCRIPT]-(t:Transcript)\n  WHERE (g.id = \"ENSG00000001626\" AND t.id = \"ENST00000468795\")\n     OR (g.id = \"ENSG00000128534\" AND t.id = \"ENST00001081202\")\n  OPTIONAL MATCH (t)-[tss_r:HAS_TSS]-(tss:TSS_segment)\n  OPTIONAL MATCH (t)-[exon_r:HAS_EXON]-(exon:Exon)\n  OPTIONAL MATCH (t)-[cds_r:HAS_CDS_SEGMENT]-(cds:CDS_segments)\n  OPTIONAL MATCH (t)-[utr_r:HAS_UTR_SEGMENT]-(utr:UTR_segments)\n  OPTIONAL MATCH (t)-[tp_r:TRANSLATES_TO]-(protein:Protein)\n  OPTIONAL MATCH (g)-[gp_r:ENCODES]-(protein)\n  WITH t, gt,\n       collect(DISTINCT tss) AS tss_nodes, collect(DISTINCT tss_r) AS tss_edges,\n       collect(DISTINCT exon) AS exon_nodes, collect(DISTINCT exon_r) AS exon_edges,\n       collect(DISTINCT cds) AS cds_nodes, collect(DISTINCT cds_r) AS cds_edges,\n       collect(DISTINCT utr) AS utr_nodes, collect(DISTINCT utr_r) AS utr_edges,\n       collect(DISTINCT protein) AS protein_nodes,\n       collect(DISTINCT tp_r) AS transcript_protein_edges,\n       collect(DISTINCT gp_r) AS gene_protein_edges\n  RETURN [t] + tss_nodes + exon_nodes + cds_nodes + utr_nodes + protein_nodes AS structure_nodes,\n         [gt] + tss_edges + exon_edges + cds_edges + utr_edges + transcript_protein_edges + gene_protein_edges AS structure_edges\n}\nCALL (g) {\n  OPTIONAL MATCH (g)-[go_r:ASSOCIATED_WITH_GO]-(go:GO_term)\n  WITH go_r, go LIMIT 2\n  RETURN collect(DISTINCT go) AS go_nodes, collect(DISTINCT go_r) AS go_edges\n}\nWITH collect(DISTINCT g) AS genes,\n     collect(structure_nodes) AS structure_node_lists,\n     collect(structure_edges) AS structure_edge_lists,\n     collect(go_nodes) AS go_node_lists,\n     collect(go_edges) AS go_edge_lists\nWITH genes\n   + reduce(acc = [], item IN structure_node_lists | acc + item)\n   + reduce(acc = [], item IN go_node_lists | acc + item) AS nodes,\n     reduce(acc = [], item IN structure_edge_lists | acc + item)\n   + reduce(acc = [], item IN go_edge_lists | acc + item) AS edges\nRETURN nodes, edges"
+    },
+    {
+      "source": "pgsql",
+      "api": "chr/features/by-node",
+      "searched_id": "ENSG00000001626",
+      "relative_position": "downstream",
+      "feature_types": [
+        "Gene"
+      ],
+      "target_ids": [
+        "ENSG00000128534"
+      ],
+      "limit": 1
+    }
+  ],
+  "core_nodes": [
+    "ENSG00000001626",
+    "ENSG00000128534",
+    "ENST00000468795",
+    "ENST00001081202"
+  ],
+  "max_nodes": 30
+}
