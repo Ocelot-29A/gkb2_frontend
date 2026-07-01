@@ -222,6 +222,19 @@ const getRenderHeight = (posData) => (
   Number.isFinite(posData?.height) ? posData.height * CY_LAYOUT_SCALE : posData?.height
 );
 
+const getEdgeCurveDistance = (edgeId) => {
+  const source = String(edgeId || '');
+  let hash = 0;
+
+  for (let index = 0; index < source.length; index += 1) {
+    hash = ((hash << 5) - hash) + source.charCodeAt(index);
+    hash |= 0;
+  }
+
+  const curveDistances = [-70, -50, -35, 35, 50, 70];
+  return curveDistances[Math.abs(hash) % curveDistances.length];
+};
+
 const buildTrackBackgroundNode = (genomeRegion) => {
   if (!genomeRegion) {
     return null;
@@ -670,6 +683,8 @@ export default function StandaloneKnowledgeGraph({
         target_name: nodeNameMap[edge['~end']],
         type: edge['~type'],
         label: edgeLabels[edge['~type']] || edge['~type'].replace(/_/g, ' '),
+        curveDistance: String(getEdgeCurveDistance(edge['~id'])),
+        curveWeight: '0.5',
         ...edge['~properties'],
       },
     }));
@@ -720,6 +735,9 @@ export default function StandaloneKnowledgeGraph({
         {
           selector: 'edge',
           style: {
+            'curve-style': 'unbundled-bezier',
+            'control-point-distances': 'data(curveDistance)',
+            'control-point-weights': 'data(curveWeight)',
             'z-index-compare': 'manual',
             'z-index': 5,
           },
@@ -727,9 +745,10 @@ export default function StandaloneKnowledgeGraph({
         {
           selector: 'node[captionBelow = "true"]',
           style: {
+            shape: 'rectangle',
             'text-valign': 'bottom',
             'text-halign': 'center',
-            'text-margin-y': 10,
+            'text-margin-y': 4,
           },
         },
       ]),
