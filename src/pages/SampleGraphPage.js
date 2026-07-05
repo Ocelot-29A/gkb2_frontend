@@ -24,6 +24,20 @@ const loadJson = async (path) => {
   return response.json();
 };
 
+const loadFirstAvailableJson = async (paths) => {
+  let lastError = null;
+
+  for (const path of paths) {
+    try {
+      return await loadJson(path);
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw lastError || new Error('Failed to load sample graph data.');
+};
+
 export default function SampleGraphPage() {
   const [graphData, setGraphData] = useState(null);
   const [coordData, setCoordData] = useState(null);
@@ -38,7 +52,7 @@ export default function SampleGraphPage() {
         setError('');
         const [graph, xy, meta] = await Promise.all([
           loadJson('graph.json'),
-          loadJson('xy.json'),
+          loadFirstAvailableJson(['xy_json.json', 'xy.json']),
           loadJson('metadata.json'),
         ]);
 
@@ -88,7 +102,7 @@ export default function SampleGraphPage() {
             Sample Graph Viewer
           </Typography>
           <Typography sx={{ fontSize: 15, color: '#557086', maxWidth: '920px' }}>
-            This page renders the sample graph from the handoff dataset with its own preset coordinates from xy.json and the migrated hover information panel.
+            This page renders the sample graph from the handoff dataset with its own preset coordinates and the migrated hover information panel.
           </Typography>
           {metadata && (
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>

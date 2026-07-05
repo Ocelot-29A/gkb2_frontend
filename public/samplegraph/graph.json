@@ -1,110 +1,164 @@
 {
   "nodes": [
     {
-      "~id": "CDS:7:117611616-117611808:1:2522256865",
+      "~id": "CDS:7:117480094-117480147:1:ff3ed8d9ff",
       "~entityType": "node",
       "~labels": [
         "CDS_segments"
       ],
       "~properties": {
-        "exon_id": "ENSE00001941450",
-        "end_loc": 117611808,
-        "data_version": "GRCh38.p14",
-        "phase_start": 1,
-        "chr": "7",
-        "data_source": "Ensembl",
-        "data_source_url": "https://useast.ensembl.org/Homo_sapiens/Transcript/Summary?db=core;t=ENST00000468795",
-        "transcript_id": "ENST00000468795",
-        "protein_id": "ENSP00000419254",
-        "strand": "1",
-        "genome_assembly": "GRCh38.p14",
-        "phase_end": 1,
-        "name": "ENST00000468795 CDS 1",
-        "segment_type": "CDS_SEGMENT",
-        "rank": 1,
-        "start_loc": 117611616,
-        "id": "CDS:7:117611616-117611808:1:2522256865",
-        "gene_id": "ENSG00000001626"
-      }
-    },
-    {
-      "~id": "CDS:7:117614612-117614713:1:cc81d92f7c",
-      "~entityType": "node",
-      "~labels": [
-        "CDS_segments"
-      ],
-      "~properties": {
-        "exon_id": "ENSE00000718699",
-        "end_loc": 117614713,
-        "data_version": "GRCh38.p14",
-        "phase_start": 1,
-        "chr": "7",
-        "data_source": "Ensembl",
-        "data_source_url": "https://useast.ensembl.org/Homo_sapiens/Transcript/Summary?db=core;t=ENST00000468795",
-        "transcript_id": "ENST00000468795",
-        "protein_id": "ENSP00000419254",
-        "strand": "1",
-        "genome_assembly": "GRCh38.p14",
-        "phase_end": 0,
-        "name": "ENST00000468795 CDS 2",
-        "segment_type": "CDS_SEGMENT",
-        "rank": 2,
-        "start_loc": 117614612,
-        "id": "CDS:7:117614612-117614713:1:cc81d92f7c",
-        "gene_id": "ENSG00000001626"
-      }
-    },
-    {
-      "~id": "CDS:7:117627521-117627800:1:bcbebd38d6",
-      "~entityType": "node",
-      "~labels": [
-        "CDS_segments"
-      ],
-      "~properties": {
-        "exon_id": "ENSE00001921300",
-        "end_loc": 117627800,
-        "data_version": "GRCh38.p14",
-        "phase_start": 0,
-        "chr": "7",
-        "data_source": "Ensembl",
-        "data_source_url": "https://useast.ensembl.org/Homo_sapiens/Transcript/Summary?db=core;t=ENST00000468795",
-        "transcript_id": "ENST00000468795",
-        "protein_id": "ENSP00000419254",
-        "strand": "1",
-        "genome_assembly": "GRCh38.p14",
-        "phase_end": -1,
-        "name": "ENST00000468795 CDS 3",
-        "segment_type": "CDS_SEGMENT",
-        "rank": 3,
-        "start_loc": 117627521,
-        "id": "CDS:7:117627521-117627800:1:bcbebd38d6",
-        "gene_id": "ENSG00000001626"
-      }
-    },
-    {
-      "~id": "CDS:7:118184223-118184529:1:3a60a83bb1",
-      "~entityType": "node",
-      "~labels": [
-        "CDS_segments"
-      ],
-      "~properties": {
-        "exon_id": "ENSE00004696596",
-        "end_loc": 118184529,
+        "exon_id": "ENSE00003976980",
+        "end_loc": 117480147,
         "data_version": "GRCh38.p14",
         "phase_start": -1,
         "chr": "7",
         "data_source": "Ensembl",
-        "data_source_url": "https://useast.ensembl.org/Homo_sapiens/Transcript/Summary?db=core;t=ENST00001081202",
-        "transcript_id": "ENST00001081202",
-        "protein_id": "ENSP00000751008",
+        "data_source_url": "https://useast.ensembl.org/Homo_sapiens/Transcript/Summary?db=core;t=ENST00000687278",
+        "transcript_id": "ENST00000687278",
+        "protein_id": "ENSP00000509593",
         "strand": "1",
         "genome_assembly": "GRCh38.p14",
-        "phase_end": -1,
-        "name": "ENST00001081202 CDS 1",
+        "phase_end": 2,
+        "name": "CDS CFTR 1 44",
+        "segment_type": "CDS_SEGMENT",
+        "rank": 1,
+        "start_loc": 117480094,
+        "id": "CDS:7:117480094-117480147:1:ff3ed8d9ff",
+        "gene_id": "ENSG00000001626"
+      }
+    },
+    {
+      "~id": "CDS:7:117480094-117480147:1:87185443c7",
+      "~entityType": "node",
+      "~labels": [
+        "CDS_segments"
+      ],
+      "~properties": {
+        "exon_id": "ENSE00003976980",
+        "end_loc": 117480147,
+        "data_version": "GRCh38.p14",
+        "phase_start": -1,
+        "chr": "7",
+        "data_source": "Ensembl",
+        "data_source_url": "https://useast.ensembl.org/Homo_sapiens/Transcript/Summary?db=core;t=ENST00000685018",
+        "transcript_id": "ENST00000685018",
+        "protein_id": "ENSP00000510194",
+        "strand": "1",
+        "genome_assembly": "GRCh38.p14",
+        "phase_end": 2,
+        "name": "CDS CFTR 1 62",
+        "segment_type": "CDS_SEGMENT",
+        "rank": 1,
+        "start_loc": 117480094,
+        "id": "CDS:7:117480094-117480147:1:87185443c7",
+        "gene_id": "ENSG00000001626"
+      }
+    },
+    {
+      "~id": "CDS:7:117480094-117480147:1:0465b8a304",
+      "~entityType": "node",
+      "~labels": [
+        "CDS_segments"
+      ],
+      "~properties": {
+        "exon_id": "ENSE00003976980",
+        "end_loc": 117480147,
+        "data_version": "GRCh38.p14",
+        "phase_start": -1,
+        "chr": "7",
+        "data_source": "Ensembl",
+        "data_source_url": "https://useast.ensembl.org/Homo_sapiens/Transcript/Summary?db=core;t=ENST00000699598",
+        "transcript_id": "ENST00000699598",
+        "protein_id": "ENSP00000514467",
+        "strand": "1",
+        "genome_assembly": "GRCh38.p14",
+        "phase_end": 2,
+        "name": "CDS CFTR 1 a7",
+        "segment_type": "CDS_SEGMENT",
+        "rank": 1,
+        "start_loc": 117480094,
+        "id": "CDS:7:117480094-117480147:1:0465b8a304",
+        "gene_id": "ENSG00000001626"
+      }
+    },
+    {
+      "~id": "CDS:7:117480094-117480147:1:4fd925950e",
+      "~entityType": "node",
+      "~labels": [
+        "CDS_segments"
+      ],
+      "~properties": {
+        "exon_id": "ENSE00003976980",
+        "end_loc": 117480147,
+        "data_version": "GRCh38.p14",
+        "phase_start": -1,
+        "chr": "7",
+        "data_source": "Ensembl",
+        "data_source_url": "https://useast.ensembl.org/Homo_sapiens/Transcript/Summary?db=core;t=ENST00000699599",
+        "transcript_id": "ENST00000699599",
+        "protein_id": "ENSP00000514468",
+        "strand": "1",
+        "genome_assembly": "GRCh38.p14",
+        "phase_end": 2,
+        "name": "CDS CFTR 1 f0",
+        "segment_type": "CDS_SEGMENT",
+        "rank": 1,
+        "start_loc": 117480094,
+        "id": "CDS:7:117480094-117480147:1:4fd925950e",
+        "gene_id": "ENSG00000001626"
+      }
+    },
+    {
+      "~id": "CDS:7:118184223-118184254:1:5664a43cd5",
+      "~entityType": "node",
+      "~labels": [
+        "CDS_segments"
+      ],
+      "~properties": {
+        "exon_id": "ENSE00004794879",
+        "end_loc": 118184254,
+        "data_version": "GRCh38.p14",
+        "phase_start": -1,
+        "chr": "7",
+        "data_source": "Ensembl",
+        "data_source_url": "https://useast.ensembl.org/Homo_sapiens/Transcript/Summary?db=core;t=ENST00000915333",
+        "transcript_id": "ENST00000915333",
+        "protein_id": "ENSP00000585392",
+        "strand": "1",
+        "genome_assembly": "GRCh38.p14",
+        "phase_end": 1,
+        "name": "CDS LSM8 1 34",
         "segment_type": "CDS_SEGMENT",
         "rank": 1,
         "start_loc": 118184223,
-        "id": "CDS:7:118184223-118184529:1:3a60a83bb1",
+        "id": "CDS:7:118184223-118184254:1:5664a43cd5",
+        "gene_id": "ENSG00000128534"
+      }
+    },
+    {
+      "~id": "CDS:7:118184223-118184254:1:fac043808c",
+      "~entityType": "node",
+      "~labels": [
+        "CDS_segments"
+      ],
+      "~properties": {
+        "exon_id": "ENSE00004794879",
+        "end_loc": 118184254,
+        "data_version": "GRCh38.p14",
+        "phase_start": -1,
+        "chr": "7",
+        "data_source": "Ensembl",
+        "data_source_url": "https://useast.ensembl.org/Homo_sapiens/Transcript/Summary?db=core;t=ENST00000915332",
+        "transcript_id": "ENST00000915332",
+        "protein_id": "ENSP00000585391",
+        "strand": "1",
+        "genome_assembly": "GRCh38.p14",
+        "phase_end": 1,
+        "name": "CDS LSM8 1 c4",
+        "segment_type": "CDS_SEGMENT",
+        "rank": 1,
+        "start_loc": 118184223,
+        "id": "CDS:7:118184223-118184254:1:fac043808c",
         "gene_id": "ENSG00000128534"
       }
     },
@@ -120,7 +174,7 @@
         "end_loc": 117614713,
         "data_version": "GRCh38.p14",
         "genome_assembly": "GRCh38.p14",
-        "name": "ENSE00000718699",
+        "name": "Exon CFTR 21 6c",
         "start_loc": 117614612,
         "id": "ENSE00000718699",
         "chr": "7",
@@ -128,120 +182,116 @@
       }
     },
     {
-      "~id": "ENSE00001921300",
+      "~id": "ENSE00003977051",
       "~entityType": "node",
       "~labels": [
         "Exon"
       ],
       "~properties": {
-        "data_source_url": "https://useast.ensembl.org/Homo_sapiens/Transcript/Summary?db=core;t=ENST00000648260",
+        "data_source_url": "https://useast.ensembl.org/Homo_sapiens/Transcript/Summary?db=core;t=ENST00000687278",
         "strand": "1",
-        "end_loc": 117627910,
+        "end_loc": 117626199,
         "data_version": "GRCh38.p14",
         "genome_assembly": "GRCh38.p14",
-        "name": "ENSE00001921300",
-        "start_loc": 117627521,
-        "id": "ENSE00001921300",
+        "name": "Exon CFTR 22 7f",
+        "start_loc": 117626003,
+        "id": "ENSE00003977051",
         "chr": "7",
         "data_source": "Ensembl"
       }
     },
     {
-      "~id": "ENSE00001941450",
+      "~id": "ENSE00003977058",
       "~entityType": "node",
       "~labels": [
         "Exon"
       ],
       "~properties": {
-        "data_source_url": "https://useast.ensembl.org/Homo_sapiens/Transcript/Summary?db=core;t=ENST00000468795",
+        "data_source_url": "https://useast.ensembl.org/Homo_sapiens/Transcript/Summary?db=core;t=ENST00000699599",
         "strand": "1",
-        "end_loc": 117611808,
+        "end_loc": 117642983,
         "data_version": "GRCh38.p14",
         "genome_assembly": "GRCh38.p14",
-        "name": "ENSE00001941450",
-        "start_loc": 117611616,
-        "id": "ENSE00001941450",
+        "name": "Exon CFTR 24 61",
+        "start_loc": 117642867,
+        "id": "ENSE00003977058",
         "chr": "7",
         "data_source": "Ensembl"
       }
     },
     {
-      "~id": "ENSE00004696596",
+      "~id": "ENSE00003977057",
       "~entityType": "node",
       "~labels": [
         "Exon"
       ],
       "~properties": {
-        "data_source_url": "https://useast.ensembl.org/Homo_sapiens/Transcript/Summary?db=core;t=ENST00001081202",
+        "data_source_url": "https://useast.ensembl.org/Homo_sapiens/Transcript/Summary?db=core;t=ENST00000699598",
         "strand": "1",
-        "end_loc": 118185694,
+        "end_loc": 117667257,
         "data_version": "GRCh38.p14",
         "genome_assembly": "GRCh38.p14",
-        "name": "ENSE00004696596",
-        "start_loc": 118184155,
-        "id": "ENSE00004696596",
+        "name": "Exon CFTR 27 57",
+        "start_loc": 117666914,
+        "id": "ENSE00003977057",
         "chr": "7",
         "data_source": "Ensembl"
       }
     },
     {
-      "~id": "ENSE00004696600",
+      "~id": "ENSE00003977042",
       "~entityType": "node",
       "~labels": [
         "Exon"
       ],
       "~properties": {
-        "data_source_url": "https://useast.ensembl.org/Homo_sapiens/Transcript/Summary?db=core;t=ENST00001081202",
+        "data_source_url": "https://useast.ensembl.org/Homo_sapiens/Transcript/Summary?db=core;t=ENST00000699599",
         "strand": "1",
-        "end_loc": 118192182,
+        "end_loc": 117667257,
         "data_version": "GRCh38.p14",
         "genome_assembly": "GRCh38.p14",
-        "name": "ENSE00004696600",
-        "start_loc": 118188277,
-        "id": "ENSE00004696600",
+        "name": "Exon CFTR 28 2f",
+        "start_loc": 117666907,
+        "id": "ENSE00003977042",
         "chr": "7",
         "data_source": "Ensembl"
       }
     },
     {
-      "~id": "GO:0120115",
+      "~id": "ENSE00004384048",
       "~entityType": "node",
       "~labels": [
-        "GO_term"
+        "Exon"
       ],
       "~properties": {
-        "data_source_url": "https://useast.ensembl.org/biomart/martview",
-        "alt_id_go": "GO:0120115",
+        "data_source_url": "https://useast.ensembl.org/Homo_sapiens/Transcript/Summary?db=core;t=ENST00000915332",
+        "strand": "1",
+        "end_loc": 118185691,
         "data_version": "GRCh38.p14",
-        "id": "GO:0120115",
+        "genome_assembly": "GRCh38.p14",
+        "name": "Exon LSM8 2 3e",
+        "start_loc": 118185653,
+        "id": "ENSE00004384048",
+        "chr": "7",
         "data_source": "Ensembl"
       }
     },
     {
-      "~id": "GO:1902476",
+      "~id": "ENSE00004384047",
       "~entityType": "node",
       "~labels": [
-        "GO_term"
+        "Exon"
       ],
       "~properties": {
-        "data_source_url": "https://useast.ensembl.org/biomart/martview",
-        "alt_id_go": "GO:1902476",
+        "data_source_url": "https://useast.ensembl.org/Homo_sapiens/Transcript/Summary?db=core;t=ENST00000915333",
+        "strand": "1",
+        "end_loc": 118188405,
         "data_version": "GRCh38.p14",
-        "id": "GO:1902476",
-        "data_source": "Ensembl"
-      }
-    },
-    {
-      "~id": "GO:1904322",
-      "~entityType": "node",
-      "~labels": [
-        "GO_term"
-      ],
-      "~properties": {
-        "data_source_url": "https://useast.ensembl.org/biomart/martview",
-        "alt_id_go": "GO:1904322",
-        "data_version": "GRCh38.p14",
-        "id": "GO:1904322",
+        "genome_assembly": "GRCh38.p14",
+        "name": "Exon LSM8 2 fa",
+        "start_loc": 118188290,
+        "id": "ENSE00004384047",
+        "chr": "7",
         "data_source": "Ensembl"
       }
     },
@@ -340,7 +390,7 @@
       }
     },
     {
-      "~id": "ENSP00000419254",
+      "~id": "ENSP00000510194",
       "~entityType": "node",
       "~labels": [
         "Protein"
@@ -348,8 +398,8 @@
       "~properties": {
         "data_source_url": "https://useast.ensembl.org/biomart/martview",
         "data_version": "GRCh38.p14",
-        "ensembl_protein_version": "ENSP00000419254.1",
-        "name": "ENSP00000419254",
+        "ensembl_protein_version": "ENSP00000510194.2",
+        "name": "Protein CFTR 08",
         "alt_id_uniprotkb": [
           "A0A3B3IT97",
           "A0A3B3ITE0",
@@ -369,10 +419,175 @@
           "E7EPB6",
           "P13569"
         ],
-        "id": "ENSP00000419254",
-        "alt_id_hpa": [
-          "1951"
+        "id": "ENSP00000510194",
+        "data_source": "Ensembl"
+      }
+    },
+    {
+      "~id": "ENSP00000514468",
+      "~entityType": "node",
+      "~labels": [
+        "Protein"
+      ],
+      "~properties": {
+        "data_source_url": "https://useast.ensembl.org/biomart/martview",
+        "data_version": "GRCh38.p14",
+        "ensembl_protein_version": "ENSP00000514468.1",
+        "name": "Protein CFTR 23",
+        "alt_id_uniprotkb": [
+          "A0A3B3IT97",
+          "A0A3B3ITE0",
+          "A0A3B3ITW0",
+          "A0A3B3ITW5",
+          "A0A669KBE8",
+          "A0A8I5KVL1",
+          "A0A8I5KVV2",
+          "A0A8V8TNG7",
+          "A0A8V8TNH2",
+          "A0A8V8TNN0",
+          "A0A8V8TNN7",
+          "A0A8V8TPV6",
+          "A0A8V8TQ89",
+          "A0A8V8TQ94",
+          "C9J6L5",
+          "E7EPB6",
+          "P13569"
         ],
+        "id": "ENSP00000514468",
+        "data_source": "Ensembl"
+      }
+    },
+    {
+      "~id": "ENSP00000509593",
+      "~entityType": "node",
+      "~labels": [
+        "Protein"
+      ],
+      "~properties": {
+        "data_source_url": "https://useast.ensembl.org/biomart/martview",
+        "data_version": "GRCh38.p14",
+        "ensembl_protein_version": "ENSP00000509593.2",
+        "name": "Protein CFTR b9",
+        "alt_id_uniprotkb": [
+          "A0A3B3IT97",
+          "A0A3B3ITE0",
+          "A0A3B3ITW0",
+          "A0A3B3ITW5",
+          "A0A669KBE8",
+          "A0A8I5KVL1",
+          "A0A8I5KVV2",
+          "A0A8V8TNG7",
+          "A0A8V8TNH2",
+          "A0A8V8TNN0",
+          "A0A8V8TNN7",
+          "A0A8V8TPV6",
+          "A0A8V8TQ89",
+          "A0A8V8TQ94",
+          "C9J6L5",
+          "E7EPB6",
+          "P13569"
+        ],
+        "id": "ENSP00000509593",
+        "data_source": "Ensembl"
+      }
+    },
+    {
+      "~id": "ENSP00000514467",
+      "~entityType": "node",
+      "~labels": [
+        "Protein"
+      ],
+      "~properties": {
+        "data_source_url": "https://useast.ensembl.org/biomart/martview",
+        "data_version": "GRCh38.p14",
+        "ensembl_protein_version": "ENSP00000514467.1",
+        "name": "Protein CFTR ee",
+        "alt_id_uniprotkb": [
+          "A0A3B3IT97",
+          "A0A3B3ITE0",
+          "A0A3B3ITW0",
+          "A0A3B3ITW5",
+          "A0A669KBE8",
+          "A0A8I5KVL1",
+          "A0A8I5KVV2",
+          "A0A8V8TNG7",
+          "A0A8V8TNH2",
+          "A0A8V8TNN0",
+          "A0A8V8TNN7",
+          "A0A8V8TPV6",
+          "A0A8V8TQ89",
+          "A0A8V8TQ94",
+          "C9J6L5",
+          "E7EPB6",
+          "P13569"
+        ],
+        "id": "ENSP00000514467",
+        "data_source": "Ensembl"
+      }
+    },
+    {
+      "~id": "ENSP00000585391",
+      "~entityType": "node",
+      "~labels": [
+        "Protein"
+      ],
+      "~properties": {
+        "data_source_url": "https://useast.ensembl.org/biomart/martview",
+        "data_version": "GRCh38.p14",
+        "ensembl_protein_version": "ENSP00000585391.1",
+        "name": "Protein LSM8 12",
+        "alt_id_uniprotkb": [
+          "A4D0W0",
+          "C9JIZ0",
+          "C9JNV3",
+          "F2Z2Y6",
+          "O95777"
+        ],
+        "id": "ENSP00000585391",
+        "data_source": "Ensembl"
+      }
+    },
+    {
+      "~id": "ENSP00000395263",
+      "~entityType": "node",
+      "~labels": [
+        "Protein"
+      ],
+      "~properties": {
+        "data_source_url": "https://useast.ensembl.org/biomart/martview",
+        "data_version": "GRCh38.p14",
+        "ensembl_protein_version": "ENSP00000395263.1",
+        "name": "Protein LSM8 2b",
+        "alt_id_uniprotkb": [
+          "A4D0W0",
+          "C9JIZ0",
+          "C9JNV3",
+          "F2Z2Y6",
+          "O95777"
+        ],
+        "id": "ENSP00000395263",
+        "data_source": "Ensembl"
+      }
+    },
+    {
+      "~id": "ENSP00000585392",
+      "~entityType": "node",
+      "~labels": [
+        "Protein"
+      ],
+      "~properties": {
+        "data_source_url": "https://useast.ensembl.org/biomart/martview",
+        "data_version": "GRCh38.p14",
+        "ensembl_protein_version": "ENSP00000585392.1",
+        "name": "Protein LSM8 a9",
+        "alt_id_uniprotkb": [
+          "A4D0W0",
+          "C9JIZ0",
+          "C9JNV3",
+          "F2Z2Y6",
+          "O95777"
+        ],
+        "id": "ENSP00000585392",
         "data_source": "Ensembl"
       }
     },
@@ -386,7 +601,7 @@
         "data_source_url": "https://useast.ensembl.org/biomart/martview",
         "data_version": "GRCh38.p14",
         "ensembl_protein_version": "ENSP00000751008.1",
-        "name": "ENSP00000751008",
+        "name": "Protein LSM8 eb",
         "alt_id_uniprotkb": [
           "A4D0W0",
           "C9JIZ0",
@@ -399,46 +614,134 @@
       }
     },
     {
-      "~id": "TSS:7:117611616-117611617:1:3155c2bd56",
+      "~id": "TSS:7:117479987-117479988:1:0da860f6a1",
       "~entityType": "node",
       "~labels": [
         "TSS_segment"
       ],
       "~properties": {
-        "end_loc": 117611617,
+        "end_loc": 117479988,
         "data_version": "GRCh38.p14",
         "chr": "7",
         "data_source": "Ensembl",
-        "data_source_url": "https://useast.ensembl.org/Homo_sapiens/Transcript/Summary?db=core;t=ENST00000468795",
-        "transcript_id": "ENST00000468795",
+        "data_source_url": "https://useast.ensembl.org/Homo_sapiens/Transcript/Summary?db=core;t=ENST00000699598",
+        "transcript_id": "ENST00000699598",
         "strand": "1",
         "genome_assembly": "GRCh38.p14",
-        "name": "CFTR-206",
+        "name": "TSS CFTR 42",
         "segment_type": "TSS",
-        "start_loc": 117611616,
-        "id": "TSS:7:117611616-117611617:1:3155c2bd56",
+        "start_loc": 117479987,
+        "id": "TSS:7:117479987-117479988:1:0da860f6a1",
         "gene_id": "ENSG00000001626"
       }
     },
     {
-      "~id": "TSS:7:118184155-118184156:1:a3b29a4645",
+      "~id": "TSS:7:117479987-117479988:1:77c314d882",
       "~entityType": "node",
       "~labels": [
         "TSS_segment"
       ],
       "~properties": {
-        "end_loc": 118184156,
+        "end_loc": 117479988,
         "data_version": "GRCh38.p14",
         "chr": "7",
         "data_source": "Ensembl",
-        "data_source_url": "https://useast.ensembl.org/Homo_sapiens/Transcript/Summary?db=core;t=ENST00001081202",
-        "transcript_id": "ENST00001081202",
+        "data_source_url": "https://useast.ensembl.org/Homo_sapiens/Transcript/Summary?db=core;t=ENST00000685018",
+        "transcript_id": "ENST00000685018",
         "strand": "1",
         "genome_assembly": "GRCh38.p14",
-        "name": "LSM8-212",
+        "name": "TSS CFTR 60",
         "segment_type": "TSS",
-        "start_loc": 118184155,
-        "id": "TSS:7:118184155-118184156:1:a3b29a4645",
+        "start_loc": 117479987,
+        "id": "TSS:7:117479987-117479988:1:77c314d882",
+        "gene_id": "ENSG00000001626"
+      }
+    },
+    {
+      "~id": "TSS:7:117479987-117479988:1:c9f3f63831",
+      "~entityType": "node",
+      "~labels": [
+        "TSS_segment"
+      ],
+      "~properties": {
+        "end_loc": 117479988,
+        "data_version": "GRCh38.p14",
+        "chr": "7",
+        "data_source": "Ensembl",
+        "data_source_url": "https://useast.ensembl.org/Homo_sapiens/Transcript/Summary?db=core;t=ENST00000699599",
+        "transcript_id": "ENST00000699599",
+        "strand": "1",
+        "genome_assembly": "GRCh38.p14",
+        "name": "TSS CFTR 8a",
+        "segment_type": "TSS",
+        "start_loc": 117479987,
+        "id": "TSS:7:117479987-117479988:1:c9f3f63831",
+        "gene_id": "ENSG00000001626"
+      }
+    },
+    {
+      "~id": "TSS:7:117479987-117479988:1:103097b776",
+      "~entityType": "node",
+      "~labels": [
+        "TSS_segment"
+      ],
+      "~properties": {
+        "end_loc": 117479988,
+        "data_version": "GRCh38.p14",
+        "chr": "7",
+        "data_source": "Ensembl",
+        "data_source_url": "https://useast.ensembl.org/Homo_sapiens/Transcript/Summary?db=core;t=ENST00000687278",
+        "transcript_id": "ENST00000687278",
+        "strand": "1",
+        "genome_assembly": "GRCh38.p14",
+        "name": "TSS CFTR e5",
+        "segment_type": "TSS",
+        "start_loc": 117479987,
+        "id": "TSS:7:117479987-117479988:1:103097b776",
+        "gene_id": "ENSG00000001626"
+      }
+    },
+    {
+      "~id": "TSS:7:118183975-118183976:1:67f4c2d3bd",
+      "~entityType": "node",
+      "~labels": [
+        "TSS_segment"
+      ],
+      "~properties": {
+        "end_loc": 118183976,
+        "data_version": "GRCh38.p14",
+        "chr": "7",
+        "data_source": "Ensembl",
+        "data_source_url": "https://useast.ensembl.org/Homo_sapiens/Transcript/Summary?db=core;t=ENST00000915332",
+        "transcript_id": "ENST00000915332",
+        "strand": "1",
+        "genome_assembly": "GRCh38.p14",
+        "name": "TSS LSM8 65",
+        "segment_type": "TSS",
+        "start_loc": 118183975,
+        "id": "TSS:7:118183975-118183976:1:67f4c2d3bd",
+        "gene_id": "ENSG00000128534"
+      }
+    },
+    {
+      "~id": "TSS:7:118183975-118183976:1:d3d56f59fa",
+      "~entityType": "node",
+      "~labels": [
+        "TSS_segment"
+      ],
+      "~properties": {
+        "end_loc": 118183976,
+        "data_version": "GRCh38.p14",
+        "chr": "7",
+        "data_source": "Ensembl",
+        "data_source_url": "https://useast.ensembl.org/Homo_sapiens/Transcript/Summary?db=core;t=ENST00000915333",
+        "transcript_id": "ENST00000915333",
+        "strand": "1",
+        "genome_assembly": "GRCh38.p14",
+        "name": "TSS LSM8 da",
+        "segment_type": "TSS",
+        "start_loc": 118183975,
+        "id": "TSS:7:118183975-118183976:1:d3d56f59fa",
         "gene_id": "ENSG00000128534"
       }
     },
@@ -473,6 +776,123 @@
       }
     },
     {
+      "~id": "ENST00000685018",
+      "~entityType": "node",
+      "~labels": [
+        "Transcript"
+      ],
+      "~properties": {
+        "alt_id_transcript_name_id": "CFTR-221",
+        "end_loc": 117668665,
+        "source_transcript": "havana",
+        "tss_bp": 117479988,
+        "data_version": "GRCh38.p14",
+        "transcript_start_bp": 117479988,
+        "chr": "7",
+        "source_transcript_version": "2",
+        "data_source": "Ensembl",
+        "data_source_url": "https://useast.ensembl.org/Homo_sapiens/Transcript/Summary?db=core;t=ENST00000685018",
+        "strand": "1",
+        "transcript_length": 6223,
+        "genome_assembly": "GRCh38.p14",
+        "name": "CFTR-221",
+        "transcript_end_bp": 117668665,
+        "start_loc": 117479987,
+        "id": "ENST00000685018",
+        "transcript_type": "nonsense_mediated_decay",
+        "gene_id": "ENSG00000001626",
+        "ensembl_transcript_version": "ENST00000685018.2"
+      }
+    },
+    {
+      "~id": "ENST00000687278",
+      "~entityType": "node",
+      "~labels": [
+        "Transcript"
+      ],
+      "~properties": {
+        "alt_id_transcript_name_id": "CFTR-222",
+        "end_loc": 117668665,
+        "source_transcript": "havana",
+        "tss_bp": 117479988,
+        "data_version": "GRCh38.p14",
+        "transcript_start_bp": 117479988,
+        "chr": "7",
+        "source_transcript_version": "2",
+        "data_source": "Ensembl",
+        "data_source_url": "https://useast.ensembl.org/Homo_sapiens/Transcript/Summary?db=core;t=ENST00000687278",
+        "strand": "1",
+        "transcript_length": 4888,
+        "genome_assembly": "GRCh38.p14",
+        "name": "CFTR-222",
+        "transcript_end_bp": 117668665,
+        "start_loc": 117479987,
+        "id": "ENST00000687278",
+        "transcript_type": "nonsense_mediated_decay",
+        "gene_id": "ENSG00000001626",
+        "ensembl_transcript_version": "ENST00000687278.2"
+      }
+    },
+    {
+      "~id": "ENST00000699600",
+      "~entityType": "node",
+      "~labels": [
+        "Transcript"
+      ],
+      "~properties": {
+        "alt_id_transcript_name_id": "CFTR-232",
+        "end_loc": 117668562,
+        "source_transcript": "havana",
+        "tss_bp": 117479988,
+        "data_version": "GRCh38.p14",
+        "transcript_start_bp": 117479988,
+        "chr": "7",
+        "source_transcript_version": "1",
+        "data_source": "Ensembl",
+        "data_source_url": "https://useast.ensembl.org/Homo_sapiens/Transcript/Summary?db=core;t=ENST00000699600",
+        "strand": "1",
+        "transcript_length": 4793,
+        "genome_assembly": "GRCh38.p14",
+        "name": "CFTR-232",
+        "transcript_end_bp": 117668562,
+        "start_loc": 117479987,
+        "id": "ENST00000699600",
+        "transcript_type": "nonsense_mediated_decay",
+        "gene_id": "ENSG00000001626",
+        "ensembl_transcript_version": "ENST00000699600.1"
+      }
+    },
+    {
+      "~id": "ENST00000424702",
+      "~entityType": "node",
+      "~labels": [
+        "Transcript"
+      ],
+      "~properties": {
+        "alt_id_transcript_name_id": "LSM8-204",
+        "end_loc": 118192155,
+        "source_transcript": "havana",
+        "tss_bp": 118183976,
+        "data_version": "GRCh38.p14",
+        "transcript_start_bp": 118183976,
+        "chr": "7",
+        "source_transcript_version": "2",
+        "data_source": "Ensembl",
+        "data_source_url": "https://useast.ensembl.org/Homo_sapiens/Transcript/Summary?db=core;t=ENST00000424702",
+        "strand": "1",
+        "transcript_length": 4198,
+        "genome_assembly": "GRCh38.p14",
+        "name": "LSM8-204",
+        "transcript_end_bp": 118192155,
+        "start_loc": 118183975,
+        "id": "ENST00000424702",
+        "transcript_type": "protein_coding",
+        "gene_id": "ENSG00000128534",
+        "ensembl_transcript_version": "ENST00000424702.2",
+        "transcript_support_level": "tsl1"
+      }
+    },
+    {
       "~id": "ENST00001081202",
       "~entityType": "node",
       "~labels": [
@@ -502,109 +922,585 @@
       }
     },
     {
-      "~id": "UTR:3prime_UTR:7:117627800-117627910:1:7c36f66925",
+      "~id": "UTR:5prime_UTR:7:117479987-117480094:1:ef3f7a0b08",
       "~entityType": "node",
       "~labels": [
         "UTR_segments"
       ],
       "~properties": {
-        "exon_id": "ENSE00001921300",
-        "end_loc": 117627910,
+        "exon_id": "ENSE00003976980",
+        "end_loc": 117480094,
         "data_version": "GRCh38.p14",
         "chr": "7",
         "data_source": "Ensembl",
-        "utr_type": "3prime_UTR",
-        "data_source_url": "https://useast.ensembl.org/Homo_sapiens/Transcript/Summary?db=core;t=ENST00000468795",
-        "transcript_id": "ENST00000468795",
+        "utr_type": "5prime_UTR",
+        "data_source_url": "https://useast.ensembl.org/Homo_sapiens/Transcript/Summary?db=core;t=ENST00000685018",
+        "transcript_id": "ENST00000685018",
         "strand": "1",
         "genome_assembly": "GRCh38.p14",
-        "name": "ENST00000468795 3prime_UTR",
+        "name": "5UTR CFTR 1 10",
         "segment_type": "UTR_SEGMENT",
-        "rank": 3,
-        "start_loc": 117627800,
-        "id": "UTR:3prime_UTR:7:117627800-117627910:1:7c36f66925",
+        "rank": 1,
+        "start_loc": 117479987,
+        "id": "UTR:5prime_UTR:7:117479987-117480094:1:ef3f7a0b08",
         "gene_id": "ENSG00000001626"
       }
     },
     {
-      "~id": "UTR:3prime_UTR:7:118184529-118185694:1:0f289bc591",
+      "~id": "UTR:5prime_UTR:7:117479987-117480094:1:c890f585a1",
       "~entityType": "node",
       "~labels": [
         "UTR_segments"
       ],
       "~properties": {
-        "exon_id": "ENSE00004696596",
-        "end_loc": 118185694,
+        "exon_id": "ENSE00003976980",
+        "end_loc": 117480094,
         "data_version": "GRCh38.p14",
         "chr": "7",
         "data_source": "Ensembl",
-        "utr_type": "3prime_UTR",
-        "data_source_url": "https://useast.ensembl.org/Homo_sapiens/Transcript/Summary?db=core;t=ENST00001081202",
-        "transcript_id": "ENST00001081202",
+        "utr_type": "5prime_UTR",
+        "data_source_url": "https://useast.ensembl.org/Homo_sapiens/Transcript/Summary?db=core;t=ENST00000699599",
+        "transcript_id": "ENST00000699599",
         "strand": "1",
         "genome_assembly": "GRCh38.p14",
-        "name": "ENST00001081202 3prime_UTR",
+        "name": "5UTR CFTR 1 54",
         "segment_type": "UTR_SEGMENT",
         "rank": 1,
-        "start_loc": 118184529,
-        "id": "UTR:3prime_UTR:7:118184529-118185694:1:0f289bc591",
-        "gene_id": "ENSG00000128534"
+        "start_loc": 117479987,
+        "id": "UTR:5prime_UTR:7:117479987-117480094:1:c890f585a1",
+        "gene_id": "ENSG00000001626"
       }
     },
     {
-      "~id": "UTR:3prime_UTR:7:118188277-118192182:1:795c07cce2",
+      "~id": "UTR:5prime_UTR:7:117479987-117480094:1:7f6010ec76",
       "~entityType": "node",
       "~labels": [
         "UTR_segments"
       ],
       "~properties": {
-        "exon_id": "ENSE00004696600",
-        "end_loc": 118192182,
+        "exon_id": "ENSE00003976980",
+        "end_loc": 117480094,
         "data_version": "GRCh38.p14",
         "chr": "7",
         "data_source": "Ensembl",
-        "utr_type": "3prime_UTR",
-        "data_source_url": "https://useast.ensembl.org/Homo_sapiens/Transcript/Summary?db=core;t=ENST00001081202",
-        "transcript_id": "ENST00001081202",
+        "utr_type": "5prime_UTR",
+        "data_source_url": "https://useast.ensembl.org/Homo_sapiens/Transcript/Summary?db=core;t=ENST00000687278",
+        "transcript_id": "ENST00000687278",
         "strand": "1",
         "genome_assembly": "GRCh38.p14",
-        "name": "ENST00001081202 3prime_UTR",
+        "name": "5UTR CFTR 1 6d",
         "segment_type": "UTR_SEGMENT",
-        "rank": 2,
-        "start_loc": 118188277,
-        "id": "UTR:3prime_UTR:7:118188277-118192182:1:795c07cce2",
-        "gene_id": "ENSG00000128534"
+        "rank": 1,
+        "start_loc": 117479987,
+        "id": "UTR:5prime_UTR:7:117479987-117480094:1:7f6010ec76",
+        "gene_id": "ENSG00000001626"
       }
     },
     {
-      "~id": "UTR:5prime_UTR:7:118184155-118184223:1:cae139ccbb",
+      "~id": "UTR:5prime_UTR:7:117479987-117480094:1:16d0c40a12",
       "~entityType": "node",
       "~labels": [
         "UTR_segments"
       ],
       "~properties": {
-        "exon_id": "ENSE00004696596",
+        "exon_id": "ENSE00003976980",
+        "end_loc": 117480094,
+        "data_version": "GRCh38.p14",
+        "chr": "7",
+        "data_source": "Ensembl",
+        "utr_type": "5prime_UTR",
+        "data_source_url": "https://useast.ensembl.org/Homo_sapiens/Transcript/Summary?db=core;t=ENST00000699598",
+        "transcript_id": "ENST00000699598",
+        "strand": "1",
+        "genome_assembly": "GRCh38.p14",
+        "name": "5UTR CFTR 1 80",
+        "segment_type": "UTR_SEGMENT",
+        "rank": 1,
+        "start_loc": 117479987,
+        "id": "UTR:5prime_UTR:7:117479987-117480094:1:16d0c40a12",
+        "gene_id": "ENSG00000001626"
+      }
+    },
+    {
+      "~id": "UTR:5prime_UTR:7:118183975-118184223:1:e6c7d240e1",
+      "~entityType": "node",
+      "~labels": [
+        "UTR_segments"
+      ],
+      "~properties": {
+        "exon_id": "ENSE00004794879",
         "end_loc": 118184223,
         "data_version": "GRCh38.p14",
         "chr": "7",
         "data_source": "Ensembl",
         "utr_type": "5prime_UTR",
-        "data_source_url": "https://useast.ensembl.org/Homo_sapiens/Transcript/Summary?db=core;t=ENST00001081202",
-        "transcript_id": "ENST00001081202",
+        "data_source_url": "https://useast.ensembl.org/Homo_sapiens/Transcript/Summary?db=core;t=ENST00000915333",
+        "transcript_id": "ENST00000915333",
         "strand": "1",
         "genome_assembly": "GRCh38.p14",
-        "name": "ENST00001081202 5prime_UTR",
+        "name": "5UTR LSM8 1 85",
         "segment_type": "UTR_SEGMENT",
         "rank": 1,
-        "start_loc": 118184155,
-        "id": "UTR:5prime_UTR:7:118184155-118184223:1:cae139ccbb",
+        "start_loc": 118183975,
+        "id": "UTR:5prime_UTR:7:118183975-118184223:1:e6c7d240e1",
         "gene_id": "ENSG00000128534"
+      }
+    },
+    {
+      "~id": "UTR:5prime_UTR:7:118183975-118184223:1:acccf92d74",
+      "~entityType": "node",
+      "~labels": [
+        "UTR_segments"
+      ],
+      "~properties": {
+        "exon_id": "ENSE00004794879",
+        "end_loc": 118184223,
+        "data_version": "GRCh38.p14",
+        "chr": "7",
+        "data_source": "Ensembl",
+        "utr_type": "5prime_UTR",
+        "data_source_url": "https://useast.ensembl.org/Homo_sapiens/Transcript/Summary?db=core;t=ENST00000915332",
+        "transcript_id": "ENST00000915332",
+        "strand": "1",
+        "genome_assembly": "GRCh38.p14",
+        "name": "5UTR LSM8 1 98",
+        "segment_type": "UTR_SEGMENT",
+        "rank": 1,
+        "start_loc": 118183975,
+        "id": "UTR:5prime_UTR:7:118183975-118184223:1:acccf92d74",
+        "gene_id": "ENSG00000128534"
+      }
+    },
+    {
+      "~id": "overflow:49cc2947abb1",
+      "~entityType": "node",
+      "~labels": [
+        "TSS_segment"
+      ],
+      "~properties": {
+        "id": "overflow:49cc2947abb1",
+        "name": "...",
+        "description": "2 TSS_segment nodes hidden for ENSG00000128534 due to canvas size limit",
+        "hidden_gene_id": "ENSG00000128534",
+        "hidden_node_type": "TSS_segment",
+        "hidden_node_count": 2,
+        "is_overflow": true
+      }
+    },
+    {
+      "~id": "overflow:680ab76b9709",
+      "~entityType": "node",
+      "~labels": [
+        "CDS_segments"
+      ],
+      "~properties": {
+        "id": "overflow:680ab76b9709",
+        "name": "...",
+        "description": "2 CDS_segments nodes hidden for ENSG00000128534 due to canvas size limit",
+        "hidden_gene_id": "ENSG00000128534",
+        "hidden_node_type": "CDS_segments",
+        "hidden_node_count": 2,
+        "is_overflow": true
+      }
+    },
+    {
+      "~id": "overflow:96921e4d647b",
+      "~entityType": "node",
+      "~labels": [
+        "Exon"
+      ],
+      "~properties": {
+        "id": "overflow:96921e4d647b",
+        "name": "...",
+        "description": "2 Exon nodes hidden for ENSG00000128534 due to canvas size limit",
+        "hidden_gene_id": "ENSG00000128534",
+        "hidden_node_type": "Exon",
+        "hidden_node_count": 2,
+        "is_overflow": true
+      }
+    },
+    {
+      "~id": "overflow:bd918b1497be",
+      "~entityType": "node",
+      "~labels": [
+        "UTR_segments"
+      ],
+      "~properties": {
+        "id": "overflow:bd918b1497be",
+        "name": "...",
+        "description": "2 UTR_segments nodes hidden for ENSG00000128534 due to canvas size limit",
+        "hidden_gene_id": "ENSG00000128534",
+        "hidden_node_type": "UTR_segments",
+        "hidden_node_count": 2,
+        "is_overflow": true
+      }
+    },
+    {
+      "~id": "overflow:cb72411e8294",
+      "~entityType": "node",
+      "~labels": [
+        "Transcript"
+      ],
+      "~properties": {
+        "id": "overflow:cb72411e8294",
+        "name": "...",
+        "description": "2 Transcript nodes hidden for ENSG00000128534 due to canvas size limit",
+        "hidden_gene_id": "ENSG00000128534",
+        "hidden_node_type": "Transcript",
+        "hidden_node_count": 2,
+        "is_overflow": true
+      }
+    },
+    {
+      "~id": "overflow:d49ff49e5761",
+      "~entityType": "node",
+      "~labels": [
+        "Transcript"
+      ],
+      "~properties": {
+        "id": "overflow:d49ff49e5761",
+        "name": "...",
+        "description": "2 Transcript nodes hidden for ENSG00000001626 due to canvas size limit",
+        "hidden_gene_id": "ENSG00000001626",
+        "hidden_node_type": "Transcript",
+        "hidden_node_count": 2,
+        "is_overflow": true
+      }
+    },
+    {
+      "~id": "overflow:ba172acd397a",
+      "~entityType": "node",
+      "~labels": [
+        "GO_term"
+      ],
+      "~properties": {
+        "id": "overflow:ba172acd397a",
+        "name": "...",
+        "description": "3 GO_term nodes hidden due to canvas size limit",
+        "hidden_node_type": "GO_term",
+        "hidden_node_count": 3,
+        "is_overflow": true
+      }
+    },
+    {
+      "~id": "overflow:4e73ef9ded01",
+      "~entityType": "node",
+      "~labels": [
+        "Protein"
+      ],
+      "~properties": {
+        "id": "overflow:4e73ef9ded01",
+        "name": "...",
+        "description": "45 Protein nodes hidden due to canvas size limit",
+        "hidden_node_type": "Protein",
+        "hidden_node_count": 45,
+        "is_overflow": true
       }
     }
   ],
   "edges": [
     {
-      "~id": "5:dbb80fc5-5121-4646-85b1-2fcbb13ccaf8:736332",
+      "~id": "5:dbb80fc5-5121-4646-85b1-2fcbb13ccaf8:2498",
+      "~entityType": "relationship",
+      "~start": "ENSG00000001626",
+      "~end": "ENST00000699600",
+      "~type": "HAS_TRANSCRIPT",
+      "~properties": {
+        "data_source_url": "https://useast.ensembl.org/biomart/martview",
+        "start_id": "ENSG00000001626",
+        "data_version": "GRCh38.p14",
+        "end_id": "ENST00000699600",
+        "data_source": "Ensembl"
+      }
+    },
+    {
+      "~id": "5:dbb80fc5-5121-4646-85b1-2fcbb13ccaf8:2206169",
+      "~entityType": "relationship",
+      "~start": "ENST00000699600",
+      "~end": "ENSE00000718699",
+      "~type": "HAS_EXON",
+      "~properties": {
+        "end_phase": 0,
+        "constitutive_exon": false,
+        "data_source_url": "https://useast.ensembl.org/biomart/martview",
+        "start_id": "ENST00000699600",
+        "data_version": "GRCh38.p14",
+        "end_id": "ENSE00000718699",
+        "exon_rank": 21,
+        "data_source": "Ensembl",
+        "start_phase": 1
+      }
+    },
+    {
+      "~id": "5:dbb80fc5-5121-4646-85b1-2fcbb13ccaf8:11457910",
+      "~entityType": "relationship",
+      "~start": "ENSG00000001626",
+      "~end": "ENSP00000514468",
+      "~type": "ENCODES",
+      "~properties": {
+        "data_source_url": "https://useast.ensembl.org/biomart/martview",
+        "start_id": "ENSG00000001626",
+        "data_version": "GRCh38.p14",
+        "end_id": "ENSP00000514468",
+        "data_source": "Ensembl"
+      }
+    },
+    {
+      "~id": "5:dbb80fc5-5121-4646-85b1-2fcbb13ccaf8:11457909",
+      "~entityType": "relationship",
+      "~start": "ENSG00000001626",
+      "~end": "ENSP00000514467",
+      "~type": "ENCODES",
+      "~properties": {
+        "data_source_url": "https://useast.ensembl.org/biomart/martview",
+        "start_id": "ENSG00000001626",
+        "data_version": "GRCh38.p14",
+        "end_id": "ENSP00000514467",
+        "data_source": "Ensembl"
+      }
+    },
+    {
+      "~id": "5:dbb80fc5-5121-4646-85b1-2fcbb13ccaf8:2488",
+      "~entityType": "relationship",
+      "~start": "ENSG00000001626",
+      "~end": "ENST00000687278",
+      "~type": "HAS_TRANSCRIPT",
+      "~properties": {
+        "data_source_url": "https://useast.ensembl.org/biomart/martview",
+        "start_id": "ENSG00000001626",
+        "data_version": "GRCh38.p14",
+        "end_id": "ENST00000687278",
+        "data_source": "Ensembl"
+      }
+    },
+    {
+      "~id": "5:dbb80fc5-5121-4646-85b1-2fcbb13ccaf8:5859857",
+      "~entityType": "relationship",
+      "~start": "ENST00000687278",
+      "~end": "TSS:7:117479987-117479988:1:103097b776",
+      "~type": "HAS_TSS",
+      "~properties": {
+        "data_source_url": "https://useast.ensembl.org/biomart/martview",
+        "start_id": "ENST00000687278",
+        "data_version": "GRCh38.p14",
+        "end_id": "TSS:7:117479987-117479988:1:103097b776",
+        "data_source": "Ensembl"
+      }
+    },
+    {
+      "~id": "5:dbb80fc5-5121-4646-85b1-2fcbb13ccaf8:2028007",
+      "~entityType": "relationship",
+      "~start": "ENST00000687278",
+      "~end": "ENSE00003977051",
+      "~type": "HAS_EXON",
+      "~properties": {
+        "end_phase": -1,
+        "constitutive_exon": false,
+        "data_source_url": "https://useast.ensembl.org/biomart/martview",
+        "start_id": "ENST00000687278",
+        "data_version": "GRCh38.p14",
+        "end_id": "ENSE00003977051",
+        "exon_rank": 22,
+        "data_source": "Ensembl",
+        "start_phase": 0
+      }
+    },
+    {
+      "~id": "5:dbb80fc5-5121-4646-85b1-2fcbb13ccaf8:2023674",
+      "~entityType": "relationship",
+      "~start": "ENST00000687278",
+      "~end": "ENSE00000718699",
+      "~type": "HAS_EXON",
+      "~properties": {
+        "end_phase": 0,
+        "constitutive_exon": false,
+        "data_source_url": "https://useast.ensembl.org/biomart/martview",
+        "start_id": "ENST00000687278",
+        "data_version": "GRCh38.p14",
+        "end_id": "ENSE00000718699",
+        "exon_rank": 21,
+        "data_source": "Ensembl",
+        "start_phase": 1
+      }
+    },
+    {
+      "~id": "5:dbb80fc5-5121-4646-85b1-2fcbb13ccaf8:7115118",
+      "~entityType": "relationship",
+      "~start": "ENST00000687278",
+      "~end": "CDS:7:117480094-117480147:1:ff3ed8d9ff",
+      "~type": "HAS_CDS_SEGMENT",
+      "~properties": {
+        "data_source_url": "https://useast.ensembl.org/biomart/martview",
+        "start_id": "ENST00000687278",
+        "data_version": "GRCh38.p14",
+        "end_id": "CDS:7:117480094-117480147:1:ff3ed8d9ff",
+        "data_source": "Ensembl"
+      }
+    },
+    {
+      "~id": "5:dbb80fc5-5121-4646-85b1-2fcbb13ccaf8:9955068",
+      "~entityType": "relationship",
+      "~start": "ENST00000687278",
+      "~end": "UTR:5prime_UTR:7:117479987-117480094:1:7f6010ec76",
+      "~type": "HAS_UTR_SEGMENT",
+      "~properties": {
+        "data_source_url": "https://useast.ensembl.org/biomart/martview",
+        "start_id": "ENST00000687278",
+        "data_version": "GRCh38.p14",
+        "end_id": "UTR:5prime_UTR:7:117479987-117480094:1:7f6010ec76",
+        "data_source": "Ensembl"
+      }
+    },
+    {
+      "~id": "5:dbb80fc5-5121-4646-85b1-2fcbb13ccaf8:12077149",
+      "~entityType": "relationship",
+      "~start": "ENST00000687278",
+      "~end": "ENSP00000509593",
+      "~type": "TRANSLATES_TO",
+      "~properties": {
+        "data_source_url": "https://useast.ensembl.org/biomart/martview",
+        "start_id": "ENST00000687278",
+        "data_version": "GRCh38.p14",
+        "end_id": "ENSP00000509593",
+        "data_source": "Ensembl"
+      }
+    },
+    {
+      "~id": "5:dbb80fc5-5121-4646-85b1-2fcbb13ccaf8:11457902",
+      "~entityType": "relationship",
+      "~start": "ENSG00000001626",
+      "~end": "ENSP00000509593",
+      "~type": "ENCODES",
+      "~properties": {
+        "data_source_url": "https://useast.ensembl.org/biomart/martview",
+        "start_id": "ENSG00000001626",
+        "data_version": "GRCh38.p14",
+        "end_id": "ENSP00000509593",
+        "data_source": "Ensembl"
+      }
+    },
+    {
+      "~id": "5:dbb80fc5-5121-4646-85b1-2fcbb13ccaf8:2487",
+      "~entityType": "relationship",
+      "~start": "ENSG00000001626",
+      "~end": "ENST00000685018",
+      "~type": "HAS_TRANSCRIPT",
+      "~properties": {
+        "data_source_url": "https://useast.ensembl.org/biomart/martview",
+        "start_id": "ENSG00000001626",
+        "data_version": "GRCh38.p14",
+        "end_id": "ENST00000685018",
+        "data_source": "Ensembl"
+      }
+    },
+    {
+      "~id": "5:dbb80fc5-5121-4646-85b1-2fcbb13ccaf8:5848974",
+      "~entityType": "relationship",
+      "~start": "ENST00000685018",
+      "~end": "TSS:7:117479987-117479988:1:77c314d882",
+      "~type": "HAS_TSS",
+      "~properties": {
+        "data_source_url": "https://useast.ensembl.org/biomart/martview",
+        "start_id": "ENST00000685018",
+        "data_version": "GRCh38.p14",
+        "end_id": "TSS:7:117479987-117479988:1:77c314d882",
+        "data_source": "Ensembl"
+      }
+    },
+    {
+      "~id": "5:dbb80fc5-5121-4646-85b1-2fcbb13ccaf8:2137342",
+      "~entityType": "relationship",
+      "~start": "ENST00000685018",
+      "~end": "ENSE00003977058",
+      "~type": "HAS_EXON",
+      "~properties": {
+        "end_phase": -1,
+        "constitutive_exon": false,
+        "data_source_url": "https://useast.ensembl.org/biomart/martview",
+        "start_id": "ENST00000685018",
+        "data_version": "GRCh38.p14",
+        "end_id": "ENSE00003977058",
+        "exon_rank": 24,
+        "data_source": "Ensembl",
+        "start_phase": 0
+      }
+    },
+    {
+      "~id": "5:dbb80fc5-5121-4646-85b1-2fcbb13ccaf8:2137326",
+      "~entityType": "relationship",
+      "~start": "ENST00000685018",
+      "~end": "ENSE00000718699",
+      "~type": "HAS_EXON",
+      "~properties": {
+        "end_phase": 0,
+        "constitutive_exon": false,
+        "data_source_url": "https://useast.ensembl.org/biomart/martview",
+        "start_id": "ENST00000685018",
+        "data_version": "GRCh38.p14",
+        "end_id": "ENSE00000718699",
+        "exon_rank": 21,
+        "data_source": "Ensembl",
+        "start_phase": 1
+      }
+    },
+    {
+      "~id": "5:dbb80fc5-5121-4646-85b1-2fcbb13ccaf8:7180563",
+      "~entityType": "relationship",
+      "~start": "ENST00000685018",
+      "~end": "CDS:7:117480094-117480147:1:87185443c7",
+      "~type": "HAS_CDS_SEGMENT",
+      "~properties": {
+        "data_source_url": "https://useast.ensembl.org/biomart/martview",
+        "start_id": "ENST00000685018",
+        "data_version": "GRCh38.p14",
+        "end_id": "CDS:7:117480094-117480147:1:87185443c7",
+        "data_source": "Ensembl"
+      }
+    },
+    {
+      "~id": "5:dbb80fc5-5121-4646-85b1-2fcbb13ccaf8:9915435",
+      "~entityType": "relationship",
+      "~start": "ENST00000685018",
+      "~end": "UTR:5prime_UTR:7:117479987-117480094:1:ef3f7a0b08",
+      "~type": "HAS_UTR_SEGMENT",
+      "~properties": {
+        "data_source_url": "https://useast.ensembl.org/biomart/martview",
+        "start_id": "ENST00000685018",
+        "data_version": "GRCh38.p14",
+        "end_id": "UTR:5prime_UTR:7:117479987-117480094:1:ef3f7a0b08",
+        "data_source": "Ensembl"
+      }
+    },
+    {
+      "~id": "5:dbb80fc5-5121-4646-85b1-2fcbb13ccaf8:12071769",
+      "~entityType": "relationship",
+      "~start": "ENST00000685018",
+      "~end": "ENSP00000510194",
+      "~type": "TRANSLATES_TO",
+      "~properties": {
+        "data_source_url": "https://useast.ensembl.org/biomart/martview",
+        "start_id": "ENST00000685018",
+        "data_version": "GRCh38.p14",
+        "end_id": "ENSP00000510194",
+        "data_source": "Ensembl"
+      }
+    },
+    {
+      "~id": "5:dbb80fc5-5121-4646-85b1-2fcbb13ccaf8:11457903",
+      "~entityType": "relationship",
+      "~start": "ENSG00000001626",
+      "~end": "ENSP00000510194",
+      "~type": "ENCODES",
+      "~properties": {
+        "data_source_url": "https://useast.ensembl.org/biomart/martview",
+        "start_id": "ENSG00000001626",
+        "data_version": "GRCh38.p14",
+        "end_id": "ENSP00000510194",
+        "data_source": "Ensembl"
+      }
+    },
+    {
+      "~id": "5:dbb80fc5-5121-4646-85b1-2fcbb13ccaf8:2472",
       "~entityType": "relationship",
       "~start": "ENSG00000001626",
       "~end": "ENST00000468795",
@@ -618,57 +1514,7 @@
       }
     },
     {
-      "~id": "5:dbb80fc5-5121-4646-85b1-2fcbb13ccaf8:8999929",
-      "~entityType": "relationship",
-      "~start": "ENST00000468795",
-      "~end": "TSS:7:117611616-117611617:1:3155c2bd56",
-      "~type": "HAS_TSS",
-      "~properties": {
-        "data_source_url": "https://useast.ensembl.org/biomart/martview",
-        "start_id": "ENST00000468795",
-        "data_version": "GRCh38.p14",
-        "end_id": "TSS:7:117611616-117611617:1:3155c2bd56",
-        "data_source": "Ensembl"
-      }
-    },
-    {
-      "~id": "5:dbb80fc5-5121-4646-85b1-2fcbb13ccaf8:4953876",
-      "~entityType": "relationship",
-      "~start": "ENST00000468795",
-      "~end": "ENSE00001941450",
-      "~type": "HAS_EXON",
-      "~properties": {
-        "end_phase": 1,
-        "constitutive_exon": false,
-        "data_source_url": "https://useast.ensembl.org/biomart/martview",
-        "start_id": "ENST00000468795",
-        "data_version": "GRCh38.p14",
-        "end_id": "ENSE00001941450",
-        "exon_rank": 1,
-        "data_source": "Ensembl",
-        "start_phase": 1
-      }
-    },
-    {
-      "~id": "5:dbb80fc5-5121-4646-85b1-2fcbb13ccaf8:4953875",
-      "~entityType": "relationship",
-      "~start": "ENST00000468795",
-      "~end": "ENSE00001921300",
-      "~type": "HAS_EXON",
-      "~properties": {
-        "end_phase": -1,
-        "constitutive_exon": false,
-        "data_source_url": "https://useast.ensembl.org/biomart/martview",
-        "start_id": "ENST00000468795",
-        "data_version": "GRCh38.p14",
-        "end_id": "ENSE00001921300",
-        "exon_rank": 3,
-        "data_source": "Ensembl",
-        "start_phase": 0
-      }
-    },
-    {
-      "~id": "5:dbb80fc5-5121-4646-85b1-2fcbb13ccaf8:4953874",
+      "~id": "5:dbb80fc5-5121-4646-85b1-2fcbb13ccaf8:1327671",
       "~entityType": "relationship",
       "~start": "ENST00000468795",
       "~end": "ENSE00000718699",
@@ -686,91 +1532,7 @@
       }
     },
     {
-      "~id": "5:dbb80fc5-5121-4646-85b1-2fcbb13ccaf8:1840353",
-      "~entityType": "relationship",
-      "~start": "ENST00000468795",
-      "~end": "CDS:7:117627521-117627800:1:bcbebd38d6",
-      "~type": "HAS_CDS_SEGMENT",
-      "~properties": {
-        "data_source_url": "https://useast.ensembl.org/biomart/martview",
-        "start_id": "ENST00000468795",
-        "data_version": "GRCh38.p14",
-        "end_id": "CDS:7:117627521-117627800:1:bcbebd38d6",
-        "data_source": "Ensembl"
-      }
-    },
-    {
-      "~id": "5:dbb80fc5-5121-4646-85b1-2fcbb13ccaf8:1840352",
-      "~entityType": "relationship",
-      "~start": "ENST00000468795",
-      "~end": "CDS:7:117614612-117614713:1:cc81d92f7c",
-      "~type": "HAS_CDS_SEGMENT",
-      "~properties": {
-        "data_source_url": "https://useast.ensembl.org/biomart/martview",
-        "start_id": "ENST00000468795",
-        "data_version": "GRCh38.p14",
-        "end_id": "CDS:7:117614612-117614713:1:cc81d92f7c",
-        "data_source": "Ensembl"
-      }
-    },
-    {
-      "~id": "5:dbb80fc5-5121-4646-85b1-2fcbb13ccaf8:1840351",
-      "~entityType": "relationship",
-      "~start": "ENST00000468795",
-      "~end": "CDS:7:117611616-117611808:1:2522256865",
-      "~type": "HAS_CDS_SEGMENT",
-      "~properties": {
-        "data_source_url": "https://useast.ensembl.org/biomart/martview",
-        "start_id": "ENST00000468795",
-        "data_version": "GRCh38.p14",
-        "end_id": "CDS:7:117611616-117611808:1:2522256865",
-        "data_source": "Ensembl"
-      }
-    },
-    {
-      "~id": "5:dbb80fc5-5121-4646-85b1-2fcbb13ccaf8:9470698",
-      "~entityType": "relationship",
-      "~start": "ENST00000468795",
-      "~end": "UTR:3prime_UTR:7:117627800-117627910:1:7c36f66925",
-      "~type": "HAS_UTR_SEGMENT",
-      "~properties": {
-        "data_source_url": "https://useast.ensembl.org/biomart/martview",
-        "start_id": "ENST00000468795",
-        "data_version": "GRCh38.p14",
-        "end_id": "UTR:3prime_UTR:7:117627800-117627910:1:7c36f66925",
-        "data_source": "Ensembl"
-      }
-    },
-    {
-      "~id": "5:dbb80fc5-5121-4646-85b1-2fcbb13ccaf8:10886388",
-      "~entityType": "relationship",
-      "~start": "ENST00000468795",
-      "~end": "ENSP00000419254",
-      "~type": "TRANSLATES_TO",
-      "~properties": {
-        "data_source_url": "https://useast.ensembl.org/biomart/martview",
-        "start_id": "ENST00000468795",
-        "data_version": "GRCh38.p14",
-        "end_id": "ENSP00000419254",
-        "data_source": "Ensembl"
-      }
-    },
-    {
-      "~id": "5:dbb80fc5-5121-4646-85b1-2fcbb13ccaf8:376077",
-      "~entityType": "relationship",
-      "~start": "ENSG00000001626",
-      "~end": "ENSP00000419254",
-      "~type": "ENCODES",
-      "~properties": {
-        "data_source_url": "https://useast.ensembl.org/biomart/martview",
-        "start_id": "ENSG00000001626",
-        "data_version": "GRCh38.p14",
-        "end_id": "ENSP00000419254",
-        "data_source": "Ensembl"
-      }
-    },
-    {
-      "~id": "5:dbb80fc5-5121-4646-85b1-2fcbb13ccaf8:1069758",
+      "~id": "5:dbb80fc5-5121-4646-85b1-2fcbb13ccaf8:270451",
       "~entityType": "relationship",
       "~start": "ENSG00000128534",
       "~end": "ENST00001081202",
@@ -784,113 +1546,7 @@
       }
     },
     {
-      "~id": "5:dbb80fc5-5121-4646-85b1-2fcbb13ccaf8:9460641",
-      "~entityType": "relationship",
-      "~start": "ENST00001081202",
-      "~end": "TSS:7:118184155-118184156:1:a3b29a4645",
-      "~type": "HAS_TSS",
-      "~properties": {
-        "data_source_url": "https://useast.ensembl.org/biomart/martview",
-        "start_id": "ENST00001081202",
-        "data_version": "GRCh38.p14",
-        "end_id": "TSS:7:118184155-118184156:1:a3b29a4645",
-        "data_source": "Ensembl"
-      }
-    },
-    {
-      "~id": "5:dbb80fc5-5121-4646-85b1-2fcbb13ccaf8:8305882",
-      "~entityType": "relationship",
-      "~start": "ENST00001081202",
-      "~end": "ENSE00004696600",
-      "~type": "HAS_EXON",
-      "~properties": {
-        "end_phase": -1,
-        "constitutive_exon": false,
-        "data_source_url": "https://useast.ensembl.org/biomart/martview",
-        "start_id": "ENST00001081202",
-        "data_version": "GRCh38.p14",
-        "end_id": "ENSE00004696600",
-        "exon_rank": 2,
-        "data_source": "Ensembl",
-        "start_phase": -1
-      }
-    },
-    {
-      "~id": "5:dbb80fc5-5121-4646-85b1-2fcbb13ccaf8:8305881",
-      "~entityType": "relationship",
-      "~start": "ENST00001081202",
-      "~end": "ENSE00004696596",
-      "~type": "HAS_EXON",
-      "~properties": {
-        "end_phase": -1,
-        "constitutive_exon": false,
-        "data_source_url": "https://useast.ensembl.org/biomart/martview",
-        "start_id": "ENST00001081202",
-        "data_version": "GRCh38.p14",
-        "end_id": "ENSE00004696596",
-        "exon_rank": 1,
-        "data_source": "Ensembl",
-        "start_phase": -1
-      }
-    },
-    {
-      "~id": "5:dbb80fc5-5121-4646-85b1-2fcbb13ccaf8:4130033",
-      "~entityType": "relationship",
-      "~start": "ENST00001081202",
-      "~end": "CDS:7:118184223-118184529:1:3a60a83bb1",
-      "~type": "HAS_CDS_SEGMENT",
-      "~properties": {
-        "data_source_url": "https://useast.ensembl.org/biomart/martview",
-        "start_id": "ENST00001081202",
-        "data_version": "GRCh38.p14",
-        "end_id": "CDS:7:118184223-118184529:1:3a60a83bb1",
-        "data_source": "Ensembl"
-      }
-    },
-    {
-      "~id": "5:dbb80fc5-5121-4646-85b1-2fcbb13ccaf8:10712767",
-      "~entityType": "relationship",
-      "~start": "ENST00001081202",
-      "~end": "UTR:5prime_UTR:7:118184155-118184223:1:cae139ccbb",
-      "~type": "HAS_UTR_SEGMENT",
-      "~properties": {
-        "data_source_url": "https://useast.ensembl.org/biomart/martview",
-        "start_id": "ENST00001081202",
-        "data_version": "GRCh38.p14",
-        "end_id": "UTR:5prime_UTR:7:118184155-118184223:1:cae139ccbb",
-        "data_source": "Ensembl"
-      }
-    },
-    {
-      "~id": "5:dbb80fc5-5121-4646-85b1-2fcbb13ccaf8:10712766",
-      "~entityType": "relationship",
-      "~start": "ENST00001081202",
-      "~end": "UTR:3prime_UTR:7:118188277-118192182:1:795c07cce2",
-      "~type": "HAS_UTR_SEGMENT",
-      "~properties": {
-        "data_source_url": "https://useast.ensembl.org/biomart/martview",
-        "start_id": "ENST00001081202",
-        "data_version": "GRCh38.p14",
-        "end_id": "UTR:3prime_UTR:7:118188277-118192182:1:795c07cce2",
-        "data_source": "Ensembl"
-      }
-    },
-    {
-      "~id": "5:dbb80fc5-5121-4646-85b1-2fcbb13ccaf8:10712765",
-      "~entityType": "relationship",
-      "~start": "ENST00001081202",
-      "~end": "UTR:3prime_UTR:7:118184529-118185694:1:0f289bc591",
-      "~type": "HAS_UTR_SEGMENT",
-      "~properties": {
-        "data_source_url": "https://useast.ensembl.org/biomart/martview",
-        "start_id": "ENST00001081202",
-        "data_version": "GRCh38.p14",
-        "end_id": "UTR:3prime_UTR:7:118184529-118185694:1:0f289bc591",
-        "data_source": "Ensembl"
-      }
-    },
-    {
-      "~id": "5:dbb80fc5-5121-4646-85b1-2fcbb13ccaf8:11187747",
+      "~id": "5:dbb80fc5-5121-4646-85b1-2fcbb13ccaf8:12218586",
       "~entityType": "relationship",
       "~start": "ENST00001081202",
       "~end": "ENSP00000751008",
@@ -904,7 +1560,7 @@
       }
     },
     {
-      "~id": "5:dbb80fc5-5121-4646-85b1-2fcbb13ccaf8:605730",
+      "~id": "5:dbb80fc5-5121-4646-85b1-2fcbb13ccaf8:11760717",
       "~entityType": "relationship",
       "~start": "ENSG00000128534",
       "~end": "ENSP00000751008",
@@ -918,37 +1574,77 @@
       }
     },
     {
-      "~id": "5:dbb80fc5-5121-4646-85b1-2fcbb13ccaf8:953",
+      "~id": "5:dbb80fc5-5121-4646-85b1-2fcbb13ccaf8:11760711",
       "~entityType": "relationship",
-      "~start": "ENSG00000001626",
-      "~end": "GO:1904322",
-      "~type": "ASSOCIATED_WITH_GO",
+      "~start": "ENSG00000128534",
+      "~end": "ENSP00000585392",
+      "~type": "ENCODES",
       "~properties": {
-        "go_evidence_code": "IDA",
         "data_source_url": "https://useast.ensembl.org/biomart/martview",
-        "start_id": "ENSG00000001626",
+        "start_id": "ENSG00000128534",
         "data_version": "GRCh38.p14",
-        "end_id": "GO:1904322",
+        "end_id": "ENSP00000585392",
         "data_source": "Ensembl"
       }
     },
     {
-      "~id": "5:dbb80fc5-5121-4646-85b1-2fcbb13ccaf8:952",
+      "~id": "5:dbb80fc5-5121-4646-85b1-2fcbb13ccaf8:11760710",
       "~entityType": "relationship",
-      "~start": "ENSG00000001626",
-      "~end": "GO:1902476",
-      "~type": "ASSOCIATED_WITH_GO",
+      "~start": "ENSG00000128534",
+      "~end": "ENSP00000585391",
+      "~type": "ENCODES",
       "~properties": {
-        "go_evidence_code": "ISS",
         "data_source_url": "https://useast.ensembl.org/biomart/martview",
-        "start_id": "ENSG00000001626",
+        "start_id": "ENSG00000128534",
         "data_version": "GRCh38.p14",
-        "end_id": "GO:1902476",
+        "end_id": "ENSP00000585391",
         "data_source": "Ensembl"
       }
     },
     {
-      "~id": "5:dbb80fc5-5121-4646-85b1-2fcbb13ccaf8:249956",
+      "~id": "5:dbb80fc5-5121-4646-85b1-2fcbb13ccaf8:270443",
+      "~entityType": "relationship",
+      "~start": "ENSG00000128534",
+      "~end": "ENST00000424702",
+      "~type": "HAS_TRANSCRIPT",
+      "~properties": {
+        "data_source_url": "https://useast.ensembl.org/biomart/martview",
+        "start_id": "ENSG00000128534",
+        "data_version": "GRCh38.p14",
+        "end_id": "ENST00000424702",
+        "data_source": "Ensembl"
+      }
+    },
+    {
+      "~id": "5:dbb80fc5-5121-4646-85b1-2fcbb13ccaf8:11939209",
+      "~entityType": "relationship",
+      "~start": "ENST00000424702",
+      "~end": "ENSP00000395263",
+      "~type": "TRANSLATES_TO",
+      "~properties": {
+        "data_source_url": "https://useast.ensembl.org/biomart/martview",
+        "start_id": "ENST00000424702",
+        "data_version": "GRCh38.p14",
+        "end_id": "ENSP00000395263",
+        "data_source": "Ensembl"
+      }
+    },
+    {
+      "~id": "5:dbb80fc5-5121-4646-85b1-2fcbb13ccaf8:11760707",
+      "~entityType": "relationship",
+      "~start": "ENSG00000128534",
+      "~end": "ENSP00000395263",
+      "~type": "ENCODES",
+      "~properties": {
+        "data_source_url": "https://useast.ensembl.org/biomart/martview",
+        "start_id": "ENSG00000128534",
+        "data_version": "GRCh38.p14",
+        "end_id": "ENSP00000395263",
+        "data_source": "Ensembl"
+      }
+    },
+    {
+      "~id": "5:dbb80fc5-5121-4646-85b1-2fcbb13ccaf8:11302868",
       "~entityType": "relationship",
       "~start": "ENSG00000128534",
       "~end": "GO:1990904",
@@ -959,21 +1655,6 @@
         "start_id": "ENSG00000128534",
         "data_version": "GRCh38.p14",
         "end_id": "GO:1990904",
-        "data_source": "Ensembl"
-      }
-    },
-    {
-      "~id": "5:dbb80fc5-5121-4646-85b1-2fcbb13ccaf8:249955",
-      "~entityType": "relationship",
-      "~start": "ENSG00000128534",
-      "~end": "GO:0120115",
-      "~type": "ASSOCIATED_WITH_GO",
-      "~properties": {
-        "go_evidence_code": "IDA",
-        "data_source_url": "https://useast.ensembl.org/biomart/martview",
-        "start_id": "ENSG00000128534",
-        "data_version": "GRCh38.p14",
-        "end_id": "GO:0120115",
         "data_source": "Ensembl"
       }
     },

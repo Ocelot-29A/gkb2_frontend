@@ -170,19 +170,6 @@ const PANK_TYPE_MAP = {
 
 const normalizeNodeType = (label) => PANK_TYPE_MAP[label] || label;
 
-const TRACK_CAPTION_LABELS = new Set([
-  'Transcript',
-  'TSS_segment',
-  'Exon',
-  'CDS_segments',
-  'UTR_segments',
-]);
-
-const shouldPlaceCaptionBelow = (node) => {
-  const labels = node?.['~labels'] || [];
-  return labels.some((label) => TRACK_CAPTION_LABELS.has(label));
-};
-
 const getNodeType = (node) => {
   const labels = node?.['~labels'] || [];
   return labels
@@ -207,6 +194,47 @@ const getNodeLabel = (node) => {
   return String(baseId).replace(/_/g, ' ');
 };
 
+const getBoxCorners = (posData) => {
+  if (
+    Array.isArray(posData?.start_xy) &&
+    Array.isArray(posData?.end_xy) &&
+    posData.start_xy.length >= 2 &&
+    posData.end_xy.length >= 2 &&
+    Number.isFinite(posData.start_xy[0]) &&
+    Number.isFinite(posData.start_xy[1]) &&
+    Number.isFinite(posData.end_xy[0]) &&
+    Number.isFinite(posData.end_xy[1])
+  ) {
+    return {
+      startX: posData.start_xy[0],
+      startY: posData.start_xy[1],
+      endX: posData.end_xy[0],
+      endY: posData.end_xy[1],
+    };
+  }
+
+  return null;
+};
+
+const getRenderPosition = (posData) => {
+  if (Number.isFinite(posData?.x) && Number.isFinite(posData?.y)) {
+    return {
+      x: posData.x * CY_LAYOUT_SCALE,
+      y: posData.y * CY_LAYOUT_SCALE,
+    };
+  }
+
+  const boxCorners = getBoxCorners(posData);
+  if (boxCorners) {
+    return {
+      x: ((boxCorners.startX + boxCorners.endX) / 2) * CY_LAYOUT_SCALE,
+      y: ((boxCorners.startY + boxCorners.endY) / 2) * CY_LAYOUT_SCALE,
+    };
+  }
+
+  return null;
+};
+
 const getRenderWidth = (posData) => {
   if (
     Number.isFinite(posData?.genome_start_x) &&
@@ -215,12 +243,30 @@ const getRenderWidth = (posData) => {
     return (posData.genome_end_x - posData.genome_start_x) * CY_LAYOUT_SCALE;
   }
 
+  const boxCorners = getBoxCorners(posData);
+  if (boxCorners) {
+    return Math.abs(boxCorners.endX - boxCorners.startX) * CY_LAYOUT_SCALE;
+  }
+
   return Number.isFinite(posData?.width) ? posData.width * CY_LAYOUT_SCALE : posData?.width;
 };
 
-const getRenderHeight = (posData) => (
-  Number.isFinite(posData?.height) ? posData.height * CY_LAYOUT_SCALE : posData?.height
-);
+const getRenderHeight = (posData) => {
+  const boxCorners = getBoxCorners(posData);
+  if (boxCorners) {
+    return Math.abs(boxCorners.endY - boxCorners.startY) * CY_LAYOUT_SCALE;
+  }
+
+  return Number.isFinite(posData?.height) ? posData.height * CY_LAYOUT_SCALE : posData?.height;
+};
+
+const getLabelMaxWidth = (renderWidth) => {
+  if (!Number.isFinite(renderWidth)) {
+    return undefined;
+  }
+
+  return Math.max(renderWidth - 8, 6);
+};
 
 const getEdgeCurveDistance = (edgeId) => {
   const source = String(edgeId || '');
@@ -481,7 +527,7 @@ export default function StandaloneKnowledgeGraph({
     ? { x: cyRef.current.width() / 2, y: cyRef.current.height() / 2 }
     : { x: 0, y: 0 };
 
-  const genomeRegion = metadata?.layout?.mode === 'genome_track'
+  const genomeRegion = ['genome_track', 'genome_mode'].includes(metadata?.layout?.mode)
     ? metadata?.layout?.genome_region
     : null;
 
@@ -635,11 +681,15 @@ export default function StandaloneKnowledgeGraph({
     });
 
     const graphNodes = Object.values(uniqueNodesMap).map((node) => {
-      const posData = positionData[node['~id']] || {
+      const fallbackPosData = {
         x: Math.random() * 250 - 125,
         y: Math.random() * 200 - 125,
         Level: 'Core',
       };
+      const posData = positionData[node['~id']] || fallbackPosData;
+      const renderPosition = getRenderPosition(posData) || getRenderPosition(fallbackPosData);
+      const renderWidth = getRenderWidth(posData);
+      const renderHeight = getRenderHeight(posData);
 
       return {
         data: {
@@ -648,14 +698,11 @@ export default function StandaloneKnowledgeGraph({
           label: getNodeLabel(node),
           type: getNodeType(node),
           Level: posData.Level || 'Core',
-          renderWidth: getRenderWidth(posData),
-          renderHeight: getRenderHeight(posData),
-          captionBelow: shouldPlaceCaptionBelow(node) ? 'true' : 'false',
+          renderWidth,
+          renderHeight,
+          labelMaxWidth: getLabelMaxWidth(renderWidth),
         },
-        position: {
-          x: posData.x * CY_LAYOUT_SCALE,
-          y: posData.y * CY_LAYOUT_SCALE,
-        },
+        position: renderPosition,
       };
     });
 
@@ -711,6 +758,13 @@ export default function StandaloneKnowledgeGraph({
           },
         },
         {
+          selector: 'node[labelMaxWidth][trackBackground != "true"]',
+          style: {
+            'text-wrap': 'ellipsis',
+            'text-max-width': 'data(labelMaxWidth)',
+          },
+        },
+        {
           selector: 'node[trackBackground = "true"]',
           style: {
             shape: 'round-rectangle',
@@ -740,15 +794,6 @@ export default function StandaloneKnowledgeGraph({
             'control-point-weights': 'data(curveWeight)',
             'z-index-compare': 'manual',
             'z-index': 5,
-          },
-        },
-        {
-          selector: 'node[captionBelow = "true"]',
-          style: {
-            shape: 'rectangle',
-            'text-valign': 'bottom',
-            'text-halign': 'center',
-            'text-margin-y': 4,
           },
         },
       ]),

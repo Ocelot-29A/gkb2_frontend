@@ -1,16 +1,30 @@
 {
-  "input_node_count": 25,
-  "input_edge_count": 26,
-  "filtered_node_count": 25,
-  "filtered_edge_count": 26,
-  "hidden_node_count": 0,
+  "input_node_count": 1229,
+  "input_edge_count": 1921,
+  "filtered_node_count": 50,
+  "filtered_edge_count": 32,
+  "hidden_node_count": 1187,
+  "hidden_node_types": {
+    "CDS_segments": 645,
+    "Exon": 162,
+    "GO_term": 3,
+    "Protein": 45,
+    "TSS_segment": 60,
+    "Transcript": 60,
+    "UTR_segments": 212
+  },
+  "overflow_node_count": 8,
+  "real_node_budget": 15,
+  "kg_node_budget": 15,
+  "kg_filtered_node_count": 15,
+  "genome_track_context_node_count": 39,
   "layout": {
-    "mode": "genome_track",
+    "mode": "genome_mode",
     "genome_region": {
-      "x": -339.043,
+      "x": -337.661,
       "y": -46,
-      "width": 712.586,
-      "height": 482,
+      "width": 925.322,
+      "height": 560,
       "lanes": [
         {
           "name": "Gene",
@@ -49,5 +63,45 @@
         }
       ]
     }
-  }
+  },
+  "hidden_genome_track_groups": {
+    "49cc2947abb1": {
+      "gene_id": "ENSG00000128534",
+      "node_type": "TSS_segment",
+      "hidden_node_count": 2,
+      "y": 156.0
+    },
+    "680ab76b9709": {
+      "gene_id": "ENSG00000128534",
+      "node_type": "CDS_segments",
+      "hidden_node_count": 2,
+      "y": 312.0
+    },
+    "96921e4d647b": {
+      "gene_id": "ENSG00000128534",
+      "node_type": "Exon",
+      "hidden_node_count": 2,
+      "y": 234.0
+    },
+    "bd918b1497be": {
+      "gene_id": "ENSG00000128534",
+      "node_type": "UTR_segments",
+      "hidden_node_count": 2,
+      "y": 390.0
+    },
+    "cb72411e8294": {
+      "gene_id": "ENSG00000128534",
+      "node_type": "Transcript",
+      "hidden_node_count": 2,
+      "y": 78.0
+    },
+    "d49ff49e5761": {
+      "gene_id": "ENSG00000001626",
+      "node_type": "Transcript",
+      "hidden_node_count": 2,
+      "y": 78.0
+    }
+  },
+  "real_visible_node_count": 42,
+  "display_node_count": 50
 }
