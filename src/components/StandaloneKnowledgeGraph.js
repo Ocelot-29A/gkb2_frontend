@@ -41,6 +41,11 @@ import {
 } from './style.js';
 
 const CY_LAYOUT_SCALE = 0.5;
+const CY_Y_POSITION_MULTIPLIER = 2;
+
+const scaleX = (value) => value * CY_LAYOUT_SCALE;
+const scaleYPosition = (value) => value * CY_LAYOUT_SCALE * CY_Y_POSITION_MULTIPLIER;
+const scaleHeight = (value) => value * CY_LAYOUT_SCALE;
 
 const LegendItem = ({ label, color, sx }) => (
   <span
@@ -219,16 +224,16 @@ const getBoxCorners = (posData) => {
 const getRenderPosition = (posData) => {
   if (Number.isFinite(posData?.x) && Number.isFinite(posData?.y)) {
     return {
-      x: posData.x * CY_LAYOUT_SCALE,
-      y: posData.y * CY_LAYOUT_SCALE,
+      x: scaleX(posData.x),
+      y: scaleYPosition(posData.y),
     };
   }
 
   const boxCorners = getBoxCorners(posData);
   if (boxCorners) {
     return {
-      x: ((boxCorners.startX + boxCorners.endX) / 2) * CY_LAYOUT_SCALE,
-      y: ((boxCorners.startY + boxCorners.endY) / 2) * CY_LAYOUT_SCALE,
+      x: scaleX((boxCorners.startX + boxCorners.endX) / 2),
+      y: scaleYPosition((boxCorners.startY + boxCorners.endY) / 2),
     };
   }
 
@@ -240,24 +245,24 @@ const getRenderWidth = (posData) => {
     Number.isFinite(posData?.genome_start_x) &&
     Number.isFinite(posData?.genome_end_x)
   ) {
-    return (posData.genome_end_x - posData.genome_start_x) * CY_LAYOUT_SCALE;
+    return scaleX(posData.genome_end_x - posData.genome_start_x);
   }
 
   const boxCorners = getBoxCorners(posData);
   if (boxCorners) {
-    return Math.abs(boxCorners.endX - boxCorners.startX) * CY_LAYOUT_SCALE;
+    return scaleX(Math.abs(boxCorners.endX - boxCorners.startX));
   }
 
-  return Number.isFinite(posData?.width) ? posData.width * CY_LAYOUT_SCALE : posData?.width;
+  return Number.isFinite(posData?.width) ? scaleX(posData.width) : posData?.width;
 };
 
 const getRenderHeight = (posData) => {
   const boxCorners = getBoxCorners(posData);
   if (boxCorners) {
-    return Math.abs(boxCorners.endY - boxCorners.startY) * CY_LAYOUT_SCALE;
+    return scaleHeight(Math.abs(boxCorners.endY - boxCorners.startY));
   }
 
-  return Number.isFinite(posData?.height) ? posData.height * CY_LAYOUT_SCALE : posData?.height;
+  return Number.isFinite(posData?.height) ? scaleHeight(posData.height) : posData?.height;
 };
 
 const getLabelMaxWidth = (renderWidth) => {
@@ -291,12 +296,12 @@ const buildTrackBackgroundNode = (genomeRegion) => {
       id: '__track_background__',
       label: '',
       trackBackground: 'true',
-      renderWidth: genomeRegion.width * CY_LAYOUT_SCALE,
-      renderHeight: genomeRegion.height * CY_LAYOUT_SCALE,
+      renderWidth: scaleX(genomeRegion.width),
+      renderHeight: scaleHeight(genomeRegion.height),
     },
     position: {
-      x: (genomeRegion.x + (genomeRegion.width / 2)) * CY_LAYOUT_SCALE,
-      y: (genomeRegion.y + (genomeRegion.height / 2)) * CY_LAYOUT_SCALE,
+      x: scaleX(genomeRegion.x + (genomeRegion.width / 2)),
+      y: scaleYPosition(genomeRegion.y + (genomeRegion.height / 2)),
     },
     selectable: false,
     grabbable: false,
@@ -538,21 +543,21 @@ export default function StandaloneKnowledgeGraph({
 
     const { zoom, panY } = viewportState;
     const lanes = Array.isArray(genomeRegion.lanes) ? genomeRegion.lanes : [];
-    const regionTopModel = genomeRegion.y * CY_LAYOUT_SCALE;
-    const regionBottomModel = (genomeRegion.y + genomeRegion.height) * CY_LAYOUT_SCALE;
+    const regionTopModel = scaleYPosition(genomeRegion.y);
+    const regionBottomModel = scaleYPosition(genomeRegion.y + genomeRegion.height);
 
     const laneLabels = lanes.map((lane, index) => {
       const topBoundaryModel = index === 0
         ? regionTopModel
-        : ((lanes[index - 1].y + lane.y) / 2) * CY_LAYOUT_SCALE;
+        : scaleYPosition((lanes[index - 1].y + lane.y) / 2);
       const bottomBoundaryModel = index === lanes.length - 1
         ? regionBottomModel
-        : ((lane.y + lanes[index + 1].y) / 2) * CY_LAYOUT_SCALE;
+        : scaleYPosition((lane.y + lanes[index + 1].y) / 2);
 
       return {
         name: lane.name,
         top: topBoundaryModel * zoom + panY,
-        centerY: (lane.y * CY_LAYOUT_SCALE) * zoom + panY,
+        centerY: scaleYPosition(lane.y) * zoom + panY,
         height: (bottomBoundaryModel - topBoundaryModel) * zoom,
       };
     });
