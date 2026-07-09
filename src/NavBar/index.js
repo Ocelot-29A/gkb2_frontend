@@ -28,10 +28,6 @@ function NavBar() {
       link: '/'
     },
     {
-      label: 'Advanced Query',
-      link: '/graphquery'
-    },
-    {
       label: 'API',
       link: '/docs/API'
     }

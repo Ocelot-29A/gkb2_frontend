@@ -7,6 +7,7 @@ import axios from 'axios';
 
 import { Button } from '@mui/material';
 
+import GraphViewerDebugPanel from './GraphViewerDebugPanel';
 import sampleLinks from '../schema/sample_links.json';
 import { InputComponent } from './MatchPage';
 
@@ -265,6 +266,7 @@ export default function DebugPage() {
                 </div>
             </div> */}
             <div style={{ padding: '20px', width: '1440px' }}>
+                <GraphViewerDebugPanel />
                 <Button
                     onClick={() => {
                         runGKB2ApiTests();
