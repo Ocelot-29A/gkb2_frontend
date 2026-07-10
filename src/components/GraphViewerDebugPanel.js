@@ -38,24 +38,127 @@ const normalizeCypherInput = (input) => String(input || '')
   .replace(/\s+WITH/g, '\nWITH')
   .replace(/\[\s*([^]*?)\s*\]/g, (match, content) => `[${content.replace(/\n/g, ' ')}]`);
 
-const parseCypherEntry = (input, index) => {
-  const normalized = normalizeCypherInput(input);
-  if (!normalized) {
+const tryParseStructuredInput = (input) => {
+  const trimmed = String(input || '')
+    .trim()
+    .replace(/\r\n/g, '\n')
+    .replace(/,+\s*$/g, '');
+
+  if (!trimmed) {
     return null;
   }
 
+  const candidates = [trimmed];
   if (
-    (normalized.startsWith('{') && normalized.endsWith('}')) ||
-    (normalized.startsWith('[') && normalized.endsWith(']'))
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith('\'') && trimmed.endsWith('\''))
   ) {
+    candidates.push(trimmed.slice(1, -1));
+  }
+
+  for (const candidate of candidates) {
     try {
-      return JSON.parse(normalized);
+      const parsed = JSON.parse(candidate);
+      if (typeof parsed === 'string') {
+        const nestedCandidate = parsed.trim();
+        if (
+          (nestedCandidate.startsWith('{') && nestedCandidate.endsWith('}')) ||
+          (nestedCandidate.startsWith('[') && nestedCandidate.endsWith(']'))
+        ) {
+          try {
+            return JSON.parse(nestedCandidate);
+          } catch (error) {
+            return parsed;
+          }
+        }
+      }
+
+      return parsed;
     } catch (error) {
-      throw new Error(`Cypher input ${index + 1} looks like JSON but could not be parsed.`);
+      continue;
     }
   }
 
-  return normalized.replace(/\s+/g, ' ').trim();
+  return null;
+};
+
+const normalizeCypherEntryValue = (value) => {
+  if (typeof value === 'string') {
+    return normalizeCypherInput(value).replace(/\s+/g, ' ').trim();
+  }
+
+  if (value && typeof value === 'object') {
+    return value;
+  }
+
+  return null;
+};
+
+const stringifyCypherEntry = (value) => {
+  if (typeof value === 'string') {
+    return normalizeCypherInput(value);
+  }
+
+  return JSON.stringify(value, null, 2);
+};
+
+const parseCypherInputContainer = (input, index) => {
+  const structured = tryParseStructuredInput(input);
+
+  if (Array.isArray(structured)) {
+    return {
+      containerType: 'list',
+      entries: structured.map((entry, entryIndex) => {
+        const normalizedEntry = normalizeCypherEntryValue(entry);
+        if (!normalizedEntry) {
+          throw new Error(`Cypher input ${index + 1} contains an unsupported list entry at position ${entryIndex + 1}.`);
+        }
+        return normalizedEntry;
+      }).filter(Boolean),
+      requestOptions: null,
+    };
+  }
+
+  if (structured && typeof structured === 'object') {
+    if (Array.isArray(structured.cypher)) {
+      return {
+        containerType: 'request-payload',
+        entries: structured.cypher.map((entry, entryIndex) => {
+          const normalizedEntry = normalizeCypherEntryValue(entry);
+          if (!normalizedEntry) {
+            throw new Error(`Cypher input ${index + 1} contains an unsupported cypher entry at position ${entryIndex + 1}.`);
+          }
+          return normalizedEntry;
+        }).filter(Boolean),
+        requestOptions: {
+          coreNodes: Array.isArray(structured.core_nodes) ? structured.core_nodes : null,
+          maxNodes: structured.max_nodes ?? null,
+          layoutMode: structured.layout_mode || null,
+        },
+      };
+    }
+
+    return {
+      containerType: 'single-entry',
+      entries: [structured],
+      requestOptions: null,
+    };
+  }
+
+  const normalized = normalizeCypherInput(input);
+  if (!normalized) {
+    return {
+      containerType: 'empty',
+      entries: [],
+      requestOptions: null,
+    };
+  }
+
+  return {
+    containerType: 'string',
+    entries: [normalized.replace(/\s+/g, ' ').trim()],
+    requestOptions: null,
+  };
 };
 
 const getGraphPayload = (payload) => ({
@@ -64,7 +167,7 @@ const getGraphPayload = (payload) => ({
   metadata: payload?.metadata || null,
 });
 
-const QueryInputList = ({ inputs, onChange, onFormat }) => {
+const QueryInputList = ({ inputs, onChange, onFormat, onAutoParse }) => {
   const updateInput = (index, value) => {
     const nextInputs = [...inputs];
     nextInputs[index] = value;
@@ -113,6 +216,9 @@ const QueryInputList = ({ inputs, onChange, onFormat }) => {
         <Button startIcon={<AutoAwesomeIcon />} variant='outlined' onClick={onFormat}>
           Auto format
         </Button>
+        <Button startIcon={<AutoAwesomeIcon />} variant='outlined' onClick={onAutoParse}>
+          Auto parse
+        </Button>
       </Stack>
     </Stack>
   );
@@ -135,6 +241,48 @@ export default function GraphViewerDebugPanel() {
     setCypherInputs((currentInputs) => currentInputs.map((input) => normalizeCypherInput(input)));
   };
 
+  const handleAutoParseInputs = () => {
+    try {
+      let expanded = false;
+      let nextRequestOptions = null;
+      const nextInputs = [];
+
+      cypherInputs.forEach((input, index) => {
+        const parsedContainer = parseCypherInputContainer(input, index);
+
+        if (parsedContainer.containerType === 'list' || parsedContainer.containerType === 'request-payload') {
+          expanded = true;
+        }
+
+        if (!nextRequestOptions && parsedContainer.requestOptions) {
+          nextRequestOptions = parsedContainer.requestOptions;
+        }
+
+        parsedContainer.entries.forEach((entry) => {
+          nextInputs.push(stringifyCypherEntry(entry));
+        });
+      });
+
+      if (!expanded) {
+        throw new Error('No request-level cypher list found to auto parse.');
+      }
+
+      setCypherInputs(nextInputs.length ? nextInputs : ['']);
+      if (nextRequestOptions?.coreNodes) {
+        setCoreNodes(nextRequestOptions.coreNodes.join(', '));
+      }
+      if (nextRequestOptions?.maxNodes !== null && nextRequestOptions?.maxNodes !== undefined) {
+        setMaxNodes(String(nextRequestOptions.maxNodes));
+      }
+      if (nextRequestOptions?.layoutMode) {
+        setLayoutMode(nextRequestOptions.layoutMode);
+      }
+      setError('');
+    } catch (parseError) {
+      setError(parseError.message || 'Auto parse failed.');
+    }
+  };
+
   const applySample = (mode) => {
     setLayoutMode(mode);
     setCoreNodes('ENSG00000001626');
@@ -149,7 +297,7 @@ export default function GraphViewerDebugPanel() {
 
     try {
       const cypher = cypherInputs
-        .map((input, index) => parseCypherEntry(input, index))
+        .flatMap((input, index) => parseCypherInputContainer(input, index).entries)
         .filter(Boolean);
 
       if (!cypher.length) {
@@ -234,6 +382,7 @@ export default function GraphViewerDebugPanel() {
           inputs={cypherInputs}
           onChange={setCypherInputs}
           onFormat={handleFormatInputs}
+          onAutoParse={handleAutoParseInputs}
         />
 
         <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems={{ xs: 'stretch', md: 'center' }}>
