@@ -39,6 +39,7 @@ export default function SampleGraphPage() {
   const [graphData, setGraphData] = useState(null);
   const [coordData, setCoordData] = useState(null);
   const [metadata, setMetadata] = useState(null);
+  const [queryRequest, setQueryRequest] = useState(null);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -47,10 +48,11 @@ export default function SampleGraphPage() {
     const load = async () => {
       try {
         setError('');
-        const [graph, xy, meta] = await Promise.all([
+        const [graph, xy, meta, request] = await Promise.all([
           loadJson('graph.json'),
           loadFirstAvailableJson(['xy_json.json', 'xy.json']),
           loadJson('metadata.json'),
+          loadJson('request.json'),
         ]);
 
         if (!active) {
@@ -60,6 +62,7 @@ export default function SampleGraphPage() {
         setGraphData(graph);
         setCoordData(xy);
         setMetadata(meta);
+        setQueryRequest(request);
       } catch (err) {
         if (active) {
           setError(err.message || 'Failed to load sample graph data.');
@@ -91,6 +94,7 @@ export default function SampleGraphPage() {
             graphData={graphData}
             coordData={coordData}
             metadata={metadata}
+            queryRequest={queryRequest}
             containerHeight="calc(100vh - 315px)"
             defaultLegendVisible={true}
           />

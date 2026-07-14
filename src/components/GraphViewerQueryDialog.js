@@ -18,7 +18,7 @@ import {
   ToggleButtonGroup,
 } from '@mui/material';
 
-const GRAPH_VIEWER_API_URL = 'https://jieliulab3.dcmb.med.umich.edu/gkb0708/api/graph';
+export const GRAPH_VIEWER_API_URL = 'https://jieliulab3.dcmb.med.umich.edu/gkb0708/api/graph';
 const DEFAULT_QUERY = 'MATCH (n {id: "ENSG00000001626"})-[r]-(m) WITH n, r, m LIMIT 10 RETURN collect(DISTINCT n) + collect(DISTINCT m) AS nodes, collect(DISTINCT r) AS edges';
 
 const normalizeInput = (value) => String(value || '')
@@ -66,6 +66,30 @@ export const parseGraphViewerInputs = (inputs) => inputs.flatMap((input) => {
   }
   return [normalizeInput(input)];
 }).filter(Boolean);
+
+export const requestGraphViewer = async (request) => {
+  const response = await fetch(GRAPH_VIEWER_API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request),
+  });
+  if (!response.ok) {
+    throw new Error(`Graph viewer API failed with HTTP ${response.status}.`);
+  }
+
+  const payload = await response.json();
+  const graphData = payload?.combined_query_result || payload?.graph;
+  if (!graphData?.nodes || !graphData?.edges) {
+    throw new Error('Response did not contain graph nodes/edges.');
+  }
+
+  return {
+    graphData,
+    coordData: payload.xy_json || payload.coords || null,
+    metadata: payload.metadata || null,
+    request,
+  };
+};
 
 export default function GraphViewerQueryDialog({ open, onClose, onResult }) {
   const [inputs, setInputs] = useState([DEFAULT_QUERY]);
@@ -124,30 +148,13 @@ export default function GraphViewerQueryDialog({ open, onClose, onResult }) {
         throw new Error('Provide a query and a positive max nodes value.');
       }
 
-      const response = await fetch(GRAPH_VIEWER_API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          cypher,
-          core_nodes: coreNodes.split(/[\s,]+/).filter(Boolean),
-          max_nodes: parsedMaxNodes,
-          layout_mode: layoutMode,
-        }),
-      });
-      if (!response.ok) {
-        throw new Error(`Graph viewer API failed with HTTP ${response.status}.`);
-      }
-
-      const payload = await response.json();
-      const graphData = payload?.combined_query_result || payload?.graph;
-      if (!graphData?.nodes || !graphData?.edges) {
-        throw new Error('Response did not contain graph nodes/edges.');
-      }
-      onResult({
-        graphData,
-        coordData: payload.xy_json || payload.coords || null,
-        metadata: payload.metadata || null,
-      });
+      const request = {
+        cypher,
+        core_nodes: coreNodes.split(/[\s,]+/).filter(Boolean),
+        max_nodes: parsedMaxNodes,
+        layout_mode: layoutMode,
+      };
+      onResult(await requestGraphViewer(request));
       onClose();
     } catch (submitError) {
       setError(submitError.message || 'Graph viewer request failed.');
