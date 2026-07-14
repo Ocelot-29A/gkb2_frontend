@@ -11,11 +11,11 @@ import React, {
 import cytoscape from 'cytoscape';
 import { useSelector } from 'react-redux';
 
-import KeyboardArrowLeftIcon from '@mui/icons-material/KeyboardArrowLeft';
-import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
+import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import {
   Box,
-  Collapse,
+  Button,
   Link,
   Typography,
 } from '@mui/material';
@@ -23,18 +23,14 @@ import IconButton from '@mui/material/IconButton';
 
 import zoomInIcon from '../image/fontisto--zoom-minus.svg';
 import zoomOutIcon from '../image/fontisto--zoom-plus.svg';
-import InfoDisableIcon
-  from '../image/material-symbols--ad-group-off-outline-rounded.svg';
-import InfoEnableIcon
-  from '../image/material-symbols--ad-group-outline-rounded.svg';
 import downloadIcon from '../image/material-symbols--download-rounded.svg';
 import recenterIcon from '../image/material-symbols--recenter-rounded.svg';
 import graphInfocard from '../schema/graph_viewer_schema.json';
 import { addWhitespace } from '../utils/textProcessing';
+import GraphViewerQueryDialog from './GraphViewerQueryDialog';
 import {
   edgeIsInverted,
   edgeLabels,
-  getContrastingColor,
   legendSchema,
   nodeColors,
   nodeStyle,
@@ -47,19 +43,78 @@ const scaleX = (value) => value * CY_LAYOUT_SCALE;
 const scaleYPosition = (value) => value * CY_LAYOUT_SCALE * CY_Y_POSITION_MULTIPLIER;
 const scaleHeight = (value) => value * CY_LAYOUT_SCALE;
 
-const LegendItem = ({ label, color, sx }) => (
+const LegendItem = ({ label, color, sx, isEdge = false }) => (
   <span
     style={{
-      padding: '4px 8px',
-      borderRadius: '6px',
-      backgroundColor: color || 'white',
-      fontSize: '12px',
-      color: getContrastingColor(color) || 'black',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '8px',
+      minHeight: '24px',
+      padding: '2px 4px',
+      borderRadius: '4px',
+      backgroundColor: 'transparent',
+      fontSize: '11px',
+      fontWeight: 600,
+      color: '#425A68',
       ...sx,
     }}
   >
+    <span
+      style={{
+        display: 'inline-block',
+        flex: '0 0 auto',
+        width: isEdge ? '24px' : '13px',
+        height: isEdge ? '2px' : '13px',
+        borderRadius: isEdge ? '0' : '3px',
+        backgroundColor: color || '#D9E1E6',
+        border: isEdge ? 'none' : `1px solid ${color || '#D9E1E6'}`,
+      }}
+    />
     {label}
   </span>
+);
+
+const toolbarButtonSx = {
+  minHeight: '54px',
+  padding: '7px 12px',
+  border: '1px solid #E0E7EB',
+  borderRadius: '8px',
+  backgroundColor: '#FFFFFF',
+  color: '#263238',
+  boxShadow: '0 1px 3px rgba(42, 63, 78, 0.08)',
+  fontFamily: 'Open Sans, sans-serif',
+  fontSize: '11px',
+  fontWeight: 600,
+  lineHeight: 1.15,
+  textTransform: 'none',
+  whiteSpace: 'nowrap',
+  '&:hover': {
+    borderColor: '#B8CDD5',
+    backgroundColor: '#F8FBFC',
+  },
+  '&.Mui-disabled': {
+    borderColor: '#E0E7EB',
+    color: '#7B8A92',
+  },
+};
+
+const ToolbarToggle = ({ label, enabled, onChange }) => (
+  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '4px', minWidth: '72px', height: '54px' }}>
+    <Typography sx={{ fontSize: '10px', color: '#263238', lineHeight: 1, whiteSpace: 'nowrap' }}>
+      {label}
+    </Typography>
+    <button
+      type="button"
+      aria-pressed={enabled}
+      onClick={onChange}
+      style={{ position: 'relative', width: '54px', height: '24px', padding: 0, border: '1px solid #7CB8BF', borderRadius: '13px', background: enabled ? '#55A5AB' : '#DDE7EA', cursor: 'pointer', transition: 'background 0.15s ease' }}
+    >
+      <span style={{ position: 'absolute', top: '3px', left: enabled ? '31px' : '3px', width: '16px', height: '16px', borderRadius: '50%', background: '#FFFFFF', boxShadow: '0 1px 3px rgba(35, 70, 79, 0.28)', transition: 'left 0.15s ease' }} />
+      <span style={{ position: 'absolute', left: enabled ? '7px' : '24px', top: '5px', color: enabled ? '#FFFFFF' : '#5C7078', fontFamily: 'Open Sans, sans-serif', fontSize: '9px', fontWeight: 700, lineHeight: 1 }}>
+        {enabled ? 'ON' : 'OFF'}
+      </span>
+    </button>
+  </Box>
 );
 
 const InfocardData = ({ value, config, dataKey }) => {
@@ -516,6 +571,14 @@ export default function StandaloneKnowledgeGraph({
   const [infocardHovered, setInfocardHovered] = useState(false);
   const [nodeHovered, setNodeHovered] = useState(false);
   const [infocardEnabled, setInfocardEnabled] = useState(true);
+  const [clickMenuEnabled, setClickMenuEnabled] = useState(true);
+  const [downloadMenuOpen, setDownloadMenuOpen] = useState(false);
+  const [modeMenuOpen, setModeMenuOpen] = useState(false);
+  const [queryDialogOpen, setQueryDialogOpen] = useState(false);
+  const [queryResult, setQueryResult] = useState(null);
+  const [viewMode, setViewMode] = useState(metadata?.layout?.mode || 'kg_only');
+  const [thumbnailImage, setThumbnailImage] = useState('');
+  const [thumbnailViewport, setThumbnailViewport] = useState(null);
   const [viewportState, setViewportState] = useState({
     zoom: 1,
     panX: 0,
@@ -523,6 +586,19 @@ export default function StandaloneKnowledgeGraph({
     width: 0,
     height: 0,
   });
+
+  const displayGraphData = queryResult?.graphData || graphData;
+  const displayCoordData = queryResult?.coordData || coordData;
+  const displayMetadata = queryResult?.metadata || metadata;
+  const effectiveMetadata = displayMetadata
+    ? { ...displayMetadata, layout: { ...displayMetadata.layout, mode: viewMode } }
+    : null;
+
+  useEffect(() => {
+    if (queryResult?.metadata?.layout?.mode) {
+      setViewMode(queryResult.metadata.layout.mode);
+    }
+  }, [queryResult]);
 
   useEffect(() => {
     hoveredIdRef.current = hoveredId;
@@ -532,8 +608,8 @@ export default function StandaloneKnowledgeGraph({
     ? { x: cyRef.current.width() / 2, y: cyRef.current.height() / 2 }
     : { x: 0, y: 0 };
 
-  const genomeRegion = ['genome_track', 'genome_mode'].includes(metadata?.layout?.mode)
-    ? metadata?.layout?.genome_region
+  const genomeRegion = ['genome_track', 'genome_mode'].includes(viewMode)
+    ? effectiveMetadata?.layout?.genome_region
     : null;
 
   const trackOverlay = (() => {
@@ -597,6 +673,95 @@ export default function StandaloneKnowledgeGraph({
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    setDownloadMenuOpen(false);
+  };
+
+  const handleDownloadJson = () => {
+    const result = displayGraphData || queryResultPage?.combined_query_result;
+    if (!result) {
+      return;
+    }
+
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(new Blob([JSON.stringify(result, null, 2)], { type: 'application/json' }));
+    link.download = 'knowledge_graph.json';
+    document.body.appendChild(link);
+    link.click();
+    URL.revokeObjectURL(link.href);
+    document.body.removeChild(link);
+    setDownloadMenuOpen(false);
+  };
+
+  const handleFullscreen = () => {
+    const viewer = containerRef.current?.parentElement?.parentElement;
+    if (!viewer) {
+      return;
+    }
+
+    if (document.fullscreenElement) {
+      document.exitFullscreen?.();
+    } else {
+      viewer.requestFullscreen?.();
+    }
+  };
+
+  const updateThumbnail = () => {
+    const cy = cyRef.current;
+    if (!cy || !cy.elements().length) {
+      return;
+    }
+
+    const bounds = cy.elements().boundingBox();
+    const extent = cy.extent();
+    const width = Math.max(bounds.w, 1);
+    const height = Math.max(bounds.h, 1);
+    const contentLeft = 8;
+    const contentTop = 8;
+    const contentWidth = 164;
+    const contentHeight = 89;
+    const clamp = (value, minimum, maximum) => Math.max(minimum, Math.min(maximum, value));
+
+    const project = (x, y) => ({
+      x: contentLeft + ((x - bounds.x1) / width) * contentWidth,
+      y: contentTop + ((y - bounds.y1) / height) * contentHeight,
+    });
+    const topLeft = project(clamp(extent.x1, bounds.x1, bounds.x2), clamp(extent.y1, bounds.y1, bounds.y2));
+    const bottomRight = project(clamp(extent.x2, bounds.x1, bounds.x2), clamp(extent.y2, bounds.y1, bounds.y2));
+
+    setThumbnailImage(cy.png({ full: true, scale: 1, bg: '#FFFFFF' }));
+    setThumbnailViewport({
+      left: topLeft.x,
+      top: topLeft.y,
+      width: Math.max(8, bottomRight.x - topLeft.x),
+      height: Math.max(8, bottomRight.y - topLeft.y),
+    });
+  };
+
+  const handleThumbnailClick = (event) => {
+    const cy = cyRef.current;
+    if (!cy || !thumbnailViewport) {
+      return;
+    }
+
+    const rect = event.currentTarget.getBoundingClientRect();
+    const contentLeft = 8;
+    const contentTop = 8;
+    const contentWidth = 164;
+    const contentHeight = 89;
+    const x = Math.max(0, Math.min(contentWidth, event.clientX - rect.left - contentLeft));
+    const y = Math.max(0, Math.min(contentHeight, event.clientY - rect.top - contentTop));
+    const bounds = cy.elements().boundingBox();
+    const modelPosition = {
+      x: bounds.x1 + (x / contentWidth) * Math.max(bounds.w, 1),
+      y: bounds.y1 + (y / contentHeight) * Math.max(bounds.h, 1),
+    };
+    cy.animate({
+      pan: {
+        x: cy.width() / 2 - modelPosition.x * cy.zoom(),
+        y: cy.height() / 2 - modelPosition.y * cy.zoom(),
+      },
+      duration: 180,
+    });
   };
 
   useEffect(() => {
@@ -673,8 +838,8 @@ export default function StandaloneKnowledgeGraph({
   }, [hoveredId, infocardEnabled, infocardHovered, nodeHovered]);
 
   useEffect(() => {
-    const result = graphData || queryResultPage?.combined_query_result;
-    const positionData = coordData || queryResultPage?.xy_json || {};
+    const result = displayGraphData || queryResultPage?.combined_query_result;
+    const positionData = displayCoordData || queryResultPage?.xy_json || {};
 
     if (!result?.nodes || !result?.edges || !containerRef.current) {
       return undefined;
@@ -823,6 +988,7 @@ export default function StandaloneKnowledgeGraph({
         width: cyRef.current.width(),
         height: cyRef.current.height(),
       });
+      updateThumbnail();
     };
 
     const handleHover = (evt) => {
@@ -882,6 +1048,7 @@ export default function StandaloneKnowledgeGraph({
       syncViewportState();
     });
     cy.on('resize', syncViewportState);
+    updateThumbnail();
 
     return () => {
       document.body.style.cursor = 'default';
@@ -890,23 +1057,71 @@ export default function StandaloneKnowledgeGraph({
       cy.destroy();
       cyRef.current = null;
     };
-  }, [coordData, genomeRegion, graphData, queryResultPage]);
+  }, [displayCoordData, genomeRegion, displayGraphData, queryResultPage]);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', position: 'relative', justifyContent: 'flex-start', width: '100%', height: '100%', ...sx }}>
-      <div
-        ref={containerRef}
-        style={{
-          width: '100%',
-          height: containerHeight,
-          backgroundColor: '#F9FAFB',
-          border: 'none',
-          borderRadius: '8px',
-          position: 'relative',
-          boxShadow: '0 18px 40px -22px rgba(44, 72, 102, 0.45), 0 8px 18px -14px rgba(44, 72, 102, 0.28)',
-          zIndex: 1,
-        }}
-      />
+    <>
+      <div style={{ display: 'flex', flexDirection: 'column', position: 'relative', width: '100%', height: '100%', color: '#263238', ...sx }}>
+      <Box sx={{ display: 'flex', alignItems: 'stretch', justifyContent: 'space-between', gap: 1, padding: '12px 18px 10px', borderBottom: '1px solid #E5EDF3', background: '#FFFFFF', flexWrap: 'wrap' }}>
+        <Box sx={{ minWidth: '210px', paddingTop: '4px' }}>
+          <Typography sx={{ fontSize: { xs: '12px', md: '16px' }, fontWeight: 700, color: '#172B3A' }}>
+            Knowledge Graph Viewer
+          </Typography>
+          <Typography sx={{ fontSize: '12px', color: '#6D8291', marginTop: '2px' }}>
+            Neighbor Exploration
+          </Typography>
+        </Box>
+        <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: '14px', flexWrap: 'wrap' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Button onClick={handleFullscreen} size="small" variant="outlined" startIcon={<span style={{ fontSize: '19px', lineHeight: 1 }}>⛶</span>} sx={toolbarButtonSx}>Fullscreen</Button>
+            <Button onClick={handleZoomOut} size="small" variant="outlined" disabled={zoomLevel >= 4} startIcon={<img src={zoomOutIcon} alt="" width={20} height={20} />} sx={toolbarButtonSx}>Zoom out</Button>
+            <Button onClick={handleZoomIn} size="small" variant="outlined" disabled={zoomLevel <= 0.6} startIcon={<img src={zoomInIcon} alt="" width={20} height={20} />} sx={toolbarButtonSx}>Zoom in</Button>
+            <Button onClick={handleRecenter} size="small" variant="outlined" startIcon={<img src={recenterIcon} alt="" width={20} height={20} />} sx={{ ...toolbarButtonSx, width: '108px', whiteSpace: 'normal' }}>Recenter<br />Auto layout</Button>
+          </Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Box sx={{ position: 'relative' }}>
+              <Button onClick={() => setDownloadMenuOpen((previous) => !previous)} size="small" variant="outlined" endIcon={<KeyboardArrowDownIcon sx={{ fontSize: '16px' }} />} startIcon={<img src={downloadIcon} alt="" width={20} height={20} />} sx={{ ...toolbarButtonSx, width: '126px' }}>Download</Button>
+              {downloadMenuOpen && (
+                <Box sx={{ position: 'absolute', top: '58px', left: 0, width: '174px', padding: '6px', background: '#FFFFFF', border: '1px solid #E0E7EB', borderRadius: '8px', boxShadow: '0 5px 15px rgba(48, 69, 82, 0.18)', zIndex: 20 }}>
+                  <Button onClick={handleDownload} fullWidth size="small" startIcon={<span style={{ fontSize: '17px' }}>▧</span>} sx={{ justifyContent: 'flex-start', color: '#263238', textTransform: 'none', fontSize: '11px' }}>Download PNG</Button>
+                  <Button onClick={handleDownloadJson} fullWidth size="small" startIcon={<span style={{ fontSize: '17px' }}>{'{}'}</span>} sx={{ justifyContent: 'flex-start', color: '#263238', textTransform: 'none', fontSize: '11px' }}>Download JSON</Button>
+                </Box>
+              )}
+            </Box>
+            <ToolbarToggle label="Hover info" enabled={infocardEnabled} onChange={() => setInfocardEnabled((previous) => !previous)} />
+            <ToolbarToggle label="Click menu" enabled={clickMenuEnabled} onChange={() => setClickMenuEnabled((previous) => !previous)} />
+            <Box sx={{ position: 'relative' }}>
+              <Button onClick={() => setModeMenuOpen((previous) => !previous)} size="small" variant="outlined" startIcon={<span style={{ fontSize: '19px', lineHeight: 1 }}>☷</span>} endIcon={<KeyboardArrowDownIcon sx={{ fontSize: '16px' }} />} sx={{ ...toolbarButtonSx, width: '142px', whiteSpace: 'normal' }}>
+                <span>Mode<br />{viewMode === 'genome_mode' ? 'Genome browser mode' : 'KG mode'}</span>
+              </Button>
+              {modeMenuOpen && (
+                <Box sx={{ position: 'absolute', top: '58px', right: 0, width: '220px', padding: '6px', background: '#FFFFFF', border: '1px solid #E0E7EB', borderRadius: '8px', boxShadow: '0 5px 15px rgba(48, 69, 82, 0.18)', zIndex: 20 }}>
+                  <Button fullWidth onClick={() => { setViewMode('kg_only'); setModeMenuOpen(false); }} sx={{ justifyContent: 'flex-start', color: '#263238', textTransform: 'none', fontSize: '11px', padding: '8px' }}>
+                    <span style={{ marginRight: '10px', fontSize: '18px' }}>⌁</span><span><strong>KG mode</strong><br /><small>Generic graph layout</small></span>
+                  </Button>
+                  <Button fullWidth disabled={!effectiveMetadata?.layout?.genome_region} onClick={() => { setViewMode('genome_mode'); setModeMenuOpen(false); }} sx={{ justifyContent: 'flex-start', color: '#263238', textTransform: 'none', fontSize: '11px', padding: '8px' }}>
+                    <span style={{ marginRight: '10px', fontSize: '18px' }}>▦</span><span><strong>Genome browser mode</strong><br /><small>Genome tracks + KG around</small></span>
+                  </Button>
+                </Box>
+              )}
+            </Box>
+            <Button onClick={handleRecenter} size="small" variant="outlined" startIcon={<span style={{ fontSize: '20px', lineHeight: 1 }}>↻</span>} sx={{ ...toolbarButtonSx, width: '110px', whiteSpace: 'normal' }}>Reset graph</Button>
+          </Box>
+        </Box>
+      </Box>
+      <div style={{ position: 'relative', height: containerHeight, minHeight: '460px', overflow: 'hidden', background: '#F9FAFB' }}>
+        <div
+          ref={containerRef}
+          style={{
+            width: '100%',
+            height: '100%',
+            backgroundColor: '#F9FAFB',
+            border: 'none',
+            position: 'relative',
+            boxShadow: 'inset 0 0 0 1px #E5EDF3, 0 14px 34px -20px rgba(44, 72, 102, 0.45)',
+            zIndex: 1,
+          }}
+        />
       {trackOverlay && (
         <div
           style={{
@@ -922,7 +1137,7 @@ export default function StandaloneKnowledgeGraph({
               key={lane.name}
               style={{
                 position: 'absolute',
-                left: '14px',
+                left: '226px',
                 top: lane.centerY,
                 transform: 'translateY(-50%)',
                 padding: '4px 10px',
@@ -943,70 +1158,6 @@ export default function StandaloneKnowledgeGraph({
           ))}
         </div>
       )}
-      <Box
-        sx={{
-          position: 'absolute',
-          top: '10px',
-          right: '10px',
-          padding: '7px',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'center',
-          alignItems: 'center',
-          background: 'white',
-          borderRadius: '8px',
-          boxShadow: '0px 4px 15px -3px rgba(100,100,100,0.25)',
-        }}
-      >
-        <IconButton
-          onClick={handleZoomOut}
-          style={{ padding: '5px', background: 'none', borderRadius: '4px', opacity: zoomLevel >= 4 ? 0.5 : 1 }}
-          disabled={zoomLevel >= 4}
-        >
-          <img src={zoomOutIcon} alt="Zoom Out" width={26} height={26} />
-        </IconButton>
-        <IconButton
-          onClick={handleZoomIn}
-          style={{ padding: '5px', background: 'none', borderRadius: '4px', opacity: zoomLevel <= 0.6 ? 0.5 : 1 }}
-          disabled={zoomLevel <= 0.6}
-        >
-          <img src={zoomInIcon} alt="Zoom In" width={26} height={26} />
-        </IconButton>
-        <IconButton onClick={handleRecenter} style={{ padding: '7px', background: 'none', borderRadius: '4px' }}>
-          <img src={recenterIcon} alt="Recenter" width={22} height={22} />
-        </IconButton>
-        {infocardEnabled ? (
-          <IconButton onClick={() => setInfocardEnabled(false)} style={{ padding: '7px', background: 'none', borderRadius: '4px' }}>
-            <img src={InfoEnableIcon} alt="Disable Info Card" width={22} height={22} />
-          </IconButton>
-        ) : (
-          <IconButton onClick={() => setInfocardEnabled(true)} style={{ padding: '7px', background: 'none', borderRadius: '4px' }}>
-            <img src={InfoDisableIcon} alt="Enable Info Card" width={22} height={22} />
-          </IconButton>
-        )}
-        <IconButton onClick={handleDownload} style={{ padding: '6px', background: 'none', borderRadius: '4px' }}>
-          <img src={downloadIcon} alt="Download" width={24} height={24} />
-        </IconButton>
-      </Box>
-      <Box
-        sx={{
-          position: 'absolute',
-          bottom: '8px',
-          right: '8px',
-          height: '40px',
-          width: '60px',
-          display: 'flex',
-          background: 'white',
-          borderRadius: '6px',
-          alignItems: 'center',
-          justifyContent: 'center',
-          boxShadow: '0px 4px 15px -3px rgba(100,100,100,0.25)',
-        }}
-      >
-        <Typography sx={{ fontSize: '16px', color: '#333' }}>
-          {Math.round((zoomLevel / initZoom) * 100)}%
-        </Typography>
-      </Box>
       <div
         ref={infocardRef}
         onMouseEnter={() => setInfocardHovered(true)}
@@ -1035,42 +1186,69 @@ export default function StandaloneKnowledgeGraph({
       >
         <InfocardMenu hoveredData={activeNode?.data()} />
       </div>
-      <div style={{ display: 'flex', flexDirection: 'row', gap: '200px' }}>
         <div
           style={{
             position: 'absolute',
-            bottom: '8px',
-            left: '8px',
+            top: '14px',
+            left: '14px',
             display: 'flex',
             flexDirection: 'column',
-            background: '#fff',
-            padding: '12px',
-            borderRadius: '8px',
-            boxShadow: '0px 4px 15px -3px rgba(100,100,100,0.25)',
+            justifyContent: 'space-between',
+            alignItems: 'stretch',
+            height: 'calc(100% - 28px)',
+            width: '210px',
+            zIndex: 4,
           }}
         >
-          <div style={{ display: 'flex', justifyContent: 'space-between', width: legendVisible ? '330px' : '40px', transition: '0.2s' }}>
-            <Collapse in={legendVisible} orientation="horizontal" collapsedSize={0}>
-              <Typography sx={{ fontWeight: 600, fontSize: '18px', marginBottom: '8px', paddingLeft: '4px' }}>
-                Legend
-              </Typography>
-            </Collapse>
-            <IconButton onClick={() => setLegendVisible((prev) => !prev)} size="small">
-              {legendVisible ? <KeyboardArrowLeftIcon /> : <KeyboardArrowRightIcon />}
+          <div style={{ display: 'flex', flexDirection: 'column', flex: legendVisible ? '1 1 auto' : '0 0 auto', minHeight: 0, overflow: 'hidden', background: '#fff', width: '210px', boxSizing: 'border-box', padding: '10px 10px 12px', border: '1px solid #E0E9EF', borderRadius: '9px', boxShadow: '0 4px 14px rgba(63, 92, 112, 0.14)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', minHeight: '28px' }}>
+            <Typography sx={{ fontWeight: 700, fontSize: '15px', paddingLeft: '4px', color: '#263238', whiteSpace: 'nowrap' }}>
+              Legend
+            </Typography>
+            <IconButton onClick={() => setLegendVisible((prev) => !prev)} size="small" aria-label={legendVisible ? 'Collapse legend' : 'Expand legend'}>
+              {legendVisible ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
             </IconButton>
           </div>
-          <Collapse in={legendVisible} orientation="horizontal" collapsedSize={0}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '8px', width: '330px' }}>
-              {legendSchema?.nodes?.map((item) => (
-                <LegendItem key={item.name} label={item.name} color={item.color} />
-              ))}
-              {legendSchema?.edges?.map((item) => (
-                <LegendItem key={item.name} label={item.name} sx={{ border: `1px solid ${item.color}`, color: item.color, backgroundColor: 'white' }} />
+          {legendVisible && (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: '3px', width: '100%', height: '100%', overflowY: 'auto', paddingTop: '10px' }}>
+              <Typography sx={{ fontSize: '10px', fontWeight: 700, color: '#263238', padding: '3px 4px 2px', textTransform: 'none' }}>
+                Node types
+              </Typography>
+              {Array.isArray(legendSchema) && legendSchema.map(({ label, color }) => (
+                <LegendItem key={label} label={label} color={color} />
               ))}
             </div>
-          </Collapse>
+          )}
         </div>
+        <Box sx={{ position: 'relative', flex: '0 0 105px', width: '180px', height: '105px', marginTop: '10px', padding: '8px', boxSizing: 'border-box', background: '#FFFFFF', border: '1px solid #D9E5EC', borderRadius: '8px', boxShadow: '0 4px 14px rgba(63, 92, 112, 0.18)', cursor: 'crosshair' }} onClick={handleThumbnailClick}>
+          <Typography sx={{ position: 'absolute', marginTop: '-6px', marginLeft: '0px', zIndex: 2, fontSize: '9px', fontWeight: 700, color: '#5B7180' }}>Overview</Typography>
+          {thumbnailImage && <img src={thumbnailImage} alt="Graph overview" style={{ width: '100%', height: '100%', objectFit: 'fill', opacity: 0.7 }} />}
+          {thumbnailViewport && <div style={{ position: 'absolute', left: `${thumbnailViewport.left}px`, top: `${thumbnailViewport.top}px`, width: `${thumbnailViewport.width}px`, height: `${thumbnailViewport.height}px`, boxSizing: 'border-box', border: '2px solid #3F88C5', pointerEvents: 'none' }} />}
+        </Box>
+        </div>
+      <Button onClick={() => setQueryDialogOpen(true)} variant="outlined" sx={{ ...toolbarButtonSx, position: 'absolute', right: '16px', bottom: '16px', minHeight: '38px', zIndex: 5 }}>
+        Query graph
+      </Button>
       </div>
-    </div>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '14px 30px 18px', borderTop: '1px solid #E5EDF3', background: '#FFFFFF' }}>
+        <Typography sx={{ fontSize: '14px', fontWeight: 700, color: '#263238' }}>Metadata</Typography>
+        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: { xs: 2, md: 5 }, flexWrap: 'wrap' }}>
+          <Box sx={{ minWidth: '130px' }}>
+            <Typography sx={{ fontSize: '11px', color: '#263238', fontWeight: 600, marginBottom: '6px' }}>Graph status</Typography>
+            <Typography sx={{ fontSize: '11px', color: '#607887' }}>Mode</Typography>
+            <Box sx={{ display: 'inline-flex', marginTop: '4px', padding: '4px 10px', borderRadius: '14px', background: '#E2F0E7', color: '#4A8060', fontSize: '11px', fontWeight: 700 }}>
+              {viewMode === 'genome_mode' ? 'Genome mode' : 'KG mode'}
+            </Box>
+          </Box>
+          <Box><Typography sx={{ fontSize: '11px', color: '#607887', marginBottom: '7px' }}>Nodes</Typography><Typography sx={{ fontSize: '13px', fontWeight: 700, color: '#263238' }}>{displayMetadata?.filtered_node_count ?? displayGraphData?.nodes?.length ?? 0}</Typography></Box>
+          <Box><Typography sx={{ fontSize: '11px', color: '#607887', marginBottom: '7px' }}>Edges</Typography><Typography sx={{ fontSize: '13px', fontWeight: 700, color: '#263238' }}>{displayMetadata?.filtered_edge_count ?? displayGraphData?.edges?.length ?? 0}</Typography></Box>
+          <Box><Typography sx={{ fontSize: '11px', color: '#607887', marginBottom: '7px' }}>Visible nodes</Typography><Typography sx={{ fontSize: '13px', fontWeight: 700, color: '#263238' }}>{displayMetadata?.real_visible_node_count ?? displayGraphData?.nodes?.length ?? 0}</Typography></Box>
+          <Box><Typography sx={{ fontSize: '11px', color: '#607887', marginBottom: '7px' }}>Visible edges</Typography><Typography sx={{ fontSize: '13px', fontWeight: 700, color: '#263238' }}>{displayMetadata?.filtered_edge_count ?? displayGraphData?.edges?.length ?? 0}</Typography></Box>
+          <Box><Typography sx={{ fontSize: '11px', color: '#607887', marginBottom: '7px' }}>Last updated</Typography><Typography sx={{ fontSize: '13px', fontWeight: 700, color: '#263238' }}>{displayMetadata?.last_updated || '—'}</Typography></Box>
+        </Box>
+      </Box>
+      <GraphViewerQueryDialog open={queryDialogOpen} onClose={() => setQueryDialogOpen(false)} onResult={(payload) => { setQueryResult(payload); setViewMode(payload.metadata?.layout?.mode || 'kg_only'); }} />
+      </div>
+    </>
   );
 }
