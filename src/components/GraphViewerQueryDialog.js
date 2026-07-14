@@ -41,6 +41,32 @@ const parseJson = (value) => {
 
 const stringifyEntry = (entry) => typeof entry === 'string' ? normalizeInput(entry) : JSON.stringify(entry, null, 2);
 
+const normalizeRequestEntry = (entry) => {
+  if (typeof entry === 'string') {
+    return normalizeInput(entry);
+  }
+
+  if (entry && typeof entry === 'object' && !Array.isArray(entry)) {
+    return entry;
+  }
+
+  return null;
+};
+
+export const parseGraphViewerInputs = (inputs) => inputs.flatMap((input) => {
+  const parsed = parseJson(input);
+  if (Array.isArray(parsed)) {
+    return parsed.map(normalizeRequestEntry);
+  }
+  if (parsed && Array.isArray(parsed.cypher)) {
+    return parsed.cypher.map(normalizeRequestEntry);
+  }
+  if (parsed && typeof parsed === 'object') {
+    return [parsed];
+  }
+  return [normalizeInput(input)];
+}).filter(Boolean);
+
 export default function GraphViewerQueryDialog({ open, onClose, onResult }) {
   const [inputs, setInputs] = useState([DEFAULT_QUERY]);
   const [coreNodes, setCoreNodes] = useState('ENSG00000001626');
@@ -92,16 +118,7 @@ export default function GraphViewerQueryDialog({ open, onClose, onResult }) {
     setError('');
 
     try {
-      const cypher = inputs.flatMap((input) => {
-        const parsed = parseJson(input);
-        if (Array.isArray(parsed)) {
-          return parsed;
-        }
-        if (parsed && Array.isArray(parsed.cypher)) {
-          return parsed.cypher;
-        }
-        return [normalizeInput(input)];
-      }).filter(Boolean);
+      const cypher = parseGraphViewerInputs(inputs);
       const parsedMaxNodes = Number.parseInt(maxNodes, 10);
       if (!cypher.length || !Number.isFinite(parsedMaxNodes) || parsedMaxNodes <= 0) {
         throw new Error('Provide a query and a positive max nodes value.');
