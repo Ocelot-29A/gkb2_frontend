@@ -21,9 +21,12 @@ describe('getGenomeLaneModelYs', () => {
     ]);
   });
 
-  test('uses group-specific backend lanes when metadata contains multiple groups', () => {
+  test('uses top-level backend lanes once instead of repeating group lanes', () => {
     const lanes = getGenomeLaneModelYs({
-      lanes: [{ name: 'Gene', y: 999 }],
+      lanes: [
+        { name: 'Gene', y: 0 },
+        { name: 'Exon', y: 78 },
+      ],
       groups: [
         {
           genome_assembly: 'GRCh38.p14',
@@ -46,9 +49,7 @@ describe('getGenomeLaneModelYs', () => {
 
     expect(lanes.map(({ name, modelY }) => [name, modelY])).toEqual([
       ['Gene', 0],
-      ['Transcript', 78],
-      ['Gene', 588],
-      ['Transcript', 666],
+      ['Exon', 78],
     ]);
   });
 });

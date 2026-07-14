@@ -322,28 +322,28 @@ const getRenderHeight = (posData) => {
 };
 
 export const getGenomeLaneModelYs = (genomeRegion, genomeTracks) => {
-  const groups = Array.isArray(genomeRegion?.groups) && genomeRegion.groups.length
+  const regionLanes = Array.isArray(genomeRegion?.lanes) ? genomeRegion.lanes : [];
+  const trackLanes = Array.isArray(genomeTracks?.lanes) ? genomeTracks.lanes : [];
+  const fallbackGroups = Array.isArray(genomeRegion?.groups) && genomeRegion.groups.length
     ? genomeRegion.groups
     : (Array.isArray(genomeTracks?.groups) ? genomeTracks.groups : []);
-  const groupedLanes = groups.flatMap((group, groupIndex) => (
-    Array.isArray(group?.lanes)
-      ? group.lanes.map((lane) => ({
-        ...lane,
-        groupKey: `${group.genome_assembly || ''}:${group.chr || ''}:${groupIndex}`,
-      }))
-      : []
-  ));
-  const lanes = groupedLanes.length
-    ? groupedLanes
-    : (Array.isArray(genomeRegion?.lanes) && genomeRegion.lanes.length
-      ? genomeRegion.lanes
-      : (Array.isArray(genomeTracks?.lanes) ? genomeTracks.lanes : []));
+  const fallbackLanesByName = new Map();
+  fallbackGroups.forEach((group) => {
+    (Array.isArray(group?.lanes) ? group.lanes : []).forEach((lane) => {
+      if (!fallbackLanesByName.has(lane?.name)) {
+        fallbackLanesByName.set(lane?.name, lane);
+      }
+    });
+  });
+  const lanes = regionLanes.length
+    ? regionLanes
+    : (trackLanes.length ? trackLanes : Array.from(fallbackLanesByName.values()));
 
   return lanes
     .filter((lane) => lane?.name && Number.isFinite(lane.y))
     .map((lane, laneIndex) => ({
       ...lane,
-      key: `${lane.groupKey || 'default'}:${lane.name}:${laneIndex}`,
+      key: `${lane.name}:${laneIndex}`,
       modelY: lane.y,
     }));
 };
