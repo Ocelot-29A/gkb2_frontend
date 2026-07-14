@@ -321,46 +321,31 @@ const getRenderHeight = (posData) => {
   return Number.isFinite(posData?.height) ? scaleHeight(posData.height) : posData?.height;
 };
 
-const getCoordinateCenterY = (posData) => {
-  if (Number.isFinite(posData?.y)) {
-    return posData.y;
-  }
+export const getGenomeLaneModelYs = (genomeRegion, genomeTracks) => {
+  const groups = Array.isArray(genomeRegion?.groups) && genomeRegion.groups.length
+    ? genomeRegion.groups
+    : (Array.isArray(genomeTracks?.groups) ? genomeTracks.groups : []);
+  const groupedLanes = groups.flatMap((group, groupIndex) => (
+    Array.isArray(group?.lanes)
+      ? group.lanes.map((lane) => ({
+        ...lane,
+        groupKey: `${group.genome_assembly || ''}:${group.chr || ''}:${groupIndex}`,
+      }))
+      : []
+  ));
+  const lanes = groupedLanes.length
+    ? groupedLanes
+    : (Array.isArray(genomeRegion?.lanes) && genomeRegion.lanes.length
+      ? genomeRegion.lanes
+      : (Array.isArray(genomeTracks?.lanes) ? genomeTracks.lanes : []));
 
-  const boxCorners = getBoxCorners(posData);
-  return boxCorners ? (boxCorners.startY + boxCorners.endY) / 2 : null;
-};
-
-export const getGenomeLaneModelYs = (genomeRegion, genomeTracks, graphData, coordData) => {
-  const lanes = Array.isArray(genomeRegion?.lanes) ? genomeRegion.lanes : [];
-  if (!lanes.length) {
-    return [];
-  }
-
-  const laneByName = new Map(lanes.map((lane) => [lane.name, lane]));
-  const laneYs = lanes.map((lane) => lane.y).filter(Number.isFinite);
-  const minY = Number.isFinite(genomeTracks?.min_y) ? genomeTracks.min_y : Math.min(...laneYs);
-  const maxY = Number.isFinite(genomeTracks?.max_y) ? genomeTracks.max_y : Math.max(...laneYs);
-  let normalError = 0;
-  let invertedError = 0;
-  let anchorCount = 0;
-
-  (graphData?.nodes || []).forEach((node) => {
-    const lane = (node?.['~labels'] || []).map((label) => laneByName.get(label)).find(Boolean);
-    const coordinateY = getCoordinateCenterY(coordData?.[node?.['~id']]);
-    if (!lane || !Number.isFinite(coordinateY)) {
-      return;
-    }
-
-    normalError += Math.abs(coordinateY - lane.y);
-    invertedError += Math.abs(coordinateY - (minY + maxY - lane.y));
-    anchorCount += 1;
-  });
-
-  const inverted = anchorCount > 0 && invertedError < normalError;
-  return lanes.map((lane) => ({
-    ...lane,
-    modelY: inverted ? minY + maxY - lane.y : lane.y,
-  }));
+  return lanes
+    .filter((lane) => lane?.name && Number.isFinite(lane.y))
+    .map((lane, laneIndex) => ({
+      ...lane,
+      key: `${lane.groupKey || 'default'}:${lane.name}:${laneIndex}`,
+      modelY: lane.y,
+    }));
 };
 
 const getLabelMaxWidth = (renderWidth) => {
@@ -668,10 +653,9 @@ export default function StandaloneKnowledgeGraph({
     const lanes = getGenomeLaneModelYs(
       genomeRegion,
       effectiveMetadata?.layout?.genome_tracks,
-      displayGraphData,
-      displayCoordData,
     );
     const laneLabels = lanes.map((lane) => ({
+      key: lane.key,
       name: lane.name,
       centerY: scaleYPosition(lane.modelY) * zoom + panY,
     }));
@@ -1201,7 +1185,7 @@ export default function StandaloneKnowledgeGraph({
         >
           {trackOverlay.laneLabels.map((lane) => (
             <div
-              key={lane.name}
+              key={lane.key}
               style={{
                 position: 'absolute',
                 left: '226px',

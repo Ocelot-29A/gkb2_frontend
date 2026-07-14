@@ -9,15 +9,10 @@ const genomeRegion = {
 };
 
 const genomeTracks = { min_y: 0, max_y: 468 };
-const geneGraph = {
-  nodes: [{ '~id': 'gene-1', '~labels': ['Coding_element', 'Gene'] }],
-};
 
 describe('getGenomeLaneModelYs', () => {
-  test('keeps lane coordinates when node and metadata use the same y axis', () => {
-    const lanes = getGenomeLaneModelYs(genomeRegion, genomeTracks, geneGraph, {
-      'gene-1': { start_xy: [0, 12], end_xy: [100, -12] },
-    });
+  test('uses backend lane coordinates without inferring axis direction from nodes', () => {
+    const lanes = getGenomeLaneModelYs(genomeRegion, genomeTracks);
 
     expect(lanes.map(({ name, modelY }) => [name, modelY])).toEqual([
       ['Gene', 0],
@@ -26,15 +21,34 @@ describe('getGenomeLaneModelYs', () => {
     ]);
   });
 
-  test('inverts lane coordinates when live node rectangles use the opposite y axis', () => {
-    const lanes = getGenomeLaneModelYs(genomeRegion, genomeTracks, geneGraph, {
-      'gene-1': { start_xy: [0, 480], end_xy: [100, 456] },
-    });
+  test('uses group-specific backend lanes when metadata contains multiple groups', () => {
+    const lanes = getGenomeLaneModelYs({
+      lanes: [{ name: 'Gene', y: 999 }],
+      groups: [
+        {
+          genome_assembly: 'GRCh38.p14',
+          chr: '7',
+          lanes: [
+            { name: 'Gene', y: 0 },
+            { name: 'Transcript', y: 78 },
+          ],
+        },
+        {
+          genome_assembly: 'GRCh38.p14',
+          chr: '8',
+          lanes: [
+            { name: 'Gene', y: 588 },
+            { name: 'Transcript', y: 666 },
+          ],
+        },
+      ],
+    }, genomeTracks);
 
     expect(lanes.map(({ name, modelY }) => [name, modelY])).toEqual([
-      ['Gene', 468],
-      ['Transcript', 390],
-      ['other coordinate features', 0],
+      ['Gene', 0],
+      ['Transcript', 78],
+      ['Gene', 588],
+      ['Transcript', 666],
     ]);
   });
 });
