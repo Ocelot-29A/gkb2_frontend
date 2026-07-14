@@ -1,4 +1,7 @@
-import { getGenomeLaneModelYs } from './StandaloneKnowledgeGraph';
+import {
+  getCanonicalNodeLabel,
+  getGenomeLaneModelYs,
+} from './StandaloneKnowledgeGraph';
 
 const genomeRegion = {
   lanes: [
@@ -51,5 +54,20 @@ describe('getGenomeLaneModelYs', () => {
       ['Gene', 0],
       ['Exon', 78],
     ]);
+  });
+});
+
+describe('getCanonicalNodeLabel', () => {
+  test('uses the complete label set instead of depending on Neo4j label order', () => {
+    expect(getCanonicalNodeLabel({ '~labels': ['Coding_element', 'Gene'] })).toBe('Gene');
+    expect(getCanonicalNodeLabel({ '~labels': ['Gene', 'Coding_element'] })).toBe('Gene');
+    expect(
+      getCanonicalNodeLabel({ '~labels': ['Ontology', 'Transcript', 'Coding_element'] }),
+    ).toBe('Transcript');
+  });
+
+  test('preserves unknown domain labels when no canonical label exists', () => {
+    expect(getCanonicalNodeLabel({ '~labels': ['Coding_element', 'Custom_feature'] }))
+      .toBe('Custom_feature');
   });
 });

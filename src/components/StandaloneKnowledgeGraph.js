@@ -229,11 +229,41 @@ const PANK_TYPE_MAP = {
   UTR_segments: 'region',
 };
 
+const CANONICAL_NODE_LABEL_PRIORITY = [
+  'Gene',
+  'Transcript',
+  'TSS_segment',
+  'Exon',
+  'CDS_segments',
+  'UTR_segments',
+  'Protein',
+  'GO_term',
+];
+
+const GENERIC_NODE_LABELS = new Set(['ontology', 'coding_element', 'coding_elements']);
+
 const normalizeNodeType = (label) => PANK_TYPE_MAP[label] || label;
 
+export const getCanonicalNodeLabel = (node) => {
+  const labels = Array.isArray(node?.['~labels'])
+    ? node['~labels'].filter(Boolean).map(String)
+    : (node?.['~labels'] ? [String(node['~labels'])] : []);
+  const labelsByLower = new Map(labels.map((label) => [label.toLowerCase(), label]));
+  const canonicalLabel = CANONICAL_NODE_LABEL_PRIORITY.find(
+    (label) => labelsByLower.has(label.toLowerCase()),
+  );
+
+  return canonicalLabel
+    || labels.find((label) => !GENERIC_NODE_LABELS.has(label.toLowerCase()))
+    || labels[0]
+    || 'coding_elements';
+};
+
 const getNodeType = (node) => {
-  const labels = node?.['~labels'] || [];
-  return labels
+  const labels = Array.isArray(node?.['~labels']) ? node['~labels'] : [];
+  const canonicalLabel = getCanonicalNodeLabel(node);
+  const orderedLabels = [canonicalLabel, ...labels.filter((label) => label !== canonicalLabel)];
+  return orderedLabels
     .map(normalizeNodeType)
     .find((label) => graphInfocard.nodes?.[label]?.info_panel || nodeColors[label]) || 'coding_elements';
 };
