@@ -16,10 +16,53 @@ import {
   TextField,
   ToggleButton,
   ToggleButtonGroup,
+  Typography,
 } from '@mui/material';
 
 export const GRAPH_VIEWER_API_URL = 'https://jieliulab3.dcmb.med.umich.edu/gkb0708/api/graph';
-const DEFAULT_QUERY = 'MATCH (n {id: "ENSG00000001626"})-[r]-(m) WITH n, r, m LIMIT 10 RETURN collect(DISTINCT n) + collect(DISTINCT m) AS nodes, collect(DISTINCT r) AS edges';
+const GRAPH_VIEWER_TIMEOUT_MS = 30000;
+const GENOME_SAMPLE_QUERY = 'MATCH (n {id: "ENSG00000001626"})-[r]-(m) WITH n, r, m LIMIT 10 RETURN collect(DISTINCT n) + collect(DISTINCT m) AS nodes, collect(DISTINCT r) AS edges';
+const KG_SAMPLE_QUERY = 'MATCH (n {id: "ENSG00000001626"})-[r]-(m) WITH n, r, m LIMIT 6 RETURN collect(DISTINCT n) + collect(DISTINCT m) AS nodes, collect(DISTINCT r) AS edges';
+
+const BUILTIN_QUERY_EXAMPLES = [
+  {
+    label: 'Genome neighbors',
+    request: {
+      cypher: [GENOME_SAMPLE_QUERY],
+      core_nodes: ['ENSG00000001626'],
+      max_nodes: 15,
+      layout_mode: 'genome_mode',
+    },
+  },
+  {
+    label: 'KG neighbors',
+    request: {
+      cypher: [KG_SAMPLE_QUERY],
+      core_nodes: ['ENSG00000001626'],
+      max_nodes: 15,
+      layout_mode: 'kg_only',
+    },
+  },
+  {
+    label: 'Mixed source query',
+    request: {
+      cypher: [
+        KG_SAMPLE_QUERY,
+        {
+          source: 'pgsql',
+          api: 'chr/features/by-node',
+          searched_id: 'ENSG00000001626',
+          relative_position: 'downstream',
+          feature_types: ['Gene'],
+          limit: 1,
+        },
+      ],
+      core_nodes: ['ENSG00000001626'],
+      max_nodes: 15,
+      layout_mode: 'kg_only',
+    },
+  },
+];
 
 const normalizeInput = (value) => String(value || '')
   .trim()
@@ -67,37 +110,79 @@ export const parseGraphViewerInputs = (inputs) => inputs.flatMap((input) => {
   return [normalizeInput(input)];
 }).filter(Boolean);
 
-export const requestGraphViewer = async (request) => {
-  const response = await fetch(GRAPH_VIEWER_API_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(request),
-  });
-  if (!response.ok) {
-    throw new Error(`Graph viewer API failed with HTTP ${response.status}.`);
-  }
-
-  const payload = await response.json();
-  const graphData = payload?.combined_query_result || payload?.graph;
-  if (!graphData?.nodes || !graphData?.edges) {
-    throw new Error('Response did not contain graph nodes/edges.');
-  }
-
-  return {
-    graphData,
-    coordData: payload.xy_json || payload.coords || null,
-    metadata: payload.metadata || null,
-    request,
+export const requestGraphViewer = async (request, options = {}) => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), options.timeoutMs || GRAPH_VIEWER_TIMEOUT_MS);
+  let externallyCancelled = false;
+  const handleExternalAbort = () => {
+    externallyCancelled = true;
+    controller.abort();
   };
+
+  options.signal?.addEventListener('abort', handleExternalAbort, { once: true });
+
+  try {
+    const response = await fetch(GRAPH_VIEWER_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+      signal: controller.signal,
+    });
+    const responseText = await response.text();
+    let payload = null;
+    try {
+      payload = responseText ? JSON.parse(responseText) : null;
+    } catch (parseError) {
+      throw new Error(`Graph viewer API returned invalid JSON (HTTP ${response.status}).`);
+    }
+
+    if (!response.ok) {
+      throw new Error(payload?.error?.message || payload?.error || `Graph viewer API failed with HTTP ${response.status}.`);
+    }
+    if (payload?.error) {
+      throw new Error(payload.error.message || payload.error);
+    }
+
+    const graphData = payload?.combined_query_result || payload?.graph;
+    if (!graphData?.nodes || !graphData?.edges) {
+      throw new Error('Response did not contain graph nodes/edges.');
+    }
+
+    return {
+      graphData,
+      coordData: payload.xy_json || payload.coords || null,
+      metadata: payload.metadata || null,
+      request,
+    };
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      throw new Error(externallyCancelled ? 'Graph viewer request was cancelled.' : 'Graph viewer request timed out.');
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+    options.signal?.removeEventListener('abort', handleExternalAbort);
+  }
 };
 
-export default function GraphViewerQueryDialog({ open, onClose, onResult }) {
-  const [inputs, setInputs] = useState([DEFAULT_QUERY]);
-  const [coreNodes, setCoreNodes] = useState('ENSG00000001626');
+export default function GraphViewerQueryDialog({ open, onClose, onResult, examples = [] }) {
+  const [inputs, setInputs] = useState(['']);
+  const [coreNodes, setCoreNodes] = useState('');
   const [maxNodes, setMaxNodes] = useState('15');
-  const [layoutMode, setLayoutMode] = useState('genome_mode');
+  const [layoutMode, setLayoutMode] = useState('kg_only');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const availableExamples = [...BUILTIN_QUERY_EXAMPLES, ...examples];
+
+  const applyExample = (example) => {
+    const request = example?.request || example;
+    const nextCypher = Array.isArray(request?.cypher) ? request.cypher.map(stringifyEntry) : [];
+    setInputs(nextCypher.length ? nextCypher : ['']);
+    setCoreNodes(Array.isArray(request?.core_nodes) ? request.core_nodes.join(', ') : '');
+    setMaxNodes(request?.max_nodes === undefined ? '15' : String(request.max_nodes));
+    setLayoutMode(request?.layout_mode || 'kg_only');
+    setError('');
+  };
 
   const updateInput = (index, value) => {
     setInputs((current) => current.map((entry, entryIndex) => entryIndex === index ? value : entry));
@@ -168,6 +253,24 @@ export default function GraphViewerQueryDialog({ open, onClose, onResult }) {
       <DialogTitle sx={{ fontWeight: 700, color: '#204361' }}>Graph viewer query</DialogTitle>
       <DialogContent dividers>
         <Stack spacing={2}>
+          <Box>
+            <Typography sx={{ fontFamily: 'Inter, sans-serif', fontSize: '12px', fontWeight: 700, color: '#64748B', marginBottom: '8px' }}>
+              Examples
+            </Typography>
+            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+              {availableExamples.map((example, index) => (
+                <Button
+                  key={`${example.label || 'example'}-${index}`}
+                  variant="outlined"
+                  size="small"
+                  onClick={() => applyExample(example)}
+                  sx={{ textTransform: 'none' }}
+                >
+                  {example.label || `Example ${index + 1}`}
+                </Button>
+              ))}
+            </Stack>
+          </Box>
           {inputs.map((input, index) => (
             <Box key={`query-input-${index}`} sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
               <TextField fullWidth multiline minRows={4} label={`Cypher / request ${index + 1}`} value={input} onChange={(event) => updateInput(index, event.target.value)} />

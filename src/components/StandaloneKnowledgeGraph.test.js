@@ -1,6 +1,9 @@
 import {
   getCanonicalNodeLabel,
   getGenomeLaneModelYs,
+  isOverflowId,
+  mergeExploreNeighborsCypher,
+  restoreAdjacentDeletedIds,
 } from './StandaloneKnowledgeGraph';
 
 const genomeRegion = {
@@ -69,5 +72,43 @@ describe('getCanonicalNodeLabel', () => {
   test('preserves unknown domain labels when no canonical label exists', () => {
     expect(getCanonicalNodeLabel({ '~labels': ['Coding_element', 'Custom_feature'] }))
       .toBe('Custom_feature');
+  });
+});
+
+describe('interaction query helpers', () => {
+  test('merges repeated explores of the same node by adding limits', () => {
+    const firstQuery = mergeExploreNeighborsCypher([], 'node-1');
+    const mergedQuery = mergeExploreNeighborsCypher(firstQuery, 'node-1');
+
+    expect(mergedQuery).toHaveLength(1);
+    expect(mergedQuery[0].query).toContain('LIMIT 20');
+  });
+
+  test('restores adjacent nodes and edges only when edge endpoints are visible', () => {
+    const graphData = {
+      nodes: [{ '~id': 'node-1' }, { '~id': 'node-2' }, { '~id': 'node-3' }],
+      edges: [
+        { '~id': 'edge-1', '~start': 'node-1', '~end': 'node-2' },
+        { '~id': 'edge-2', '~start': 'node-1', '~end': 'node-3' },
+      ],
+    };
+
+    expect(Array.from(restoreAdjacentDeletedIds(
+      graphData,
+      'node-1',
+      new Set(['node-2', 'edge-1', 'edge-2', 'node-3']),
+      true,
+    ))).toEqual([]);
+    expect(Array.from(restoreAdjacentDeletedIds(
+      graphData,
+      'node-1',
+      new Set(['edge-1', 'edge-2', 'node-3']),
+      false,
+    ))).toEqual(['edge-2', 'node-3']);
+  });
+
+  test('recognizes overflow placeholder ids', () => {
+    expect(isOverflowId('overflow:node-1')).toBe(true);
+    expect(isOverflowId('node-1')).toBe(false);
   });
 });
