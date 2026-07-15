@@ -11,8 +11,16 @@ import React, {
 import cytoscape from 'cytoscape';
 import { useSelector } from 'react-redux';
 
+import CenterFocusStrongIcon from '@mui/icons-material/CenterFocusStrong';
+import CheckIcon from '@mui/icons-material/Check';
+import FileDownloadIcon from '@mui/icons-material/FileDownload';
+import GridViewIcon from '@mui/icons-material/GridView';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
+import SyncIcon from '@mui/icons-material/Sync';
+import ZoomInIcon from '@mui/icons-material/ZoomIn';
+import ZoomOutIcon from '@mui/icons-material/ZoomOut';
+import ZoomOutMapIcon from '@mui/icons-material/ZoomOutMap';
 import {
   Alert,
   Box,
@@ -22,10 +30,6 @@ import {
 } from '@mui/material';
 import IconButton from '@mui/material/IconButton';
 
-import zoomInIcon from '../image/fontisto--zoom-minus.svg';
-import zoomOutIcon from '../image/fontisto--zoom-plus.svg';
-import downloadIcon from '../image/material-symbols--download-rounded.svg';
-import recenterIcon from '../image/material-symbols--recenter-rounded.svg';
 import graphInfocard from '../schema/graph_viewer_schema.json';
 import { addWhitespace } from '../utils/textProcessing';
 import GraphViewerQueryDialog, { requestGraphViewer } from './GraphViewerQueryDialog';
@@ -44,77 +48,79 @@ const scaleX = (value) => value * CY_LAYOUT_SCALE;
 const scaleYPosition = (value) => value * CY_LAYOUT_SCALE * CY_Y_POSITION_MULTIPLIER;
 const scaleHeight = (value) => value * CY_LAYOUT_SCALE;
 
-const LegendItem = ({ label, color, sx, isEdge = false }) => (
-  <span
-    style={{
-      display: 'flex',
-      alignItems: 'center',
-      gap: '8px',
-      minHeight: '24px',
-      padding: '2px 4px',
-      borderRadius: '4px',
-      backgroundColor: 'transparent',
-      fontSize: '11px',
-      fontWeight: 600,
-      color: '#425A68',
-      ...sx,
-    }}
-  >
-    <span
-      style={{
-        display: 'inline-block',
+const LegendItem = ({ label, color }) => (
+  <Box sx={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%', padding: '4px 0' }}>
+    <Box
+      sx={{
         flex: '0 0 auto',
-        width: isEdge ? '24px' : '13px',
-        height: isEdge ? '2px' : '13px',
-        borderRadius: isEdge ? '0' : '3px',
+        width: '16px',
+        height: '16px',
+        borderRadius: '6px',
         backgroundColor: color || '#D9E1E6',
-        border: isEdge ? 'none' : `1px solid ${color || '#D9E1E6'}`,
       }}
     />
-    {label}
-  </span>
+    <Typography sx={{ fontFamily: 'Inter, sans-serif', fontSize: '14px', fontWeight: 400, lineHeight: '20px', color: '#374151' }}>
+      {label}
+    </Typography>
+  </Box>
 );
 
 const toolbarButtonSx = {
-  minHeight: '54px',
-  padding: '7px 12px',
-  border: '1px solid #E0E7EB',
-  borderRadius: '8px',
+  height: '36px',
+  minHeight: '36px',
+  padding: '0 12px',
+  border: '1px solid #E0E4EB',
+  borderRadius: '10px',
   backgroundColor: '#FFFFFF',
-  color: '#263238',
-  boxShadow: '0 1px 3px rgba(42, 63, 78, 0.08)',
-  fontFamily: 'Open Sans, sans-serif',
-  fontSize: '11px',
-  fontWeight: 600,
-  lineHeight: 1.15,
+  color: '#1C3C68',
+  boxShadow: 'none',
+  fontFamily: 'Inter, sans-serif',
+  fontSize: '12px',
+  fontWeight: 400,
+  lineHeight: '16px',
   textTransform: 'none',
   whiteSpace: 'nowrap',
+  '& .MuiButton-startIcon': { marginRight: '8px' },
+  '& .MuiButton-endIcon': { marginLeft: '8px' },
   '&:hover': {
-    borderColor: '#B8CDD5',
-    backgroundColor: '#F8FBFC',
+    borderColor: '#B9C6D6',
+    backgroundColor: '#F8FAFC',
   },
   '&.Mui-disabled': {
-    borderColor: '#E0E7EB',
-    color: '#7B8A92',
+    borderColor: '#E0E4EB',
+    color: '#B7C4D6',
   },
 };
 
-const ToolbarToggle = ({ label, enabled, onChange }) => (
-  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '4px', minWidth: '72px', height: '54px' }}>
-    <Typography sx={{ fontSize: '10px', color: '#263238', lineHeight: 1, whiteSpace: 'nowrap' }}>
+const metaLabelSx = { fontFamily: 'Inter, sans-serif', fontSize: '12px', fontWeight: 500, color: '#94A3B8', marginBottom: '6px' };
+const metaValueSx = { fontFamily: 'Inter, sans-serif', fontSize: '12px', fontWeight: 500, color: '#0F172A' };
+
+const CheckToggle = ({ label, enabled, onChange }) => (
+  <Box
+    component="button"
+    type="button"
+    aria-pressed={enabled}
+    onClick={onChange}
+    sx={{ display: 'flex', alignItems: 'center', gap: '4px', paddingLeft: '4px', border: 'none', background: 'transparent', cursor: 'pointer' }}
+  >
+    <Box
+      sx={{
+        flex: '0 0 auto',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: '16px',
+        height: '16px',
+        borderRadius: '4px',
+        backgroundColor: enabled ? '#10B981' : '#E2E8F0',
+        border: enabled ? 'none' : '1px solid #CBD5E1',
+      }}
+    >
+      {enabled && <CheckIcon sx={{ fontSize: '12px', color: '#FFFFFF' }} />}
+    </Box>
+    <Typography sx={{ fontFamily: 'Inter, sans-serif', fontSize: '10px', fontWeight: 400, color: '#94A3B8', whiteSpace: 'nowrap' }}>
       {label}
     </Typography>
-    <button
-      type="button"
-      aria-pressed={enabled}
-      onClick={onChange}
-      style={{ position: 'relative', width: '54px', height: '24px', padding: 0, border: '1px solid #7CB8BF', borderRadius: '13px', background: enabled ? '#55A5AB' : '#DDE7EA', cursor: 'pointer', transition: 'background 0.15s ease' }}
-    >
-      <span style={{ position: 'absolute', top: '3px', left: enabled ? '31px' : '3px', width: '16px', height: '16px', borderRadius: '50%', background: '#FFFFFF', boxShadow: '0 1px 3px rgba(35, 70, 79, 0.28)', transition: 'left 0.15s ease' }} />
-      <span style={{ position: 'absolute', left: enabled ? '7px' : '24px', top: '5px', color: enabled ? '#FFFFFF' : '#5C7078', fontFamily: 'Open Sans, sans-serif', fontSize: '9px', fontWeight: 700, lineHeight: 1 }}>
-        {enabled ? 'ON' : 'OFF'}
-      </span>
-    </button>
   </Box>
 );
 
@@ -791,10 +797,10 @@ export default function StandaloneKnowledgeGraph({
     const extent = cy.extent();
     const width = Math.max(bounds.w, 1);
     const height = Math.max(bounds.h, 1);
-    const contentLeft = 8;
-    const contentTop = 8;
-    const contentWidth = 164;
-    const contentHeight = 89;
+    const contentLeft = 0;
+    const contentTop = 0;
+    const contentWidth = 168;
+    const contentHeight = 80;
     const clamp = (value, minimum, maximum) => Math.max(minimum, Math.min(maximum, value));
 
     const project = (x, y) => ({
@@ -820,10 +826,10 @@ export default function StandaloneKnowledgeGraph({
     }
 
     const rect = event.currentTarget.getBoundingClientRect();
-    const contentLeft = 8;
-    const contentTop = 8;
-    const contentWidth = 164;
-    const contentHeight = 89;
+    const contentLeft = 0;
+    const contentTop = 0;
+    const contentWidth = 168;
+    const contentHeight = 80;
     const x = Math.max(0, Math.min(contentWidth, event.clientX - rect.left - contentLeft));
     const y = Math.max(0, Math.min(contentHeight, event.clientY - rect.top - contentTop));
     const bounds = cy.elements().boundingBox();
@@ -1138,54 +1144,55 @@ export default function StandaloneKnowledgeGraph({
   return (
     <>
       <div style={{ display: 'flex', flexDirection: 'column', position: 'relative', width: '100%', height: '100%', color: '#263238', ...sx }}>
-      <Box sx={{ display: 'flex', alignItems: 'stretch', justifyContent: 'space-between', gap: 1, padding: '12px 18px 10px', borderBottom: '1px solid #E5EDF3', background: '#FFFFFF', flexWrap: 'wrap' }}>
-        <Box sx={{ minWidth: '210px', paddingTop: '4px' }}>
-          <Typography sx={{ fontSize: { xs: '12px', md: '16px' }, fontWeight: 700, color: '#172B3A' }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', height: '80px', padding: '0 32px', background: '#FFFFFF', flexWrap: 'wrap' }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+          <Typography sx={{ fontFamily: 'Inter, sans-serif', fontSize: '16px', fontWeight: 600, lineHeight: '22px', color: '#0F172A' }}>
             Knowledge Graph Viewer
           </Typography>
-          <Typography sx={{ fontSize: '12px', color: '#6D8291', marginTop: '2px' }}>
+          <Typography sx={{ fontFamily: 'Inter, sans-serif', fontSize: '12px', fontWeight: 400, lineHeight: '16px', color: '#94A3B8', marginTop: '2px' }}>
             Neighbor Exploration
           </Typography>
         </Box>
-        <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: '14px', flexWrap: 'wrap' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Button onClick={handleFullscreen} size="small" variant="outlined" startIcon={<span style={{ fontSize: '19px', lineHeight: 1 }}>⛶</span>} sx={toolbarButtonSx}>Fullscreen</Button>
-            <Button onClick={handleZoomOut} size="small" variant="outlined" disabled={zoomLevel >= 4} startIcon={<img src={zoomOutIcon} alt="" width={20} height={20} />} sx={toolbarButtonSx}>Zoom out</Button>
-            <Button onClick={handleZoomIn} size="small" variant="outlined" disabled={zoomLevel <= 0.6} startIcon={<img src={zoomInIcon} alt="" width={20} height={20} />} sx={toolbarButtonSx}>Zoom in</Button>
-            <Button onClick={handleRecenter} size="small" variant="outlined" startIcon={<img src={recenterIcon} alt="" width={20} height={20} />} sx={{ ...toolbarButtonSx, width: '108px', whiteSpace: 'normal' }}>Recenter<br />Auto layout</Button>
+            <Button onClick={handleFullscreen} variant="outlined" startIcon={<ZoomOutMapIcon sx={{ fontSize: '16px' }} />} sx={toolbarButtonSx}>Fullscreen</Button>
+            <Button onClick={handleZoomIn} variant="outlined" disabled={zoomLevel <= 0.6} startIcon={<ZoomInIcon sx={{ fontSize: '16px' }} />} sx={toolbarButtonSx}>Zoom in</Button>
+            <Button onClick={handleZoomOut} variant="outlined" disabled={zoomLevel >= 4} startIcon={<ZoomOutIcon sx={{ fontSize: '16px' }} />} sx={toolbarButtonSx}>Zoom Out</Button>
+            <Button onClick={handleRecenter} variant="outlined" startIcon={<CenterFocusStrongIcon sx={{ fontSize: '16px' }} />} sx={toolbarButtonSx}>Recenter</Button>
           </Box>
+          <Box sx={{ width: '1px', alignSelf: 'stretch', backgroundColor: '#E0E4EB' }} />
           <Box sx={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Box sx={{ position: 'relative' }}>
-              <Button onClick={() => setDownloadMenuOpen((previous) => !previous)} size="small" variant="outlined" endIcon={<KeyboardArrowDownIcon sx={{ fontSize: '16px' }} />} startIcon={<img src={downloadIcon} alt="" width={20} height={20} />} sx={{ ...toolbarButtonSx, width: '126px' }}>Download</Button>
+              <Button onClick={() => setDownloadMenuOpen((previous) => !previous)} variant="outlined" startIcon={<FileDownloadIcon sx={{ fontSize: '16px' }} />} sx={toolbarButtonSx}>Download</Button>
               {downloadMenuOpen && (
-                <Box sx={{ position: 'absolute', top: '58px', left: 0, width: '174px', padding: '6px', background: '#FFFFFF', border: '1px solid #E0E7EB', borderRadius: '8px', boxShadow: '0 5px 15px rgba(48, 69, 82, 0.18)', zIndex: 20 }}>
-                  <Button onClick={handleDownload} fullWidth size="small" startIcon={<span style={{ fontSize: '17px' }}>▧</span>} sx={{ justifyContent: 'flex-start', color: '#263238', textTransform: 'none', fontSize: '11px' }}>Download PNG</Button>
-                  <Button onClick={handleDownloadJson} fullWidth size="small" startIcon={<span style={{ fontSize: '17px' }}>{'{}'}</span>} sx={{ justifyContent: 'flex-start', color: '#263238', textTransform: 'none', fontSize: '11px' }}>Download JSON</Button>
+                <Box sx={{ position: 'absolute', top: '44px', left: 0, width: '174px', padding: '6px', background: '#FFFFFF', border: '1px solid #E0E4EB', borderRadius: '8px', boxShadow: '0 5px 15px rgba(48, 69, 82, 0.18)', zIndex: 20 }}>
+                  <Button onClick={handleDownload} fullWidth size="small" sx={{ justifyContent: 'flex-start', color: '#1C3C68', textTransform: 'none', fontFamily: 'Inter, sans-serif', fontSize: '12px' }}>Download PNG</Button>
+                  <Button onClick={handleDownloadJson} fullWidth size="small" sx={{ justifyContent: 'flex-start', color: '#1C3C68', textTransform: 'none', fontFamily: 'Inter, sans-serif', fontSize: '12px' }}>Download JSON</Button>
                 </Box>
               )}
             </Box>
-            <ToolbarToggle label="Hover info" enabled={infocardEnabled} onChange={() => setInfocardEnabled((previous) => !previous)} />
-            <ToolbarToggle label="Click menu" enabled={clickMenuEnabled} onChange={() => setClickMenuEnabled((previous) => !previous)} />
+            <CheckToggle label="Hover info" enabled={infocardEnabled} onChange={() => setInfocardEnabled((previous) => !previous)} />
+            <CheckToggle label="Click menu" enabled={clickMenuEnabled} onChange={() => setClickMenuEnabled((previous) => !previous)} />
             <Box sx={{ position: 'relative' }}>
-              <Button onClick={() => setModeMenuOpen((previous) => !previous)} size="small" variant="outlined" startIcon={<span style={{ fontSize: '19px', lineHeight: 1 }}>☷</span>} endIcon={<KeyboardArrowDownIcon sx={{ fontSize: '16px' }} />} sx={{ ...toolbarButtonSx, width: '142px', whiteSpace: 'normal' }}>
-                <span>Mode<br />{viewMode === 'genome_mode' ? 'Genome browser mode' : 'KG mode'}</span>
+              <Button onClick={() => setModeMenuOpen((previous) => !previous)} variant="outlined" startIcon={<GridViewIcon sx={{ fontSize: '15px' }} />} endIcon={<KeyboardArrowDownIcon sx={{ fontSize: '12px' }} />} sx={toolbarButtonSx}>
+                {viewMode === 'genome_mode' ? 'Genome browser mode' : 'KG mode'}
               </Button>
               {modeMenuOpen && (
-                <Box sx={{ position: 'absolute', top: '58px', right: 0, width: '220px', padding: '6px', background: '#FFFFFF', border: '1px solid #E0E7EB', borderRadius: '8px', boxShadow: '0 5px 15px rgba(48, 69, 82, 0.18)', zIndex: 20 }}>
-                  <Button fullWidth disabled={modeLoading || !displayQueryRequest} onClick={() => handleModeChange('kg_only')} sx={{ justifyContent: 'flex-start', color: '#263238', textTransform: 'none', fontSize: '11px', padding: '8px' }}>
-                    <span style={{ marginRight: '10px', fontSize: '18px' }}>⌁</span><span><strong>KG mode</strong><br /><small>Generic graph layout</small></span>
+                <Box sx={{ position: 'absolute', top: '44px', right: 0, width: '220px', padding: '6px', background: '#FFFFFF', border: '1px solid #E0E4EB', borderRadius: '8px', boxShadow: '0 5px 15px rgba(48, 69, 82, 0.18)', zIndex: 20 }}>
+                  <Button fullWidth disabled={modeLoading || !displayQueryRequest} onClick={() => handleModeChange('kg_only')} sx={{ justifyContent: 'flex-start', color: '#1C3C68', textTransform: 'none', fontFamily: 'Inter, sans-serif', fontSize: '11px', padding: '8px' }}>
+                    <span><strong>KG mode</strong><br /><small>Generic graph layout</small></span>
                   </Button>
-                  <Button fullWidth disabled={modeLoading || !displayQueryRequest} onClick={() => handleModeChange('genome_mode')} sx={{ justifyContent: 'flex-start', color: '#263238', textTransform: 'none', fontSize: '11px', padding: '8px' }}>
-                    <span style={{ marginRight: '10px', fontSize: '18px' }}>▦</span><span><strong>Genome browser mode</strong><br /><small>Genome tracks + KG around</small></span>
+                  <Button fullWidth disabled={modeLoading || !displayQueryRequest} onClick={() => handleModeChange('genome_mode')} sx={{ justifyContent: 'flex-start', color: '#1C3C68', textTransform: 'none', fontFamily: 'Inter, sans-serif', fontSize: '11px', padding: '8px' }}>
+                    <span><strong>Genome browser mode</strong><br /><small>Genome tracks + KG around</small></span>
                   </Button>
                 </Box>
               )}
             </Box>
-            <Button onClick={handleRecenter} size="small" variant="outlined" startIcon={<span style={{ fontSize: '20px', lineHeight: 1 }}>↻</span>} sx={{ ...toolbarButtonSx, width: '110px', whiteSpace: 'normal' }}>Reset graph</Button>
+            <Button onClick={handleRecenter} variant="outlined" startIcon={<SyncIcon sx={{ fontSize: '16px' }} />} sx={{ ...toolbarButtonSx, color: '#374151' }}>Reset graph</Button>
           </Box>
         </Box>
       </Box>
-      <div style={{ position: 'relative', height: containerHeight, minHeight: '460px', overflow: 'hidden', background: '#F9FAFB' }}>
+      <div style={{ position: 'relative', height: containerHeight, minHeight: '460px', overflow: 'hidden', background: 'transparent' }}>
       {modeError && (
         <Alert severity="error" onClose={() => setModeError('')} sx={{ position: 'absolute', top: '12px', right: '16px', zIndex: 8, maxWidth: '420px' }}>
           {modeError}
@@ -1196,10 +1203,9 @@ export default function StandaloneKnowledgeGraph({
           style={{
             width: '100%',
             height: '100%',
-            backgroundColor: '#F9FAFB',
+            backgroundColor: 'transparent',
             border: 'none',
             position: 'relative',
-            boxShadow: 'inset 0 0 0 1px #E5EDF3, 0 14px 34px -20px rgba(44, 72, 102, 0.45)',
             zIndex: 1,
           }}
         />
@@ -1270,63 +1276,124 @@ export default function StandaloneKnowledgeGraph({
         <div
           style={{
             position: 'absolute',
-            top: '14px',
-            left: '14px',
+            top: '24px',
+            left: '32px',
             display: 'flex',
             flexDirection: 'column',
-            justifyContent: 'space-between',
-            alignItems: 'stretch',
-            height: 'calc(100% - 28px)',
-            width: '210px',
+            gap: '16px',
+            maxHeight: 'calc(100% - 48px)',
+            width: '208px',
             zIndex: 4,
           }}
         >
-          <div style={{ display: 'flex', flexDirection: 'column', flex: legendVisible ? '1 1 auto' : '0 0 auto', minHeight: 0, overflow: 'hidden', background: '#fff', width: '210px', boxSizing: 'border-box', padding: '10px 10px 12px', border: '1px solid #E0E9EF', borderRadius: '9px', boxShadow: '0 4px 14px rgba(63, 92, 112, 0.14)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', minHeight: '28px' }}>
-            <Typography sx={{ fontWeight: 700, fontSize: '15px', paddingLeft: '4px', color: '#263238', whiteSpace: 'nowrap' }}>
-              Legend
-            </Typography>
-            <IconButton onClick={() => setLegendVisible((prev) => !prev)} size="small" aria-label={legendVisible ? 'Collapse legend' : 'Expand legend'}>
-              {legendVisible ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
-            </IconButton>
-          </div>
-          {legendVisible && (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: '3px', width: '100%', height: '100%', overflowY: 'auto', paddingTop: '10px' }}>
-              <Typography sx={{ fontSize: '10px', fontWeight: 700, color: '#263238', padding: '3px 4px 2px', textTransform: 'none' }}>
-                Node types
+          <div style={{ display: 'flex', flexDirection: 'column', flex: '0 1 auto', minHeight: 0, overflow: 'hidden', background: '#FFFFFF', border: '0.75px solid #E2E8F0', borderRadius: '16px', boxShadow: '0px 8px 12px rgba(15, 23, 42, 0.08)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px 12.75px', borderBottom: legendVisible ? '0.75px solid #F1F5F9' : 'none' }}>
+              <Typography sx={{ fontFamily: 'Inter, sans-serif', fontSize: '16px', fontWeight: 600, lineHeight: '24px', color: '#0F172A' }}>
+                Legend
               </Typography>
-              {Array.isArray(legendSchema) && legendSchema.map(({ label, color }) => (
-                <LegendItem key={label} label={label} color={color} />
-              ))}
+              <IconButton onClick={() => setLegendVisible((prev) => !prev)} size="small" sx={{ width: '28px', height: '28px' }} aria-label={legendVisible ? 'Collapse legend' : 'Expand legend'}>
+                {legendVisible ? <KeyboardArrowUpIcon sx={{ fontSize: '16px' }} /> : <KeyboardArrowDownIcon sx={{ fontSize: '16px' }} />}
+              </IconButton>
             </div>
-          )}
-        </div>
-        <Box sx={{ position: 'relative', flex: '0 0 105px', width: '180px', height: '105px', marginTop: '10px', padding: '8px', boxSizing: 'border-box', background: '#FFFFFF', border: '1px solid #D9E5EC', borderRadius: '8px', boxShadow: '0 4px 14px rgba(63, 92, 112, 0.18)', cursor: 'crosshair' }} onClick={handleThumbnailClick}>
-          <Typography sx={{ position: 'absolute', marginTop: '-6px', marginLeft: '0px', zIndex: 2, fontSize: '9px', fontWeight: 700, color: '#5B7180' }}>Overview</Typography>
-          {thumbnailImage && <img src={thumbnailImage} alt="Graph overview" style={{ width: '100%', height: '100%', objectFit: 'fill', opacity: 0.7 }} />}
-          {thumbnailViewport && <div style={{ position: 'absolute', left: `${thumbnailViewport.left}px`, top: `${thumbnailViewport.top}px`, width: `${thumbnailViewport.width}px`, height: `${thumbnailViewport.height}px`, boxSizing: 'border-box', border: '2px solid #3F88C5', pointerEvents: 'none' }} />}
-        </Box>
-        </div>
-      <Button onClick={() => setQueryDialogOpen(true)} variant="outlined" sx={{ ...toolbarButtonSx, position: 'absolute', right: '16px', bottom: '16px', minHeight: '38px', zIndex: 5 }}>
-        Query graph
-      </Button>
-      </div>
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '14px 30px 18px', borderTop: '1px solid #E5EDF3', background: '#FFFFFF' }}>
-        <Typography sx={{ fontSize: '14px', fontWeight: 700, color: '#263238' }}>Metadata</Typography>
-        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: { xs: 2, md: 5 }, flexWrap: 'wrap' }}>
-          <Box sx={{ minWidth: '130px' }}>
-            <Typography sx={{ fontSize: '11px', color: '#263238', fontWeight: 600, marginBottom: '6px' }}>Graph status</Typography>
-            <Typography sx={{ fontSize: '11px', color: '#607887' }}>Mode</Typography>
-            <Box sx={{ display: 'inline-flex', marginTop: '4px', padding: '4px 10px', borderRadius: '14px', background: '#E2F0E7', color: '#4A8060', fontSize: '11px', fontWeight: 700 }}>
-              {viewMode === 'genome_mode' ? 'Genome mode' : 'KG mode'}
+            {legendVisible && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', overflowY: 'auto', padding: '12px 20px 16px' }}>
+                <Typography sx={{ fontFamily: 'Inter, sans-serif', fontSize: '12px', fontWeight: 600, letterSpacing: '1.2px', textTransform: 'uppercase', color: '#94A3B8', paddingBottom: '8px' }}>
+                  Node types
+                </Typography>
+                {Array.isArray(legendSchema) && legendSchema.map(({ label, color }) => (
+                  <LegendItem key={label} label={label} color={color} />
+                ))}
+              </div>
+            )}
+          </div>
+          <Box
+            onClick={handleThumbnailClick}
+            sx={{ display: 'flex', flexDirection: 'column', flex: '0 0 auto', gap: '12px', padding: '16px 20px', background: '#FFFFFF', border: '0.75px solid #E2E8F0', borderRadius: '16px', boxShadow: '0px 8px 12px rgba(15, 23, 42, 0.08)' }}
+          >
+            <Typography sx={{ fontFamily: 'Inter, sans-serif', fontSize: '12px', fontWeight: 600, letterSpacing: '1.2px', textTransform: 'uppercase', color: '#94A3B8' }}>
+              Overview
+            </Typography>
+            <Box sx={{ position: 'relative', width: '100%', height: '80px', background: '#F0F7FF', border: '0.75px solid #E0EAF5', borderRadius: '14px', overflow: 'hidden', cursor: 'crosshair' }}>
+              {thumbnailImage && <img src={thumbnailImage} alt="Graph overview" style={{ width: '100%', height: '100%', objectFit: 'fill', opacity: 0.85 }} />}
+              {thumbnailViewport && <div style={{ position: 'absolute', left: `${thumbnailViewport.left}px`, top: `${thumbnailViewport.top}px`, width: `${thumbnailViewport.width}px`, height: `${thumbnailViewport.height}px`, boxSizing: 'border-box', border: '2px solid #3F88C5', pointerEvents: 'none' }} />}
             </Box>
           </Box>
-          <Box><Typography sx={{ fontSize: '11px', color: '#607887', marginBottom: '7px' }}>Nodes</Typography><Typography sx={{ fontSize: '13px', fontWeight: 700, color: '#263238' }}>{displayMetadata?.filtered_node_count ?? displayGraphData?.nodes?.length ?? 0}</Typography></Box>
-          <Box><Typography sx={{ fontSize: '11px', color: '#607887', marginBottom: '7px' }}>Edges</Typography><Typography sx={{ fontSize: '13px', fontWeight: 700, color: '#263238' }}>{displayMetadata?.filtered_edge_count ?? displayGraphData?.edges?.length ?? 0}</Typography></Box>
-          <Box><Typography sx={{ fontSize: '11px', color: '#607887', marginBottom: '7px' }}>Visible nodes</Typography><Typography sx={{ fontSize: '13px', fontWeight: 700, color: '#263238' }}>{displayMetadata?.real_visible_node_count ?? displayGraphData?.nodes?.length ?? 0}</Typography></Box>
-          <Box><Typography sx={{ fontSize: '11px', color: '#607887', marginBottom: '7px' }}>Visible edges</Typography><Typography sx={{ fontSize: '13px', fontWeight: 700, color: '#263238' }}>{displayMetadata?.filtered_edge_count ?? displayGraphData?.edges?.length ?? 0}</Typography></Box>
-          <Box><Typography sx={{ fontSize: '11px', color: '#607887', marginBottom: '7px' }}>Last updated</Typography><Typography sx={{ fontSize: '13px', fontWeight: 700, color: '#263238' }}>{displayMetadata?.last_updated || '—'}</Typography></Box>
+        </div>
+        <Box
+          sx={{
+            position: 'absolute',
+            top: '50%',
+            right: '16px',
+            transform: 'translateY(-50%)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '24px',
+            padding: '16px 12px',
+            background: '#FFFFFF',
+            borderRadius: '12px',
+            boxShadow: '0px 8px 12px rgba(15, 23, 42, 0.08)',
+            zIndex: 4,
+          }}
+        >
+          <IconButton onClick={handleFullscreen} size="small" sx={{ padding: 0 }}>
+            <ZoomOutMapIcon sx={{ fontSize: '24px', color: '#1C3C68' }} />
+          </IconButton>
+          <IconButton onClick={handleZoomIn} disabled={zoomLevel <= 0.6} size="small" sx={{ padding: 0 }}>
+            <ZoomInIcon sx={{ fontSize: '24px', color: '#1C3C68' }} />
+          </IconButton>
+          <IconButton onClick={handleZoomOut} disabled={zoomLevel >= 4} size="small" sx={{ padding: 0 }}>
+            <ZoomOutIcon sx={{ fontSize: '24px', color: '#1C3C68' }} />
+          </IconButton>
+          <IconButton onClick={handleRecenter} size="small" sx={{ padding: 0 }}>
+            <CenterFocusStrongIcon sx={{ fontSize: '24px', color: '#1C3C68' }} />
+          </IconButton>
         </Box>
+      </div>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', minHeight: '120px', padding: '16px 32px', background: '#FFFFFF', borderBottomLeftRadius: '20px', borderBottomRightRadius: '20px', flexWrap: 'wrap', gap: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'stretch', flexWrap: 'wrap' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: '28px', paddingRight: '32px', borderRight: '1px solid #CCD4FF' }}>
+            <Typography sx={{ fontFamily: 'Inter, sans-serif', fontSize: '14px', fontWeight: 600, color: '#1C3C68' }}>Metadata</Typography>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: '4px', justifyContent: 'center' }}>
+              <Typography sx={{ fontFamily: 'Inter, sans-serif', fontSize: '12px', fontWeight: 500, color: '#94A3B8' }}>Graph status</Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <Box sx={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#10B981' }} />
+                <Typography sx={{ fontFamily: 'Inter, sans-serif', fontSize: '12px', fontWeight: 400, color: '#10B981' }}>
+                  {viewMode === 'genome_mode' ? 'Genome mode' : 'KG mode'}
+                </Typography>
+              </Box>
+            </Box>
+          </Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: '28px', padding: '0 32px', borderRight: '1px solid #CCD4FF' }}>
+            <Box><Typography sx={metaLabelSx}>Nodes</Typography><Typography sx={metaValueSx}>{displayMetadata?.filtered_node_count ?? displayGraphData?.nodes?.length ?? 0}</Typography></Box>
+            <Box><Typography sx={metaLabelSx}>Edges</Typography><Typography sx={metaValueSx}>{displayMetadata?.filtered_edge_count ?? displayGraphData?.edges?.length ?? 0}</Typography></Box>
+            <Box><Typography sx={metaLabelSx}>Visible nodes</Typography><Typography sx={metaValueSx}>{displayMetadata?.real_visible_node_count ?? displayGraphData?.nodes?.length ?? 0}</Typography></Box>
+            <Box><Typography sx={metaLabelSx}>Visible edges</Typography><Typography sx={metaValueSx}>{displayMetadata?.filtered_edge_count ?? displayGraphData?.edges?.length ?? 0}</Typography></Box>
+          </Box>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: '4px', padding: '0 32px', justifyContent: 'center' }}>
+            <Typography sx={metaLabelSx}>Last updated</Typography>
+            <Typography sx={{ fontFamily: 'Inter, sans-serif', fontSize: '12px', fontWeight: 400, color: '#0F172A' }}>{displayMetadata?.last_updated || '—'}</Typography>
+          </Box>
+        </Box>
+        <Button
+          onClick={() => setQueryDialogOpen(true)}
+          sx={{
+            height: '44px',
+            minWidth: '175px',
+            padding: '6px 50px',
+            borderRadius: '8px',
+            backgroundColor: '#1C3C68',
+            color: '#FFFFFF',
+            fontFamily: 'Inter, sans-serif',
+            fontSize: '16px',
+            fontWeight: 600,
+            textTransform: 'none',
+            boxShadow: 'none',
+            '&:hover': { backgroundColor: '#16304F', boxShadow: 'none' },
+          }}
+        >
+          Query Graph
+        </Button>
       </Box>
       <GraphViewerQueryDialog open={queryDialogOpen} onClose={() => setQueryDialogOpen(false)} onResult={(payload) => { setQueryResult(payload); setViewMode(payload.metadata?.layout?.mode || 'kg_only'); setModeError(''); }} />
       </div>
