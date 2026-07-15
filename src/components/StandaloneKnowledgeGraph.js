@@ -22,6 +22,7 @@ import ZoomInIcon from '@mui/icons-material/ZoomIn';
 import ZoomOutIcon from '@mui/icons-material/ZoomOut';
 import ZoomOutMapIcon from '@mui/icons-material/ZoomOutMap';
 import {
+  Alert,
   Box,
   Button,
   Link,
@@ -31,7 +32,7 @@ import IconButton from '@mui/material/IconButton';
 
 import graphInfocard from '../schema/graph_viewer_schema.json';
 import { addWhitespace } from '../utils/textProcessing';
-import GraphViewerQueryDialog from './GraphViewerQueryDialog';
+import GraphViewerQueryDialog, { requestGraphViewer } from './GraphViewerQueryDialog';
 import {
   edgeIsInverted,
   edgeLabels,
@@ -234,11 +235,41 @@ const PANK_TYPE_MAP = {
   UTR_segments: 'region',
 };
 
+const CANONICAL_NODE_LABEL_PRIORITY = [
+  'Gene',
+  'Transcript',
+  'TSS_segment',
+  'Exon',
+  'CDS_segments',
+  'UTR_segments',
+  'Protein',
+  'GO_term',
+];
+
+const GENERIC_NODE_LABELS = new Set(['ontology', 'coding_element', 'coding_elements']);
+
 const normalizeNodeType = (label) => PANK_TYPE_MAP[label] || label;
 
+export const getCanonicalNodeLabel = (node) => {
+  const labels = Array.isArray(node?.['~labels'])
+    ? node['~labels'].filter(Boolean).map(String)
+    : (node?.['~labels'] ? [String(node['~labels'])] : []);
+  const labelsByLower = new Map(labels.map((label) => [label.toLowerCase(), label]));
+  const canonicalLabel = CANONICAL_NODE_LABEL_PRIORITY.find(
+    (label) => labelsByLower.has(label.toLowerCase()),
+  );
+
+  return canonicalLabel
+    || labels.find((label) => !GENERIC_NODE_LABELS.has(label.toLowerCase()))
+    || labels[0]
+    || 'coding_elements';
+};
+
 const getNodeType = (node) => {
-  const labels = node?.['~labels'] || [];
-  return labels
+  const labels = Array.isArray(node?.['~labels']) ? node['~labels'] : [];
+  const canonicalLabel = getCanonicalNodeLabel(node);
+  const orderedLabels = [canonicalLabel, ...labels.filter((label) => label !== canonicalLabel)];
+  return orderedLabels
     .map(normalizeNodeType)
     .find((label) => graphInfocard.nodes?.[label]?.info_panel || nodeColors[label]) || 'coding_elements';
 };
@@ -324,6 +355,33 @@ const getRenderHeight = (posData) => {
   }
 
   return Number.isFinite(posData?.height) ? scaleHeight(posData.height) : posData?.height;
+};
+
+export const getGenomeLaneModelYs = (genomeRegion, genomeTracks) => {
+  const regionLanes = Array.isArray(genomeRegion?.lanes) ? genomeRegion.lanes : [];
+  const trackLanes = Array.isArray(genomeTracks?.lanes) ? genomeTracks.lanes : [];
+  const fallbackGroups = Array.isArray(genomeRegion?.groups) && genomeRegion.groups.length
+    ? genomeRegion.groups
+    : (Array.isArray(genomeTracks?.groups) ? genomeTracks.groups : []);
+  const fallbackLanesByName = new Map();
+  fallbackGroups.forEach((group) => {
+    (Array.isArray(group?.lanes) ? group.lanes : []).forEach((lane) => {
+      if (!fallbackLanesByName.has(lane?.name)) {
+        fallbackLanesByName.set(lane?.name, lane);
+      }
+    });
+  });
+  const lanes = regionLanes.length
+    ? regionLanes
+    : (trackLanes.length ? trackLanes : Array.from(fallbackLanesByName.values()));
+
+  return lanes
+    .filter((lane) => lane?.name && Number.isFinite(lane.y))
+    .map((lane, laneIndex) => ({
+      ...lane,
+      key: `${lane.name}:${laneIndex}`,
+      modelY: lane.y,
+    }));
 };
 
 const getLabelMaxWidth = (renderWidth) => {
@@ -555,6 +613,7 @@ export default function StandaloneKnowledgeGraph({
   graphData = null,
   coordData = null,
   metadata = null,
+  queryRequest = null,
   containerHeight = '600px',
   defaultLegendVisible = true,
   sx = {},
@@ -583,6 +642,8 @@ export default function StandaloneKnowledgeGraph({
   const [queryDialogOpen, setQueryDialogOpen] = useState(false);
   const [queryResult, setQueryResult] = useState(null);
   const [viewMode, setViewMode] = useState(metadata?.layout?.mode || 'kg_only');
+  const [modeLoading, setModeLoading] = useState(false);
+  const [modeError, setModeError] = useState('');
   const [thumbnailImage, setThumbnailImage] = useState('');
   const [thumbnailViewport, setThumbnailViewport] = useState(null);
   const [viewportState, setViewportState] = useState({
@@ -599,6 +660,7 @@ export default function StandaloneKnowledgeGraph({
   const effectiveMetadata = displayMetadata
     ? { ...displayMetadata, layout: { ...displayMetadata.layout, mode: viewMode } }
     : null;
+  const displayQueryRequest = queryResult?.request || queryRequest;
 
   useEffect(() => {
     if (queryResult?.metadata?.layout?.mode) {
@@ -624,25 +686,15 @@ export default function StandaloneKnowledgeGraph({
     }
 
     const { zoom, panY } = viewportState;
-    const lanes = Array.isArray(genomeRegion.lanes) ? genomeRegion.lanes : [];
-    const regionTopModel = scaleYPosition(genomeRegion.y);
-    const regionBottomModel = scaleYPosition(genomeRegion.y + genomeRegion.height);
-
-    const laneLabels = lanes.map((lane, index) => {
-      const topBoundaryModel = index === 0
-        ? regionTopModel
-        : scaleYPosition((lanes[index - 1].y + lane.y) / 2);
-      const bottomBoundaryModel = index === lanes.length - 1
-        ? regionBottomModel
-        : scaleYPosition((lane.y + lanes[index + 1].y) / 2);
-
-      return {
-        name: lane.name,
-        top: topBoundaryModel * zoom + panY,
-        centerY: scaleYPosition(lane.y) * zoom + panY,
-        height: (bottomBoundaryModel - topBoundaryModel) * zoom,
-      };
-    });
+    const lanes = getGenomeLaneModelYs(
+      genomeRegion,
+      effectiveMetadata?.layout?.genome_tracks,
+    );
+    const laneLabels = lanes.map((lane) => ({
+      key: lane.key,
+      name: lane.name,
+      centerY: scaleYPosition(lane.modelY) * zoom + panY,
+    }));
 
     return {
       laneLabels,
@@ -665,6 +717,30 @@ export default function StandaloneKnowledgeGraph({
     if (cyRef.current) {
       cyRef.current.zoom(initZoom);
       cyRef.current.center();
+    }
+  };
+
+  const handleModeChange = async (nextMode) => {
+    setModeMenuOpen(false);
+    setModeError('');
+    if (nextMode === viewMode) {
+      return;
+    }
+    if (!displayQueryRequest) {
+      setModeError('Run a graph query before switching layout mode.');
+      return;
+    }
+
+    setModeLoading(true);
+    try {
+      const request = { ...displayQueryRequest, layout_mode: nextMode };
+      const result = await requestGraphViewer(request);
+      setQueryResult(result);
+      setViewMode(result.metadata?.layout?.mode || nextMode);
+    } catch (error) {
+      setModeError(error.message || 'Failed to switch graph layout mode.');
+    } finally {
+      setModeLoading(false);
     }
   };
 
@@ -1103,10 +1179,10 @@ export default function StandaloneKnowledgeGraph({
               </Button>
               {modeMenuOpen && (
                 <Box sx={{ position: 'absolute', top: '44px', right: 0, width: '220px', padding: '6px', background: '#FFFFFF', border: '1px solid #E0E4EB', borderRadius: '8px', boxShadow: '0 5px 15px rgba(48, 69, 82, 0.18)', zIndex: 20 }}>
-                  <Button fullWidth onClick={() => { setViewMode('kg_only'); setModeMenuOpen(false); }} sx={{ justifyContent: 'flex-start', color: '#1C3C68', textTransform: 'none', fontFamily: 'Inter, sans-serif', fontSize: '11px', padding: '8px' }}>
+                  <Button fullWidth disabled={modeLoading || !displayQueryRequest} onClick={() => handleModeChange('kg_only')} sx={{ justifyContent: 'flex-start', color: '#1C3C68', textTransform: 'none', fontFamily: 'Inter, sans-serif', fontSize: '11px', padding: '8px' }}>
                     <span><strong>KG mode</strong><br /><small>Generic graph layout</small></span>
                   </Button>
-                  <Button fullWidth disabled={!effectiveMetadata?.layout?.genome_region} onClick={() => { setViewMode('genome_mode'); setModeMenuOpen(false); }} sx={{ justifyContent: 'flex-start', color: '#1C3C68', textTransform: 'none', fontFamily: 'Inter, sans-serif', fontSize: '11px', padding: '8px' }}>
+                  <Button fullWidth disabled={modeLoading || !displayQueryRequest} onClick={() => handleModeChange('genome_mode')} sx={{ justifyContent: 'flex-start', color: '#1C3C68', textTransform: 'none', fontFamily: 'Inter, sans-serif', fontSize: '11px', padding: '8px' }}>
                     <span><strong>Genome browser mode</strong><br /><small>Genome tracks + KG around</small></span>
                   </Button>
                 </Box>
@@ -1117,6 +1193,11 @@ export default function StandaloneKnowledgeGraph({
         </Box>
       </Box>
       <div style={{ position: 'relative', height: containerHeight, minHeight: '460px', overflow: 'hidden', background: 'transparent' }}>
+      {modeError && (
+        <Alert severity="error" onClose={() => setModeError('')} sx={{ position: 'absolute', top: '12px', right: '16px', zIndex: 8, maxWidth: '420px' }}>
+          {modeError}
+        </Alert>
+      )}
         <div
           ref={containerRef}
           style={{
@@ -1140,7 +1221,7 @@ export default function StandaloneKnowledgeGraph({
         >
           {trackOverlay.laneLabels.map((lane) => (
             <div
-              key={lane.name}
+              key={lane.key}
               style={{
                 position: 'absolute',
                 left: '226px',
@@ -1314,7 +1395,7 @@ export default function StandaloneKnowledgeGraph({
           Query Graph
         </Button>
       </Box>
-      <GraphViewerQueryDialog open={queryDialogOpen} onClose={() => setQueryDialogOpen(false)} onResult={(payload) => { setQueryResult(payload); setViewMode(payload.metadata?.layout?.mode || 'kg_only'); }} />
+      <GraphViewerQueryDialog open={queryDialogOpen} onClose={() => setQueryDialogOpen(false)} onResult={(payload) => { setQueryResult(payload); setViewMode(payload.metadata?.layout?.mode || 'kg_only'); setModeError(''); }} />
       </div>
     </>
   );

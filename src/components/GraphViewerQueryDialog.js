@@ -18,7 +18,7 @@ import {
   ToggleButtonGroup,
 } from '@mui/material';
 
-const GRAPH_VIEWER_API_URL = 'https://jieliulab3.dcmb.med.umich.edu/gkb0708/api/graph';
+export const GRAPH_VIEWER_API_URL = 'https://jieliulab3.dcmb.med.umich.edu/gkb0708/api/graph';
 const DEFAULT_QUERY = 'MATCH (n {id: "ENSG00000001626"})-[r]-(m) WITH n, r, m LIMIT 10 RETURN collect(DISTINCT n) + collect(DISTINCT m) AS nodes, collect(DISTINCT r) AS edges';
 
 const normalizeInput = (value) => String(value || '')
@@ -40,6 +40,56 @@ const parseJson = (value) => {
 };
 
 const stringifyEntry = (entry) => typeof entry === 'string' ? normalizeInput(entry) : JSON.stringify(entry, null, 2);
+
+const normalizeRequestEntry = (entry) => {
+  if (typeof entry === 'string') {
+    return normalizeInput(entry);
+  }
+
+  if (entry && typeof entry === 'object' && !Array.isArray(entry)) {
+    return entry;
+  }
+
+  return null;
+};
+
+export const parseGraphViewerInputs = (inputs) => inputs.flatMap((input) => {
+  const parsed = parseJson(input);
+  if (Array.isArray(parsed)) {
+    return parsed.map(normalizeRequestEntry);
+  }
+  if (parsed && Array.isArray(parsed.cypher)) {
+    return parsed.cypher.map(normalizeRequestEntry);
+  }
+  if (parsed && typeof parsed === 'object') {
+    return [parsed];
+  }
+  return [normalizeInput(input)];
+}).filter(Boolean);
+
+export const requestGraphViewer = async (request) => {
+  const response = await fetch(GRAPH_VIEWER_API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request),
+  });
+  if (!response.ok) {
+    throw new Error(`Graph viewer API failed with HTTP ${response.status}.`);
+  }
+
+  const payload = await response.json();
+  const graphData = payload?.combined_query_result || payload?.graph;
+  if (!graphData?.nodes || !graphData?.edges) {
+    throw new Error('Response did not contain graph nodes/edges.');
+  }
+
+  return {
+    graphData,
+    coordData: payload.xy_json || payload.coords || null,
+    metadata: payload.metadata || null,
+    request,
+  };
+};
 
 export default function GraphViewerQueryDialog({ open, onClose, onResult }) {
   const [inputs, setInputs] = useState([DEFAULT_QUERY]);
@@ -92,45 +142,19 @@ export default function GraphViewerQueryDialog({ open, onClose, onResult }) {
     setError('');
 
     try {
-      const cypher = inputs.flatMap((input) => {
-        const parsed = parseJson(input);
-        if (Array.isArray(parsed)) {
-          return parsed;
-        }
-        if (parsed && Array.isArray(parsed.cypher)) {
-          return parsed.cypher;
-        }
-        return [normalizeInput(input)];
-      }).filter(Boolean);
+      const cypher = parseGraphViewerInputs(inputs);
       const parsedMaxNodes = Number.parseInt(maxNodes, 10);
       if (!cypher.length || !Number.isFinite(parsedMaxNodes) || parsedMaxNodes <= 0) {
         throw new Error('Provide a query and a positive max nodes value.');
       }
 
-      const response = await fetch(GRAPH_VIEWER_API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          cypher,
-          core_nodes: coreNodes.split(/[\s,]+/).filter(Boolean),
-          max_nodes: parsedMaxNodes,
-          layout_mode: layoutMode,
-        }),
-      });
-      if (!response.ok) {
-        throw new Error(`Graph viewer API failed with HTTP ${response.status}.`);
-      }
-
-      const payload = await response.json();
-      const graphData = payload?.combined_query_result || payload?.graph;
-      if (!graphData?.nodes || !graphData?.edges) {
-        throw new Error('Response did not contain graph nodes/edges.');
-      }
-      onResult({
-        graphData,
-        coordData: payload.xy_json || payload.coords || null,
-        metadata: payload.metadata || null,
-      });
+      const request = {
+        cypher,
+        core_nodes: coreNodes.split(/[\s,]+/).filter(Boolean),
+        max_nodes: parsedMaxNodes,
+        layout_mode: layoutMode,
+      };
+      onResult(await requestGraphViewer(request));
       onClose();
     } catch (submitError) {
       setError(submitError.message || 'Graph viewer request failed.');
