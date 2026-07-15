@@ -4,6 +4,7 @@ import './styles.css';
 
 import React, {
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
 } from 'react';
@@ -13,11 +14,16 @@ import { useSelector } from 'react-redux';
 
 import CenterFocusStrongIcon from '@mui/icons-material/CenterFocusStrong';
 import CheckIcon from '@mui/icons-material/Check';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import GridViewIcon from '@mui/icons-material/GridView';
+import HubIcon from '@mui/icons-material/Hub';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
+import LinkIcon from '@mui/icons-material/Link';
+import RedoIcon from '@mui/icons-material/Redo';
 import SyncIcon from '@mui/icons-material/Sync';
+import UndoIcon from '@mui/icons-material/Undo';
 import ZoomInIcon from '@mui/icons-material/ZoomIn';
 import ZoomOutIcon from '@mui/icons-material/ZoomOut';
 import ZoomOutMapIcon from '@mui/icons-material/ZoomOutMap';
@@ -94,6 +100,139 @@ const toolbarButtonSx = {
 
 const metaLabelSx = { fontFamily: 'Inter, sans-serif', fontSize: '12px', fontWeight: 500, color: '#94A3B8', marginBottom: '6px' };
 const metaValueSx = { fontFamily: 'Inter, sans-serif', fontSize: '12px', fontWeight: 500, color: '#0F172A' };
+
+const MAX_VISIBLE_NODES = 30;
+const NEIGHBOR_QUERY_LIMIT = 10;
+const HIGHLIGHT_DURATION_MS = 2200;
+
+export const isOverflowId = (id) => String(id ?? '').startsWith('overflow:');
+
+const contextMenuItemSx = {
+  justifyContent: 'flex-start',
+  textTransform: 'none',
+  fontFamily: 'Inter, sans-serif',
+  fontSize: '12px',
+  color: '#1C3C68',
+  padding: '8px 10px',
+  '&.Mui-disabled': {
+    color: '#B7C4D6',
+  },
+};
+
+const escapeCypherString = (value) => String(value ?? '').replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+
+const buildExploreNeighborsCypher = (nodeId, limit = NEIGHBOR_QUERY_LIMIT) => ({
+  source: 'neo4j',
+  query: [
+    `WITH "${escapeCypherString(nodeId)}" AS node_id`,
+    'MATCH (n {id: node_id})-[r]-(m)',
+    'WITH n, r, m',
+    `LIMIT ${limit}`,
+    'RETURN collect(DISTINCT n) + collect(DISTINCT m) AS nodes,',
+    '       collect(r) AS edges',
+  ].join('\n'),
+});
+
+const getExploreQueryInfo = (entry) => {
+  if (!entry || typeof entry !== 'object' || entry.source !== 'neo4j') {
+    return null;
+  }
+
+  const query = String(entry.query || '');
+  const nodeMatch = query.match(/WITH\s+"((?:\\.|[^"\\])*)"\s+AS\s+node_id/i);
+  if (!nodeMatch || !/MATCH\s+\(n\s+\{id:\s+node_id\}\)-\[r\]-\(m\)/i.test(query)) {
+    return null;
+  }
+
+  const limitMatch = query.match(/\bLIMIT\s+(\d+)/i);
+  return {
+    nodeId: nodeMatch[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\'),
+    limit: limitMatch ? Number.parseInt(limitMatch[1], 10) : NEIGHBOR_QUERY_LIMIT,
+  };
+};
+
+export const mergeExploreNeighborsCypher = (cypherList, nodeId) => {
+  const existingIndex = cypherList.findIndex((entry) => getExploreQueryInfo(entry)?.nodeId === String(nodeId));
+  if (existingIndex === -1) {
+    return [...cypherList, buildExploreNeighborsCypher(nodeId)];
+  }
+
+  const existingEntry = cypherList[existingIndex];
+  const existingInfo = getExploreQueryInfo(existingEntry);
+  const mergedLimit = existingInfo.limit + NEIGHBOR_QUERY_LIMIT;
+  const nextCypher = [...cypherList];
+  nextCypher[existingIndex] = {
+    ...existingEntry,
+    query: String(existingEntry.query).replace(/\bLIMIT\s+\d+/i, `LIMIT ${mergedLimit}`),
+  };
+  return nextCypher;
+};
+
+const getEdgeIdentifier = (edge, index) => edge['~id'] || index.toString();
+
+export const restoreAdjacentDeletedIds = (graphData, nodeId, deletedIds, restoreNodes = false) => {
+  const nextDeletedIds = new Set(deletedIds);
+  const adjacentNodeIds = new Set();
+  const adjacentEdges = [];
+
+  (graphData?.edges || []).forEach((edge, index) => {
+    const startId = edge['~start'];
+    const endId = edge['~end'];
+    if (startId === nodeId || endId === nodeId) {
+      adjacentEdges.push({ edge, index, startId, endId });
+      if (startId === nodeId) {
+        adjacentNodeIds.add(endId);
+      }
+      if (endId === nodeId) {
+        adjacentNodeIds.add(startId);
+      }
+    }
+  });
+
+  if (restoreNodes) {
+    adjacentNodeIds.forEach((id) => nextDeletedIds.delete(id));
+  }
+
+  adjacentEdges.forEach(({ edge, index, startId, endId }) => {
+    if (!nextDeletedIds.has(startId) && !nextDeletedIds.has(endId)) {
+      nextDeletedIds.delete(getEdgeIdentifier(edge, index));
+    }
+  });
+
+  return nextDeletedIds;
+};
+
+const buildFindConnectionCypher = (nodeId, visibleNodeIds) => ({
+  source: 'neo4j',
+  query: [
+    `WITH "${escapeCypherString(nodeId)}" AS selected_id,`,
+    `     [${visibleNodeIds.map((id) => `"${escapeCypherString(id)}"`).join(', ')}] AS node_ids`,
+    'MATCH (n {id: selected_id})-[r]-(m)',
+    'WHERE m.id IN node_ids AND m.id <> selected_id',
+    'WITH n, r, m',
+    'LIMIT 200',
+    'RETURN collect(DISTINCT n) + collect(DISTINCT m) AS nodes,',
+    '       collect(DISTINCT r) AS edges',
+  ].join('\n'),
+});
+
+const buildGraphRequestKey = (cypherList, mode) => JSON.stringify({ cypher: cypherList, mode });
+
+const modeOptionSx = {
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'flex-start',
+  gap: '2px',
+  padding: '8px 10px',
+  borderRadius: '6px',
+  textAlign: 'left',
+  textTransform: 'none',
+  '&.Mui-disabled': {
+    opacity: 0.5,
+  },
+};
+const modeOptionTitleSx = { fontFamily: 'Inter, sans-serif', fontSize: '12px', fontWeight: 600, lineHeight: '16px', color: '#1C3C68' };
+const modeOptionSubtitleSx = { fontFamily: 'Inter, sans-serif', fontSize: '11px', fontWeight: 400, lineHeight: '14px', color: '#94A3B8' };
 
 const CheckToggle = ({ label, enabled, onChange }) => (
   <Box
@@ -614,6 +753,7 @@ export default function StandaloneKnowledgeGraph({
   coordData = null,
   metadata = null,
   queryRequest = null,
+  queryExamples = [],
   containerHeight = '600px',
   defaultLegendVisible = true,
   sx = {},
@@ -624,6 +764,17 @@ export default function StandaloneKnowledgeGraph({
   const hoveredIdRef = useRef(null);
   const appearTimeoutRef = useRef(null);
   const fadeOutTimeoutRef = useRef(null);
+  const toolbarRowRef = useRef(null);
+  const toolbarTitleRef = useRef(null);
+  const toolbarZoomGroupMeasureRef = useRef(null);
+  const toolbarSecondaryGroupRef = useRef(null);
+  const clickMenuEnabledRef = useRef(true);
+  const contextMenuRef = useRef(null);
+  const baseCypherRef = useRef(null);
+  const graphCacheRef = useRef(new Map());
+  const lastFetchedKeyRef = useRef(null);
+  const highlightTimeoutRef = useRef(null);
+  const interactionAbortRef = useRef(null);
   const queryResultPage = useSelector((state) => state.queryResultPage?.queryResultPage);
 
   const [activeNode, setActiveNode] = useState(null);
@@ -642,8 +793,7 @@ export default function StandaloneKnowledgeGraph({
   const [queryDialogOpen, setQueryDialogOpen] = useState(false);
   const [queryResult, setQueryResult] = useState(null);
   const [viewMode, setViewMode] = useState(metadata?.layout?.mode || 'kg_only');
-  const [modeLoading, setModeLoading] = useState(false);
-  const [modeError, setModeError] = useState('');
+  const [showZoomToolbarGroup, setShowZoomToolbarGroup] = useState(true);
   const [thumbnailImage, setThumbnailImage] = useState('');
   const [thumbnailViewport, setThumbnailViewport] = useState(null);
   const [viewportState, setViewportState] = useState({
@@ -654,13 +804,64 @@ export default function StandaloneKnowledgeGraph({
     height: 0,
   });
 
-  const displayGraphData = queryResult?.graphData || graphData;
-  const displayCoordData = queryResult?.coordData || coordData;
-  const displayMetadata = queryResult?.metadata || metadata;
+  // Interaction state: a "current state" is a query list (Cypher history) plus a
+  // deleted-element list. Explore neighbors / find connection / delete node / delete
+  // edge are the only operations that advance this history, so undo/redo only ever
+  // replays combinations of (query list, deleted list) - never camera/drag state.
+  const [interactionHistory, setInteractionHistory] = useState(null);
+  const [interactionGraph, setInteractionGraph] = useState(null);
+  const [interactionLoading, setInteractionLoading] = useState(false);
+  const [actionMessage, setActionMessage] = useState(null);
+  const [contextMenu, setContextMenu] = useState(null);
+  const [highlightedIds, setHighlightedIds] = useState(() => new Set());
+
+  useEffect(() => {
+    clickMenuEnabledRef.current = clickMenuEnabled;
+  }, [clickMenuEnabled]);
+
+  useEffect(() => () => {
+    interactionAbortRef.current?.abort();
+  }, []);
+
+  const displayGraphData = interactionGraph?.graphData ?? queryResult?.graphData ?? graphData;
+  const displayCoordData = interactionGraph?.coordData ?? queryResult?.coordData ?? coordData;
+  const displayMetadata = interactionGraph?.metadata ?? queryResult?.metadata ?? metadata;
   const effectiveMetadata = displayMetadata
     ? { ...displayMetadata, layout: { ...displayMetadata.layout, mode: viewMode } }
     : null;
   const displayQueryRequest = queryResult?.request || queryRequest;
+  const activeCypherList = interactionHistory?.present.cypher || displayQueryRequest?.cypher || [];
+  const activeDeletedIds = new Set(interactionHistory?.present.deletedIds || []);
+  const canUndo = Boolean(interactionHistory?.past.length);
+  const canRedo = Boolean(interactionHistory?.future.length);
+
+  const getVisibleNodeIds = () => {
+    const ids = new Set((displayGraphData?.nodes || []).map((node) => node['~id']));
+    activeDeletedIds.forEach((id) => ids.delete(id));
+    return ids;
+  };
+
+  const getVisibleEdgeIds = () => {
+    const ids = new Set((displayGraphData?.edges || []).map((edge, index) => edge['~id'] || index.toString()));
+    activeDeletedIds.forEach((id) => ids.delete(id));
+    return ids;
+  };
+
+  const pushInteractionHistory = (nextPresent) => {
+    setInteractionHistory((current) => {
+      if (!current) {
+        return current;
+      }
+      return { past: [...current.past, current.present], present: nextPresent, future: [] };
+    });
+  };
+
+  const clearHighlightSoon = () => {
+    clearTimeout(highlightTimeoutRef.current);
+    highlightTimeoutRef.current = setTimeout(() => setHighlightedIds(new Set()), HIGHLIGHT_DURATION_MS);
+  };
+
+  const closeContextMenu = () => setContextMenu(null);
 
   useEffect(() => {
     if (queryResult?.metadata?.layout?.mode) {
@@ -668,9 +869,136 @@ export default function StandaloneKnowledgeGraph({
     }
   }, [queryResult]);
 
+  // Two things can require a graph fetch: (1) a brand-new base query list arriving
+  // (first load, or a fresh manual query from the debug dialog), which resets the
+  // whole interaction history; or (2) the active (cypher list, mode) pair changing
+  // because explore/find-connection appended a query, undo/redo moved through
+  // history, or the user switched modes. These are handled in one effect so the
+  // second case can never run against a stale cypher list from before the first
+  // case's state has propagated. Deleting an element never changes this key, so it
+  // never triggers a refetch - the delete list is applied purely as a client-side
+  // filter at render time.
+  useEffect(() => {
+    const baseCypher = queryResult?.request?.cypher || queryRequest?.cypher;
+    const isNewBase = Boolean(baseCypher) && baseCypher !== baseCypherRef.current;
+
+    if (isNewBase) {
+      baseCypherRef.current = baseCypher;
+
+      const baselineMode = queryResult?.metadata?.layout?.mode || metadata?.layout?.mode || 'kg_only';
+      const baseline = {
+        graphData: queryResult?.graphData ?? graphData,
+        coordData: queryResult?.coordData ?? coordData,
+        metadata: queryResult?.metadata ?? metadata,
+        request: queryResult?.request ?? { ...(queryRequest || {}), cypher: baseCypher },
+      };
+      const key = buildGraphRequestKey(baseCypher, baselineMode);
+      graphCacheRef.current.set(key, baseline);
+      lastFetchedKeyRef.current = key;
+
+      setInteractionHistory({ past: [], present: { cypher: baseCypher, deletedIds: [] }, future: [] });
+      setInteractionGraph(baseline);
+      setActionMessage(null);
+      setContextMenu(null);
+      setHighlightedIds(new Set());
+      if (viewMode !== baselineMode) {
+        setViewMode(baselineMode);
+      }
+      return undefined;
+    }
+
+    const cypherList = interactionHistory?.present.cypher;
+    if (!cypherList) {
+      return undefined;
+    }
+
+    const key = buildGraphRequestKey(cypherList, viewMode);
+    if (key === lastFetchedKeyRef.current) {
+      return undefined;
+    }
+
+    let cancelled = false;
+    const controller = new AbortController();
+    interactionAbortRef.current?.abort();
+    interactionAbortRef.current = controller;
+    (async () => {
+      setInteractionLoading(true);
+      try {
+        let result = graphCacheRef.current.get(key);
+        if (!result) {
+          result = await requestGraphViewer({ ...(displayQueryRequest || {}), cypher: cypherList, layout_mode: viewMode }, { signal: controller.signal });
+          graphCacheRef.current.set(key, result);
+        }
+        if (!cancelled) {
+          lastFetchedKeyRef.current = key;
+          setInteractionGraph(result);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setActionMessage({ text: error.message || 'Failed to load graph.', severity: 'error' });
+        }
+      } finally {
+        if (!cancelled) {
+          setInteractionLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+      if (interactionAbortRef.current === controller) {
+        interactionAbortRef.current = null;
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queryResult, queryRequest, interactionHistory?.present.cypher, viewMode]);
+
   useEffect(() => {
     hoveredIdRef.current = hoveredId;
   }, [hoveredId]);
+
+  useLayoutEffect(() => {
+    const recomputeToolbarFit = () => {
+      const rowEl = toolbarRowRef.current;
+      const titleEl = toolbarTitleRef.current;
+      const zoomGroupEl = toolbarZoomGroupMeasureRef.current;
+      const secondaryGroupEl = toolbarSecondaryGroupRef.current;
+      if (!rowEl || !titleEl || !zoomGroupEl || !secondaryGroupEl) {
+        return;
+      }
+
+      const rowGap = 16;
+      const zoomGroupDividerWidth = 1;
+      const safetyMargin = 8;
+      const neededWidth = titleEl.offsetWidth
+        + rowGap
+        + zoomGroupEl.offsetWidth
+        + rowGap
+        + zoomGroupDividerWidth
+        + rowGap
+        + secondaryGroupEl.offsetWidth
+        + safetyMargin;
+
+      setShowZoomToolbarGroup(neededWidth <= rowEl.clientWidth);
+    };
+
+    recomputeToolbarFit();
+
+    const observer = new ResizeObserver(recomputeToolbarFit);
+    [toolbarRowRef, toolbarTitleRef, toolbarZoomGroupMeasureRef, toolbarSecondaryGroupRef].forEach((ref) => {
+      if (ref.current) {
+        observer.observe(ref.current);
+      }
+    });
+    window.addEventListener('resize', recomputeToolbarFit);
+    document.fonts?.ready?.then(recomputeToolbarFit);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', recomputeToolbarFit);
+    };
+  }, []);
 
   const center = cyRef.current
     ? { x: cyRef.current.width() / 2, y: cyRef.current.height() / 2 }
@@ -720,28 +1048,173 @@ export default function StandaloneKnowledgeGraph({
     }
   };
 
-  const handleModeChange = async (nextMode) => {
+  const handleModeChange = (nextMode) => {
     setModeMenuOpen(false);
-    setModeError('');
     if (nextMode === viewMode) {
       return;
     }
-    if (!displayQueryRequest) {
-      setModeError('Run a graph query before switching layout mode.');
+    if (!activeCypherList.length) {
+      setActionMessage({ text: 'Run a graph query before switching layout mode.', severity: 'error' });
+      return;
+    }
+    setViewMode(nextMode);
+  };
+
+  const handleExploreNeighbors = async (nodeId) => {
+    closeContextMenu();
+    if (isOverflowId(nodeId)) {
+      setActionMessage({ text: 'Overflow nodes cannot be explored directly.', severity: 'info' });
+      return;
+    }
+    if (!activeCypherList.length) {
+      setActionMessage({ text: 'Run a graph query before exploring neighbors.', severity: 'error' });
       return;
     }
 
-    setModeLoading(true);
+    const visibleNodeIds = getVisibleNodeIds();
+
+    interactionAbortRef.current?.abort();
+    const controller = new AbortController();
+    interactionAbortRef.current = controller;
+    setInteractionLoading(true);
     try {
-      const request = { ...displayQueryRequest, layout_mode: nextMode };
-      const result = await requestGraphViewer(request);
-      setQueryResult(result);
-      setViewMode(result.metadata?.layout?.mode || nextMode);
+      const nextCypher = mergeExploreNeighborsCypher(activeCypherList, nodeId);
+      const key = buildGraphRequestKey(nextCypher, viewMode);
+      let result = graphCacheRef.current.get(key);
+      if (!result) {
+        result = await requestGraphViewer({ ...(displayQueryRequest || {}), cypher: nextCypher, layout_mode: viewMode }, { signal: controller.signal });
+        graphCacheRef.current.set(key, result);
+      }
+
+      const candidateNodeIds = Array.from(new Set((result.graphData?.nodes || []).map((node) => node['~id'])));
+      const restoredDeletedIds = restoreAdjacentDeletedIds(result.graphData, nodeId, activeDeletedIds, true);
+      const existingNodeIds = new Set((displayGraphData?.nodes || []).map((node) => node['~id']));
+      const newNodeIds = candidateNodeIds.filter((id) => !existingNodeIds.has(id));
+      const remainingBudget = Math.max(0, MAX_VISIBLE_NODES - visibleNodeIds.size);
+      const acceptedIds = newNodeIds.slice(0, remainingBudget);
+      const overflowIds = newNodeIds.slice(remainingBudget);
+
+      const nextDeletedIds = restoredDeletedIds;
+      overflowIds.forEach((id) => nextDeletedIds.add(id));
+
+      lastFetchedKeyRef.current = key;
+      setInteractionGraph(result);
+      pushInteractionHistory({ cypher: nextCypher, deletedIds: Array.from(nextDeletedIds) });
+      setHighlightedIds(new Set(acceptedIds));
+      clearHighlightSoon();
+
+      if (newNodeIds.length === 0) {
+        setActionMessage({ text: 'All available neighbors are already shown.', severity: 'info' });
+      } else if (overflowIds.length > 0) {
+        setActionMessage({ text: `Added ${acceptedIds.length} neighbors. ${overflowIds.length} not shown because the canvas limit is ${MAX_VISIBLE_NODES} nodes.`, severity: 'info' });
+      } else {
+        setActionMessage({ text: `Added ${acceptedIds.length} neighbor${acceptedIds.length === 1 ? '' : 's'}.`, severity: 'success' });
+      }
     } catch (error) {
-      setModeError(error.message || 'Failed to switch graph layout mode.');
+      if (interactionAbortRef.current === controller) {
+        setActionMessage({ text: error.message || 'Failed to explore neighbors.', severity: 'error' });
+      }
     } finally {
-      setModeLoading(false);
+      if (interactionAbortRef.current === controller) {
+        interactionAbortRef.current = null;
+        setInteractionLoading(false);
+      }
     }
+  };
+
+  const handleFindConnection = async (nodeId) => {
+    closeContextMenu();
+    if (isOverflowId(nodeId)) {
+      setActionMessage({ text: 'Overflow nodes cannot be used for connection searches.', severity: 'info' });
+      return;
+    }
+    if (!activeCypherList.length) {
+      setActionMessage({ text: 'Run a graph query before finding connections.', severity: 'error' });
+      return;
+    }
+
+    const visibleNodeIds = getVisibleNodeIds();
+    const visibleEdgeIds = getVisibleEdgeIds();
+
+    interactionAbortRef.current?.abort();
+    const controller = new AbortController();
+    interactionAbortRef.current = controller;
+    setInteractionLoading(true);
+    try {
+      const nextCypher = [...activeCypherList, buildFindConnectionCypher(nodeId, Array.from(visibleNodeIds))];
+      const key = buildGraphRequestKey(nextCypher, viewMode);
+      let result = graphCacheRef.current.get(key);
+      if (!result) {
+        result = await requestGraphViewer({ ...(displayQueryRequest || {}), cypher: nextCypher, layout_mode: viewMode }, { signal: controller.signal });
+        graphCacheRef.current.set(key, result);
+      }
+
+      const candidateEdgeIds = (result.graphData?.edges || []).map((edge, index) => edge['~id'] || index.toString());
+      const newEdgeIds = candidateEdgeIds.filter((id) => !visibleEdgeIds.has(id));
+      const nextDeletedIds = restoreAdjacentDeletedIds(result.graphData, nodeId, activeDeletedIds);
+
+      lastFetchedKeyRef.current = key;
+      setInteractionGraph(result);
+      pushInteractionHistory({ cypher: nextCypher, deletedIds: Array.from(nextDeletedIds) });
+      setHighlightedIds(new Set(newEdgeIds));
+      clearHighlightSoon();
+
+      if (newEdgeIds.length === 0) {
+        setActionMessage({ text: 'All known connections from this node are already shown.', severity: 'info' });
+      } else {
+        setActionMessage({ text: `Added ${newEdgeIds.length} connection${newEdgeIds.length === 1 ? '' : 's'}.`, severity: 'success' });
+      }
+    } catch (error) {
+      if (interactionAbortRef.current === controller) {
+        setActionMessage({ text: error.message || 'Failed to find connections.', severity: 'error' });
+      }
+    } finally {
+      if (interactionAbortRef.current === controller) {
+        interactionAbortRef.current = null;
+        setInteractionLoading(false);
+      }
+    }
+  };
+
+  const handleDeleteElement = (elementId) => {
+    closeContextMenu();
+    const nextDeletedIds = new Set(activeDeletedIds);
+    nextDeletedIds.add(elementId);
+    pushInteractionHistory({ cypher: activeCypherList, deletedIds: Array.from(nextDeletedIds) });
+    setActionMessage({ text: 'Removed from view. Use undo to restore.', severity: 'info' });
+  };
+
+  const handleUndo = () => {
+    closeContextMenu();
+    setInteractionHistory((current) => {
+      if (!current || current.past.length === 0) {
+        return current;
+      }
+      const previous = current.past[current.past.length - 1];
+      return { past: current.past.slice(0, -1), present: previous, future: [current.present, ...current.future] };
+    });
+    setActionMessage({ text: 'Undid last change.', severity: 'info' });
+  };
+
+  const handleRedo = () => {
+    closeContextMenu();
+    setInteractionHistory((current) => {
+      if (!current || current.future.length === 0) {
+        return current;
+      }
+      const next = current.future[0];
+      return { past: [...current.past, current.present], present: next, future: current.future.slice(1) };
+    });
+    setActionMessage({ text: 'Redid change.', severity: 'info' });
+  };
+
+  const handleResetGraph = () => {
+    closeContextMenu();
+    if (!baseCypherRef.current) {
+      return;
+    }
+    setInteractionHistory({ past: [], present: { cypher: baseCypherRef.current, deletedIds: [] }, future: [] });
+    setActionMessage({ text: 'Graph reset to the original query.', severity: 'info' });
   };
 
   const handleDownload = () => {
@@ -764,8 +1237,18 @@ export default function StandaloneKnowledgeGraph({
       return;
     }
 
+    const visibleResult = {
+      ...result,
+      nodes: (result.nodes || []).filter((node) => !activeDeletedIds.has(node['~id'])),
+      edges: (result.edges || []).filter((edge) => (
+        !activeDeletedIds.has(edge['~id'])
+        && !activeDeletedIds.has(edge['~start'])
+        && !activeDeletedIds.has(edge['~end'])
+      )),
+    };
+
     const link = document.createElement('a');
-    link.href = URL.createObjectURL(new Blob([JSON.stringify(result, null, 2)], { type: 'application/json' }));
+    link.href = URL.createObjectURL(new Blob([JSON.stringify(visibleResult, null, 2)], { type: 'application/json' }));
     link.download = 'knowledge_graph.json';
     document.body.appendChild(link);
     link.click();
@@ -894,7 +1377,9 @@ export default function StandaloneKnowledgeGraph({
   }, [activeNode, hoveredId, nodeHovered, infocardEnabled]);
 
   useEffect(() => {
-    if (!infocardEnabled) {
+    if (!infocardEnabled || contextMenu) {
+      clearTimeout(appearTimeoutRef.current);
+      clearTimeout(fadeOutTimeoutRef.current);
       setInfocardVisible(false);
       return undefined;
     }
@@ -917,11 +1402,12 @@ export default function StandaloneKnowledgeGraph({
       clearTimeout(fadeOutTimeoutRef.current);
       clearTimeout(appearTimeoutRef.current);
     };
-  }, [hoveredId, infocardEnabled, infocardHovered, nodeHovered]);
+  }, [hoveredId, infocardEnabled, infocardHovered, nodeHovered, contextMenu]);
 
   useEffect(() => {
     const result = displayGraphData || queryResultPage?.combined_query_result;
     const positionData = displayCoordData || queryResultPage?.xy_json || {};
+    const deletedIds = new Set(interactionHistory?.present.deletedIds || []);
 
     if (!result?.nodes || !result?.edges || !containerRef.current) {
       return undefined;
@@ -929,6 +1415,9 @@ export default function StandaloneKnowledgeGraph({
 
     const uniqueNodesMap = {};
     result.nodes.forEach((node) => {
+      if (deletedIds.has(node['~id'])) {
+        return;
+      }
       uniqueNodesMap[node['~id']] = node;
     });
 
@@ -970,7 +1459,11 @@ export default function StandaloneKnowledgeGraph({
 
     const uniqueEdgesMap = {};
     result.edges.forEach((edge, index) => {
-      uniqueEdgesMap[edge['~id'] || index.toString()] = edge;
+      const edgeId = edge['~id'] || index.toString();
+      if (deletedIds.has(edgeId) || deletedIds.has(edge['~start']) || deletedIds.has(edge['~end'])) {
+        return;
+      }
+      uniqueEdgesMap[edgeId] = edge;
     });
 
     const edges = Object.values(uniqueEdgesMap).map((edge) => ({
@@ -1041,11 +1534,28 @@ export default function StandaloneKnowledgeGraph({
         {
           selector: 'edge',
           style: {
-            'curve-style': 'unbundled-bezier',
-            'control-point-distances': 'data(curveDistance)',
-            'control-point-weights': 'data(curveWeight)',
+            'curve-style': viewMode === 'kg_only' ? 'straight' : 'unbundled-bezier',
+            ...(viewMode === 'kg_only' ? {} : {
+              'control-point-distances': 'data(curveDistance)',
+              'control-point-weights': 'data(curveWeight)',
+            }),
             'z-index-compare': 'manual',
             'z-index': 5,
+          },
+        },
+        {
+          selector: 'node.kg-highlight-new',
+          style: {
+            'border-width': 3,
+            'border-color': '#F59E0B',
+          },
+        },
+        {
+          selector: 'edge.kg-highlight-new',
+          style: {
+            'line-color': '#F59E0B',
+            'target-arrow-color': '#F59E0B',
+            width: 3,
           },
         },
       ]),
@@ -1113,6 +1623,31 @@ export default function StandaloneKnowledgeGraph({
       }
     };
 
+    const handleNodeTap = (evt) => {
+      if (!clickMenuEnabledRef.current) {
+        return;
+      }
+      const node = evt.target;
+      if (node.data('trackBackground') === 'true') {
+        return;
+      }
+      setContextMenu({ type: 'node', id: node.id(), x: evt.renderedPosition.x, y: evt.renderedPosition.y });
+    };
+
+    const handleEdgeTap = (evt) => {
+      if (!clickMenuEnabledRef.current) {
+        return;
+      }
+      const edge = evt.target;
+      setContextMenu({ type: 'edge', id: edge.id(), x: evt.renderedPosition.x, y: evt.renderedPosition.y });
+    };
+
+    const handleBackgroundTap = (evt) => {
+      if (evt.target === cy) {
+        setContextMenu(null);
+      }
+    };
+
     cy.reset();
     cy.center();
     setZoomLevel(cy.zoom());
@@ -1124,12 +1659,22 @@ export default function StandaloneKnowledgeGraph({
     cy.on('mouseout', 'node', handleOut);
     cy.on('mousemove', 'edge', handleEdge(handleHover));
     cy.on('mouseout', 'edge', handleOut);
-    cy.on('pan', syncViewportState);
+    cy.on('tap', 'node', handleNodeTap);
+    cy.on('tap', 'edge', handleEdge(handleEdgeTap));
+    cy.on('tap', handleBackgroundTap);
+    cy.on('pan', () => {
+      syncViewportState();
+      setContextMenu(null);
+    });
     cy.on('zoom', () => {
+      setContextMenu(null);
       setZoomLevel(cy.zoom());
       syncViewportState();
     });
-    cy.on('resize', syncViewportState);
+    cy.on('resize', () => {
+      syncViewportState();
+      setContextMenu(null);
+    });
     updateThumbnail();
 
     return () => {
@@ -1139,13 +1684,61 @@ export default function StandaloneKnowledgeGraph({
       cy.destroy();
       cyRef.current = null;
     };
-  }, [displayCoordData, genomeRegion, displayGraphData, queryResultPage]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [displayCoordData, genomeRegion, displayGraphData, queryResultPage, interactionHistory?.present.deletedIds]);
+
+  useEffect(() => {
+    const cy = cyRef.current;
+    if (!cy) {
+      return;
+    }
+    cy.elements('.kg-highlight-new').removeClass('kg-highlight-new');
+    highlightedIds.forEach((id) => {
+      const ele = cy.getElementById(id);
+      if (ele?.nonempty()) {
+        ele.addClass('kg-highlight-new');
+      }
+    });
+  }, [highlightedIds]);
+
+  useEffect(() => {
+    if (!contextMenu) {
+      return undefined;
+    }
+
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        setContextMenu(null);
+      }
+    };
+    const handleDocumentPointerDown = (event) => {
+      if (contextMenuRef.current && !contextMenuRef.current.contains(event.target)) {
+        setContextMenu(null);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('mousedown', handleDocumentPointerDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('mousedown', handleDocumentPointerDown);
+    };
+  }, [contextMenu]);
+
+  const zoomToolbarButtons = (
+    <>
+      <Button disabled onClick={handleFullscreen} variant="outlined" startIcon={<ZoomOutMapIcon sx={{ fontSize: '16px' }} />} sx={toolbarButtonSx}>Fullscreen</Button>
+      <Button onClick={handleZoomIn} variant="outlined" disabled={zoomLevel <= 0.6} startIcon={<ZoomInIcon sx={{ fontSize: '16px' }} />} sx={toolbarButtonSx}>Zoom in</Button>
+      <Button onClick={handleZoomOut} variant="outlined" disabled={zoomLevel >= 4} startIcon={<ZoomOutIcon sx={{ fontSize: '16px' }} />} sx={toolbarButtonSx}>Zoom Out</Button>
+      <Button onClick={handleRecenter} variant="outlined" startIcon={<CenterFocusStrongIcon sx={{ fontSize: '16px' }} />} sx={toolbarButtonSx}>Recenter</Button>
+    </>
+  );
 
   return (
     <>
       <div style={{ display: 'flex', flexDirection: 'column', position: 'relative', width: '100%', height: '100%', color: '#263238', ...sx }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', height: '80px', padding: '0 32px', background: '#FFFFFF', flexWrap: 'wrap' }}>
-        <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+      <Box ref={toolbarRowRef} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', height: '80px', padding: '0 32px', background: '#FFFFFF', flexWrap: 'nowrap' }}>
+        <Box ref={toolbarTitleRef} sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', flexShrink: 0 }}>
           <Typography sx={{ fontFamily: 'Inter, sans-serif', fontSize: '16px', fontWeight: 600, lineHeight: '22px', color: '#0F172A' }}>
             Knowledge Graph Viewer
           </Typography>
@@ -1153,21 +1746,42 @@ export default function StandaloneKnowledgeGraph({
             Neighbor Exploration
           </Typography>
         </Box>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Button onClick={handleFullscreen} variant="outlined" startIcon={<ZoomOutMapIcon sx={{ fontSize: '16px' }} />} sx={toolbarButtonSx}>Fullscreen</Button>
-            <Button onClick={handleZoomIn} variant="outlined" disabled={zoomLevel <= 0.6} startIcon={<ZoomInIcon sx={{ fontSize: '16px' }} />} sx={toolbarButtonSx}>Zoom in</Button>
-            <Button onClick={handleZoomOut} variant="outlined" disabled={zoomLevel >= 4} startIcon={<ZoomOutIcon sx={{ fontSize: '16px' }} />} sx={toolbarButtonSx}>Zoom Out</Button>
-            <Button onClick={handleRecenter} variant="outlined" startIcon={<CenterFocusStrongIcon sx={{ fontSize: '16px' }} />} sx={toolbarButtonSx}>Recenter</Button>
-          </Box>
-          <Box sx={{ width: '1px', alignSelf: 'stretch', backgroundColor: '#E0E4EB' }} />
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <Box
+          ref={toolbarZoomGroupMeasureRef}
+          aria-hidden="true"
+          sx={{ position: 'absolute', visibility: 'hidden', pointerEvents: 'none', display: 'flex', alignItems: 'center', gap: '8px', top: 0, left: 0, zIndex: -1 }}
+        >
+          {zoomToolbarButtons}
+        </Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'nowrap', flexShrink: 0 }}>
+          {showZoomToolbarGroup && (
+            <>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {zoomToolbarButtons}
+              </Box>
+              <Box sx={{ width: '1px', alignSelf: 'stretch', backgroundColor: '#E0E4EB' }} />
+            </>
+          )}
+          <Box ref={toolbarSecondaryGroupRef} sx={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Box sx={{ position: 'relative' }}>
               <Button onClick={() => setDownloadMenuOpen((previous) => !previous)} variant="outlined" startIcon={<FileDownloadIcon sx={{ fontSize: '16px' }} />} sx={toolbarButtonSx}>Download</Button>
               {downloadMenuOpen && (
                 <Box sx={{ position: 'absolute', top: '44px', left: 0, width: '174px', padding: '6px', background: '#FFFFFF', border: '1px solid #E0E4EB', borderRadius: '8px', boxShadow: '0 5px 15px rgba(48, 69, 82, 0.18)', zIndex: 20 }}>
                   <Button onClick={handleDownload} fullWidth size="small" sx={{ justifyContent: 'flex-start', color: '#1C3C68', textTransform: 'none', fontFamily: 'Inter, sans-serif', fontSize: '12px' }}>Download PNG</Button>
-                  <Button onClick={handleDownloadJson} fullWidth size="small" sx={{ justifyContent: 'flex-start', color: '#1C3C68', textTransform: 'none', fontFamily: 'Inter, sans-serif', fontSize: '12px' }}>Download JSON</Button>
+                  <Button
+                    onClick={handleDownloadJson}
+                    disabled={getVisibleNodeIds().size > MAX_VISIBLE_NODES}
+                    fullWidth
+                    size="small"
+                    sx={{ justifyContent: 'flex-start', color: '#1C3C68', textTransform: 'none', fontFamily: 'Inter, sans-serif', fontSize: '12px', '&.Mui-disabled': { color: '#B7C4D6' } }}
+                  >
+                    Download JSON
+                  </Button>
+                  {getVisibleNodeIds().size > MAX_VISIBLE_NODES && (
+                    <Typography sx={{ fontFamily: 'Inter, sans-serif', fontSize: '10px', color: '#94A3B8', padding: '2px 8px 0' }}>
+                      JSON export supports up to {MAX_VISIBLE_NODES} visible nodes.
+                    </Typography>
+                  )}
                 </Box>
               )}
             </Box>
@@ -1179,23 +1793,31 @@ export default function StandaloneKnowledgeGraph({
               </Button>
               {modeMenuOpen && (
                 <Box sx={{ position: 'absolute', top: '44px', right: 0, width: '220px', padding: '6px', background: '#FFFFFF', border: '1px solid #E0E4EB', borderRadius: '8px', boxShadow: '0 5px 15px rgba(48, 69, 82, 0.18)', zIndex: 20 }}>
-                  <Button fullWidth disabled={modeLoading || !displayQueryRequest} onClick={() => handleModeChange('kg_only')} sx={{ justifyContent: 'flex-start', color: '#1C3C68', textTransform: 'none', fontFamily: 'Inter, sans-serif', fontSize: '11px', padding: '8px' }}>
-                    <span><strong>KG mode</strong><br /><small>Generic graph layout</small></span>
+                  <Button fullWidth disabled={interactionLoading || !activeCypherList.length} onClick={() => handleModeChange('kg_only')} sx={modeOptionSx}>
+                    <Typography component="span" sx={modeOptionTitleSx}>KG mode</Typography>
+                    <Typography component="span" sx={modeOptionSubtitleSx}>Generic graph layout</Typography>
                   </Button>
-                  <Button fullWidth disabled={modeLoading || !displayQueryRequest} onClick={() => handleModeChange('genome_mode')} sx={{ justifyContent: 'flex-start', color: '#1C3C68', textTransform: 'none', fontFamily: 'Inter, sans-serif', fontSize: '11px', padding: '8px' }}>
-                    <span><strong>Genome browser mode</strong><br /><small>Genome tracks + KG around</small></span>
+                  <Button fullWidth disabled={interactionLoading || !activeCypherList.length} onClick={() => handleModeChange('genome_mode')} sx={modeOptionSx}>
+                    <Typography component="span" sx={modeOptionTitleSx}>Genome browser mode</Typography>
+                    <Typography component="span" sx={modeOptionSubtitleSx}>Genome tracks + KG around</Typography>
                   </Button>
                 </Box>
               )}
             </Box>
-            <Button onClick={handleRecenter} variant="outlined" startIcon={<SyncIcon sx={{ fontSize: '16px' }} />} sx={{ ...toolbarButtonSx, color: '#374151' }}>Reset graph</Button>
+            <IconButton onClick={handleUndo} disabled={!canUndo} size="small" sx={{ width: '36px', height: '36px', border: '1px solid #E0E4EB', borderRadius: '10px' }} aria-label="Undo">
+              <UndoIcon sx={{ fontSize: '18px', color: canUndo ? '#1C3C68' : '#D1D9E6' }} />
+            </IconButton>
+            <IconButton onClick={handleRedo} disabled={!canRedo} size="small" sx={{ width: '36px', height: '36px', border: '1px solid #E0E4EB', borderRadius: '10px' }} aria-label="Redo">
+              <RedoIcon sx={{ fontSize: '18px', color: canRedo ? '#1C3C68' : '#D1D9E6' }} />
+            </IconButton>
+            <Button onClick={handleResetGraph} variant="outlined" startIcon={<SyncIcon sx={{ fontSize: '16px' }} />} sx={{ ...toolbarButtonSx, color: '#374151' }}>Reset graph</Button>
           </Box>
         </Box>
       </Box>
       <div style={{ position: 'relative', height: containerHeight, minHeight: '460px', overflow: 'hidden', background: 'transparent' }}>
-      {modeError && (
-        <Alert severity="error" onClose={() => setModeError('')} sx={{ position: 'absolute', top: '12px', right: '16px', zIndex: 8, maxWidth: '420px' }}>
-          {modeError}
+      {actionMessage && (
+        <Alert severity={actionMessage.severity} onClose={() => setActionMessage(null)} sx={{ position: 'absolute', top: '12px', right: '16px', zIndex: 8, maxWidth: '420px' }}>
+          {actionMessage.text}
         </Alert>
       )}
         <div
@@ -1273,6 +1895,63 @@ export default function StandaloneKnowledgeGraph({
       >
         <InfocardMenu hoveredData={activeNode?.data()} />
       </div>
+      {contextMenu && (
+        <Box
+          ref={contextMenuRef}
+          sx={{
+            position: 'absolute',
+            left: contextMenu.x + 10,
+            top: contextMenu.y + 10,
+            width: '190px',
+            padding: '6px',
+            background: '#FFFFFF',
+            border: '1px solid #E0E4EB',
+            borderRadius: '8px',
+            boxShadow: '0 5px 15px rgba(48, 69, 82, 0.18)',
+            zIndex: 30,
+          }}
+        >
+          {contextMenu.type === 'node' ? (
+            <>
+              <Button
+                fullWidth
+                disabled={interactionLoading || isOverflowId(contextMenu.id)}
+                onClick={() => handleExploreNeighbors(contextMenu.id)}
+                startIcon={<HubIcon sx={{ fontSize: '16px' }} />}
+                sx={contextMenuItemSx}
+              >
+                Explore neighbors
+              </Button>
+              <Button
+                fullWidth
+                disabled={interactionLoading || isOverflowId(contextMenu.id)}
+                onClick={() => handleFindConnection(contextMenu.id)}
+                startIcon={<LinkIcon sx={{ fontSize: '16px' }} />}
+                sx={contextMenuItemSx}
+              >
+                Find connection
+              </Button>
+              <Button
+                fullWidth
+                onClick={() => handleDeleteElement(contextMenu.id)}
+                startIcon={<DeleteOutlineIcon sx={{ fontSize: '16px' }} />}
+                sx={{ ...contextMenuItemSx, color: '#B42318' }}
+              >
+                Delete node
+              </Button>
+            </>
+          ) : (
+            <Button
+              fullWidth
+              onClick={() => handleDeleteElement(contextMenu.id)}
+              startIcon={<DeleteOutlineIcon sx={{ fontSize: '16px' }} />}
+              sx={{ ...contextMenuItemSx, color: '#B42318' }}
+            >
+              Delete edge
+            </Button>
+          )}
+        </Box>
+      )}
         <div
           style={{
             position: 'absolute',
@@ -1280,8 +1959,9 @@ export default function StandaloneKnowledgeGraph({
             left: '32px',
             display: 'flex',
             flexDirection: 'column',
+            justifyContent: 'space-between',
             gap: '16px',
-            maxHeight: 'calc(100% - 48px)',
+            height: 'calc(100% - 48px)',
             width: '208px',
             zIndex: 4,
           }}
@@ -1336,7 +2016,7 @@ export default function StandaloneKnowledgeGraph({
             zIndex: 4,
           }}
         >
-          <IconButton onClick={handleFullscreen} size="small" sx={{ padding: 0 }}>
+          <IconButton disabled onClick={handleFullscreen} size="small" sx={{ padding: 0 }}>
             <ZoomOutMapIcon sx={{ fontSize: '24px', color: '#1C3C68' }} />
           </IconButton>
           <IconButton onClick={handleZoomIn} disabled={zoomLevel <= 0.6} size="small" sx={{ padding: 0 }}>
@@ -1395,7 +2075,12 @@ export default function StandaloneKnowledgeGraph({
           Query Graph
         </Button>
       </Box>
-      <GraphViewerQueryDialog open={queryDialogOpen} onClose={() => setQueryDialogOpen(false)} onResult={(payload) => { setQueryResult(payload); setViewMode(payload.metadata?.layout?.mode || 'kg_only'); setModeError(''); }} />
+      <GraphViewerQueryDialog
+        open={queryDialogOpen}
+        examples={queryExamples}
+        onClose={() => setQueryDialogOpen(false)}
+        onResult={(payload) => { setQueryResult(payload); setViewMode(payload.metadata?.layout?.mode || 'kg_only'); setActionMessage(null); }}
+      />
       </div>
     </>
   );

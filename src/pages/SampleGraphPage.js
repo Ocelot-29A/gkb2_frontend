@@ -6,7 +6,6 @@ import React, {
 import {
   Alert,
   Box,
-  CircularProgress,
 } from '@mui/material';
 
 import StandaloneKnowledgeGraph from '../components/StandaloneKnowledgeGraph';
@@ -21,24 +20,7 @@ const loadJson = async (path) => {
   return response.json();
 };
 
-const loadFirstAvailableJson = async (paths) => {
-  let lastError = null;
-
-  for (const path of paths) {
-    try {
-      return await loadJson(path);
-    } catch (error) {
-      lastError = error;
-    }
-  }
-
-  throw lastError || new Error('Failed to load sample graph data.');
-};
-
 export default function SampleGraphPage() {
-  const [graphData, setGraphData] = useState(null);
-  const [coordData, setCoordData] = useState(null);
-  const [metadata, setMetadata] = useState(null);
   const [queryRequest, setQueryRequest] = useState(null);
   const [error, setError] = useState('');
 
@@ -48,20 +30,12 @@ export default function SampleGraphPage() {
     const load = async () => {
       try {
         setError('');
-        const [graph, xy, meta, request] = await Promise.all([
-          loadJson('graph.json'),
-          loadFirstAvailableJson(['xy_json.json', 'xy.json']),
-          loadJson('metadata.json'),
-          loadJson('request.json'),
-        ]);
+        const request = await loadJson('request.json');
 
         if (!active) {
           return;
         }
 
-        setGraphData(graph);
-        setCoordData(xy);
-        setMetadata(meta);
         setQueryRequest(request);
       } catch (err) {
         if (active) {
@@ -101,12 +75,9 @@ export default function SampleGraphPage() {
       >
         {error ? (
           <Alert severity="error">{error}</Alert>
-        ) : graphData && coordData ? (
+        ) : queryRequest ? (
           <StandaloneKnowledgeGraph
-            graphData={graphData}
-            coordData={coordData}
-            metadata={metadata}
-            queryRequest={queryRequest}
+            queryExamples={[{ label: 'Initial sample graph', request: queryRequest }]}
             containerHeight="calc(100vh - 315px)"
             defaultLegendVisible={true}
           />
@@ -118,9 +89,7 @@ export default function SampleGraphPage() {
               alignItems: 'center',
               justifyContent: 'center',
             }}
-          >
-            <CircularProgress />
-          </Box>
+          />
         )}
       </Box>
     </Box>
