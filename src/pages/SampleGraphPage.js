@@ -79,11 +79,23 @@ export default function SampleGraphPage() {
       sx={{
         flex: 1,
         width: '100%',
-        padding: { xs: '12px', md: '18px 24px 24px' },
+        display: 'flex',
+        padding: { xs: '12px', md: '16px 24px' },
         boxSizing: 'border-box',
       }}
     >
-      <Box sx={{ width: '100%', background: '#FFFFFF', border: '1px solid #E1EAF0', borderRadius: '14px', overflow: 'hidden', boxShadow: '8px 10px 30px rgba(66, 93, 113, 0.12)' }}>
+      <Box
+        sx={{
+          width: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          border: '3px solid #FFFFFF',
+          borderRadius: '20px',
+          overflow: 'hidden',
+          boxShadow: '8px 6px 33px 0px #D8E6F8',
+          backgroundImage: 'linear-gradient(170deg, #F5FAFF 10.17%, #FCFCFC 69.1%)',
+        }}
+      >
         {error ? (
           <Alert severity="error">{error}</Alert>
         ) : graphData && coordData ? (
