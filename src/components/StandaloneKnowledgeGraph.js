@@ -12,8 +12,8 @@ import React, {
 import cytoscape from 'cytoscape';
 import { useSelector } from 'react-redux';
 
+import AdsClickIcon from '@mui/icons-material/AdsClick';
 import CenterFocusStrongIcon from '@mui/icons-material/CenterFocusStrong';
-import CheckIcon from '@mui/icons-material/Check';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import GridViewIcon from '@mui/icons-material/GridView';
@@ -24,6 +24,7 @@ import LinkIcon from '@mui/icons-material/Link';
 import RedoIcon from '@mui/icons-material/Redo';
 import SyncIcon from '@mui/icons-material/Sync';
 import UndoIcon from '@mui/icons-material/Undo';
+import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import ZoomInIcon from '@mui/icons-material/ZoomIn';
 import ZoomOutIcon from '@mui/icons-material/ZoomOut';
 import ZoomOutMapIcon from '@mui/icons-material/ZoomOutMap';
@@ -74,7 +75,7 @@ const LegendItem = ({ label, color }) => (
 const toolbarButtonSx = {
   height: '36px',
   minHeight: '36px',
-  padding: '0 12px',
+  padding: '0 8px',
   border: '1px solid #E0E4EB',
   borderRadius: '10px',
   backgroundColor: '#FFFFFF',
@@ -86,8 +87,8 @@ const toolbarButtonSx = {
   lineHeight: '16px',
   textTransform: 'none',
   whiteSpace: 'nowrap',
-  '& .MuiButton-startIcon': { marginRight: '8px' },
-  '& .MuiButton-endIcon': { marginLeft: '8px' },
+  '& .MuiButton-startIcon': { marginRight: '4px' },
+  '& .MuiButton-endIcon': { marginLeft: '4px' },
   '&:hover': {
     borderColor: '#B9C6D6',
     backgroundColor: '#F8FAFC',
@@ -234,32 +235,45 @@ const modeOptionSx = {
 const modeOptionTitleSx = { fontFamily: 'Inter, sans-serif', fontSize: '12px', fontWeight: 600, lineHeight: '16px', color: '#1C3C68' };
 const modeOptionSubtitleSx = { fontFamily: 'Inter, sans-serif', fontSize: '11px', fontWeight: 400, lineHeight: '14px', color: '#94A3B8' };
 
-const CheckToggle = ({ label, enabled, onChange }) => (
+const SwitchToggle = ({ label, icon, enabled, onChange }) => (
   <Box
     component="button"
     type="button"
     aria-pressed={enabled}
     onClick={onChange}
-    sx={{ display: 'flex', alignItems: 'center', gap: '4px', paddingLeft: '4px', border: 'none', background: 'transparent', cursor: 'pointer' }}
+    sx={{
+      display: 'flex',
+      alignItems: 'center',
+      gap: '4px',
+      height: '36px',
+      padding: '0 8px',
+      border: '1px solid #E0E4EB',
+      borderRadius: '10px',
+      backgroundColor: '#FFFFFF',
+      cursor: 'pointer',
+      '&:hover': { borderColor: '#B9C6D6', backgroundColor: '#F8FAFC' },
+    }}
   >
-    <Box
-      sx={{
+    {icon}
+    <Typography sx={{ fontFamily: 'Inter, sans-serif', fontSize: '12px', fontWeight: 400, lineHeight: '16px', color: '#1C3C68', whiteSpace: 'nowrap' }}>
+      {label}
+    </Typography>
+    <span
+      style={{
         flex: '0 0 auto',
         display: 'flex',
         alignItems: 'center',
-        justifyContent: 'center',
-        width: '16px',
+        justifyContent: enabled ? 'flex-end' : 'flex-start',
+        width: '24px',
         height: '16px',
-        borderRadius: '4px',
-        backgroundColor: enabled ? '#10B981' : '#E2E8F0',
-        border: enabled ? 'none' : '1px solid #CBD5E1',
+        padding: '2px',
+        boxSizing: 'border-box',
+        borderRadius: '256px',
+        backgroundColor: enabled ? '#1A74FF' : '#D0D6E1',
       }}
     >
-      {enabled && <CheckIcon sx={{ fontSize: '12px', color: '#FFFFFF' }} />}
-    </Box>
-    <Typography sx={{ fontFamily: 'Inter, sans-serif', fontSize: '10px', fontWeight: 400, color: '#94A3B8', whiteSpace: 'nowrap' }}>
-      {label}
-    </Typography>
+      <span style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#FFFFFF' }} />
+    </span>
   </Box>
 );
 
@@ -770,6 +784,7 @@ export default function StandaloneKnowledgeGraph({
   const toolbarSecondaryGroupRef = useRef(null);
   const clickMenuEnabledRef = useRef(true);
   const contextMenuRef = useRef(null);
+  const modeMenuRef = useRef(null);
   const baseCypherRef = useRef(null);
   const graphCacheRef = useRef(new Map());
   const lastFetchedKeyRef = useRef(null);
@@ -885,22 +900,40 @@ export default function StandaloneKnowledgeGraph({
     if (isNewBase) {
       baseCypherRef.current = baseCypher;
 
-      const baselineMode = queryResult?.metadata?.layout?.mode || metadata?.layout?.mode || 'kg_only';
-      const baseline = {
-        graphData: queryResult?.graphData ?? graphData,
-        coordData: queryResult?.coordData ?? coordData,
-        metadata: queryResult?.metadata ?? metadata,
-        request: queryResult?.request ?? { ...(queryRequest || {}), cypher: baseCypher },
-      };
-      const key = buildGraphRequestKey(baseCypher, baselineMode);
-      graphCacheRef.current.set(key, baseline);
-      lastFetchedKeyRef.current = key;
+      const baselineMode = queryResult?.metadata?.layout?.mode
+        || metadata?.layout?.mode
+        || queryResult?.request?.layout_mode
+        || queryRequest?.layout_mode
+        || 'kg_only';
+      const staticGraphData = queryResult?.graphData ?? graphData;
+      const hasStaticGraph = Boolean(staticGraphData?.nodes);
 
       setInteractionHistory({ past: [], present: { cypher: baseCypher, deletedIds: [] }, future: [] });
-      setInteractionGraph(baseline);
       setActionMessage(null);
       setContextMenu(null);
       setHighlightedIds(new Set());
+
+      if (hasStaticGraph) {
+        // Caller supplied a ready-made graph (e.g. a debug-dialog result). Use it
+        // directly and mark it fetched so the fetch branch below stays idle.
+        const baseline = {
+          graphData: staticGraphData,
+          coordData: queryResult?.coordData ?? coordData,
+          metadata: queryResult?.metadata ?? metadata,
+          request: queryResult?.request ?? { ...(queryRequest || {}), cypher: baseCypher },
+        };
+        const key = buildGraphRequestKey(baseCypher, baselineMode);
+        graphCacheRef.current.set(key, baseline);
+        lastFetchedKeyRef.current = key;
+        setInteractionGraph(baseline);
+      } else {
+        // Only a query list was supplied (e.g. the sample page). Clear the fetched
+        // marker so the re-render triggered by these state updates falls through to
+        // the fetch branch and actually loads the base graph from the API.
+        lastFetchedKeyRef.current = null;
+        setInteractionGraph(null);
+      }
+
       if (viewMode !== baselineMode) {
         setViewMode(baselineMode);
       }
@@ -1725,11 +1758,35 @@ export default function StandaloneKnowledgeGraph({
     };
   }, [contextMenu]);
 
+  useEffect(() => {
+    if (!modeMenuOpen) {
+      return undefined;
+    }
+
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        setModeMenuOpen(false);
+      }
+    };
+    const handleDocumentPointerDown = (event) => {
+      if (modeMenuRef.current && !modeMenuRef.current.contains(event.target)) {
+        setModeMenuOpen(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('mousedown', handleDocumentPointerDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('mousedown', handleDocumentPointerDown);
+    };
+  }, [modeMenuOpen]);
+
   const zoomToolbarButtons = (
     <>
       <Button disabled onClick={handleFullscreen} variant="outlined" startIcon={<ZoomOutMapIcon sx={{ fontSize: '16px' }} />} sx={toolbarButtonSx}>Fullscreen</Button>
       <Button onClick={handleZoomIn} variant="outlined" disabled={zoomLevel <= 0.6} startIcon={<ZoomInIcon sx={{ fontSize: '16px' }} />} sx={toolbarButtonSx}>Zoom in</Button>
-      <Button onClick={handleZoomOut} variant="outlined" disabled={zoomLevel >= 4} startIcon={<ZoomOutIcon sx={{ fontSize: '16px' }} />} sx={toolbarButtonSx}>Zoom Out</Button>
+      <Button onClick={handleZoomOut} variant="outlined" disabled={zoomLevel >= 4} startIcon={<ZoomOutIcon sx={{ fontSize: '16px' }} />} sx={toolbarButtonSx}>Zoom out</Button>
       <Button onClick={handleRecenter} variant="outlined" startIcon={<CenterFocusStrongIcon sx={{ fontSize: '16px' }} />} sx={toolbarButtonSx}>Recenter</Button>
     </>
   );
@@ -1785,9 +1842,9 @@ export default function StandaloneKnowledgeGraph({
                 </Box>
               )}
             </Box>
-            <CheckToggle label="Hover info" enabled={infocardEnabled} onChange={() => setInfocardEnabled((previous) => !previous)} />
-            <CheckToggle label="Click menu" enabled={clickMenuEnabled} onChange={() => setClickMenuEnabled((previous) => !previous)} />
-            <Box sx={{ position: 'relative' }}>
+            <SwitchToggle label="Hover info" icon={<VisibilityOutlinedIcon sx={{ fontSize: '16px', color: '#1C3C68' }} />} enabled={infocardEnabled} onChange={() => setInfocardEnabled((previous) => !previous)} />
+            <SwitchToggle label="Click menu" icon={<AdsClickIcon sx={{ fontSize: '16px', color: '#1C3C68' }} />} enabled={clickMenuEnabled} onChange={() => setClickMenuEnabled((previous) => !previous)} />
+            <Box ref={modeMenuRef} sx={{ position: 'relative' }}>
               <Button onClick={() => setModeMenuOpen((previous) => !previous)} variant="outlined" startIcon={<GridViewIcon sx={{ fontSize: '15px' }} />} endIcon={<KeyboardArrowDownIcon sx={{ fontSize: '12px' }} />} sx={toolbarButtonSx}>
                 {viewMode === 'genome_mode' ? 'Genome browser mode' : 'KG mode'}
               </Button>
