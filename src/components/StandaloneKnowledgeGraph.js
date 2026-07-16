@@ -39,7 +39,7 @@ import IconButton from '@mui/material/IconButton';
 
 import graphInfocard from '../schema/graph_viewer_schema.json';
 import { addWhitespace } from '../utils/textProcessing';
-import GraphViewerQueryDialog, { requestGraphViewer } from './GraphViewerQueryDialog';
+import GraphViewerQueryDialog, { formatGraphViewerError, requestGraphViewer } from './GraphViewerQueryDialog';
 import {
   edgeIsInverted,
   edgeLabels,
@@ -1145,7 +1145,7 @@ export default function StandaloneKnowledgeGraph({
       }
     } catch (error) {
       if (interactionAbortRef.current === controller) {
-        setActionMessage({ text: error.message || 'Failed to explore neighbors.', severity: 'error' });
+        setActionMessage({ text: formatGraphViewerError(error), severity: 'error' });
       }
     } finally {
       if (interactionAbortRef.current === controller) {

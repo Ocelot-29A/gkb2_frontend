@@ -19,8 +19,12 @@ import {
   Typography,
 } from '@mui/material';
 
-export const GRAPH_VIEWER_API_URL = 'https://jieliulab3.dcmb.med.umich.edu/gkb0708/api/graph';
-const GRAPH_VIEWER_TIMEOUT_MS = 30000;
+export const GRAPH_VIEWER_API_URL = process.env.REACT_APP_GRAPH_VIEWER_API_URL
+  || 'https://jieliulab3.dcmb.med.umich.edu/gkb0708/api/graph';
+const configuredTimeoutMs = Number.parseInt(process.env.REACT_APP_GRAPH_VIEWER_TIMEOUT_MS, 10);
+export const GRAPH_VIEWER_TIMEOUT_MS = Number.isFinite(configuredTimeoutMs) && configuredTimeoutMs > 0
+  ? configuredTimeoutMs
+  : 30000;
 const GENOME_SAMPLE_QUERY = 'MATCH (n {id: "ENSG00000001626"})-[r]-(m) WITH n, r, m LIMIT 10 RETURN collect(DISTINCT n) + collect(DISTINCT m) AS nodes, collect(DISTINCT r) AS edges';
 const KG_SAMPLE_QUERY = 'MATCH (n {id: "ENSG00000001626"})-[r]-(m) WITH n, r, m LIMIT 6 RETURN collect(DISTINCT n) + collect(DISTINCT m) AS nodes, collect(DISTINCT r) AS edges';
 
@@ -63,6 +67,23 @@ const BUILTIN_QUERY_EXAMPLES = [
     },
   },
 ];
+
+export class GraphViewerRequestError extends Error {
+  constructor(message, { code = 'GRAPH_VIEWER_ERROR', status = null, requestId = '', retryable = false, phase = '' } = {}) {
+    super(message);
+    this.name = 'GraphViewerRequestError';
+    this.code = code;
+    this.status = status;
+    this.requestId = requestId;
+    this.retryable = retryable;
+    this.phase = phase;
+  }
+}
+
+export const formatGraphViewerError = (error) => {
+  const message = error?.message || 'Graph viewer request failed.';
+  return error?.requestId ? `${message} Request ID: ${error.requestId}` : message;
+};
 
 const normalizeInput = (value) => String(value || '')
   .trim()
@@ -111,8 +132,10 @@ export const parseGraphViewerInputs = (inputs) => inputs.flatMap((input) => {
 }).filter(Boolean);
 
 export const requestGraphViewer = async (request, options = {}) => {
+  const fetchImpl = options.fetchImpl || fetch;
+  const timeoutMs = options.timeoutMs || GRAPH_VIEWER_TIMEOUT_MS;
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), options.timeoutMs || GRAPH_VIEWER_TIMEOUT_MS);
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
   let externallyCancelled = false;
   const handleExternalAbort = () => {
     externallyCancelled = true;
@@ -122,30 +145,51 @@ export const requestGraphViewer = async (request, options = {}) => {
   options.signal?.addEventListener('abort', handleExternalAbort, { once: true });
 
   try {
-    const response = await fetch(GRAPH_VIEWER_API_URL, {
+    const response = await fetchImpl(GRAPH_VIEWER_API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(request),
       signal: controller.signal,
     });
-    const responseText = await response.text();
+    const headerRequestId = response.headers?.get?.('X-Request-ID') || '';
     let payload = null;
     try {
-      payload = responseText ? JSON.parse(responseText) : null;
+      payload = await response.json();
     } catch (parseError) {
-      throw new Error(`Graph viewer API returned invalid JSON (HTTP ${response.status}).`);
+      if (response.ok) {
+        throw new GraphViewerRequestError('Graph viewer returned invalid JSON.', {
+          code: 'INVALID_RESPONSE',
+          status: response.status,
+          requestId: headerRequestId,
+        });
+      }
     }
 
     if (!response.ok) {
-      throw new Error(payload?.error?.message || payload?.error || `Graph viewer API failed with HTTP ${response.status}.`);
-    }
-    if (payload?.error) {
-      throw new Error(payload.error.message || payload.error);
+      const details = payload?.error;
+      const structured = details && typeof details === 'object';
+      const requestId = (structured && details.request_id) || headerRequestId;
+      throw new GraphViewerRequestError(
+        (structured && details.message)
+          || (typeof details === 'string' && details)
+          || `Graph viewer API failed with HTTP ${response.status}.`,
+        {
+          code: (structured && details.code) || `HTTP_${response.status}`,
+          status: response.status,
+          requestId,
+          retryable: Boolean(structured && details.retryable),
+          phase: (structured && details.phase) || '',
+        },
+      );
     }
 
     const graphData = payload?.combined_query_result || payload?.graph;
     if (!graphData?.nodes || !graphData?.edges) {
-      throw new Error('Response did not contain graph nodes/edges.');
+      throw new GraphViewerRequestError('Response did not contain graph nodes/edges.', {
+        code: 'INVALID_RESPONSE',
+        status: response.status,
+        requestId: headerRequestId,
+      });
     }
 
     return {
@@ -155,8 +199,15 @@ export const requestGraphViewer = async (request, options = {}) => {
       request,
     };
   } catch (error) {
-    if (error.name === 'AbortError') {
-      throw new Error(externallyCancelled ? 'Graph viewer request was cancelled.' : 'Graph viewer request timed out.');
+    if (error?.name === 'AbortError') {
+      throw new GraphViewerRequestError(
+        externallyCancelled
+          ? 'Graph viewer request was cancelled.'
+          : `Graph viewer request timed out after ${Math.ceil(timeoutMs / 1000)} seconds.`,
+        externallyCancelled
+          ? { code: 'CLIENT_CANCELLED', retryable: false, phase: 'client_wait' }
+          : { code: 'CLIENT_TIMEOUT', retryable: true, phase: 'client_wait' },
+      );
     }
     throw error;
   } finally {
@@ -171,7 +222,8 @@ export default function GraphViewerQueryDialog({ open, onClose, onResult, exampl
   const [maxNodes, setMaxNodes] = useState('15');
   const [layoutMode, setLayoutMode] = useState('kg_only');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(null);
+  const [lastRequest, setLastRequest] = useState(null);
   const availableExamples = [...BUILTIN_QUERY_EXAMPLES, ...examples];
 
   const applyExample = (example) => {
@@ -181,7 +233,7 @@ export default function GraphViewerQueryDialog({ open, onClose, onResult, exampl
     setCoreNodes(Array.isArray(request?.core_nodes) ? request.core_nodes.join(', ') : '');
     setMaxNodes(request?.max_nodes === undefined ? '15' : String(request.max_nodes));
     setLayoutMode(request?.layout_mode || 'kg_only');
-    setError('');
+    setError(null);
   };
 
   const updateInput = (index, value) => {
@@ -216,15 +268,29 @@ export default function GraphViewerQueryDialog({ open, onClose, onResult, exampl
         throw new Error('No Cypher/request list found to auto parse.');
       }
       setInputs(expanded.length ? expanded : ['']);
-      setError('');
+      setError(null);
     } catch (parseError) {
-      setError(parseError.message || 'Auto parse failed.');
+      setError(parseError);
+    }
+  };
+
+  const runRequest = async (request) => {
+    setLoading(true);
+    setError(null);
+    setLastRequest(request);
+
+    try {
+      onResult(await requestGraphViewer(request));
+      onClose();
+    } catch (requestError) {
+      setError(requestError);
+    } finally {
+      setLoading(false);
     }
   };
 
   const submit = async () => {
-    setLoading(true);
-    setError('');
+    setError(null);
 
     try {
       const cypher = parseGraphViewerInputs(inputs);
@@ -239,12 +305,9 @@ export default function GraphViewerQueryDialog({ open, onClose, onResult, exampl
         max_nodes: parsedMaxNodes,
         layout_mode: layoutMode,
       };
-      onResult(await requestGraphViewer(request));
-      onClose();
+      await runRequest(request);
     } catch (submitError) {
-      setError(submitError.message || 'Graph viewer request failed.');
-    } finally {
-      setLoading(false);
+      setError(submitError);
     }
   };
 
@@ -292,7 +355,18 @@ export default function GraphViewerQueryDialog({ open, onClose, onResult, exampl
               <ToggleButton value="genome_mode">Genome browser</ToggleButton>
             </ToggleButtonGroup>
           </Stack>
-          {error && <Alert severity="error">{error}</Alert>}
+          {error && (
+            <Alert
+              severity="error"
+              action={error.retryable && lastRequest ? (
+                <Button color="inherit" size="small" onClick={() => runRequest(lastRequest)} disabled={loading}>
+                  Retry
+                </Button>
+              ) : null}
+            >
+              {formatGraphViewerError(error)}
+            </Alert>
+          )}
         </Stack>
       </DialogContent>
       <DialogActions sx={{ padding: '12px 24px' }}>
