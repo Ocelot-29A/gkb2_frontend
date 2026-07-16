@@ -28,7 +28,7 @@ import downloadIcon from '../image/material-symbols--download-rounded.svg';
 import recenterIcon from '../image/material-symbols--recenter-rounded.svg';
 import graphInfocard from '../schema/graph_viewer_schema.json';
 import { addWhitespace } from '../utils/textProcessing';
-import GraphViewerQueryDialog, { requestGraphViewer } from './GraphViewerQueryDialog';
+import GraphViewerQueryDialog, { formatGraphViewerError, requestGraphViewer } from './GraphViewerQueryDialog';
 import {
   edgeIsInverted,
   edgeLabels,
@@ -732,7 +732,7 @@ export default function StandaloneKnowledgeGraph({
       setQueryResult(result);
       setViewMode(result.metadata?.layout?.mode || nextMode);
     } catch (error) {
-      setModeError(error.message || 'Failed to switch graph layout mode.');
+      setModeError(formatGraphViewerError(error));
     } finally {
       setModeLoading(false);
     }

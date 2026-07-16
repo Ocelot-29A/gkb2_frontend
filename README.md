@@ -2,6 +2,21 @@
 
 # Getting Started with Create React App
 
+## Graph viewer API settings
+
+The graph viewer defaults to the public GKB endpoint and aborts requests after
+30 seconds. Deployment-specific values can be provided at build time:
+
+```text
+REACT_APP_GRAPH_VIEWER_API_URL=https://jieliulab3.dcmb.med.umich.edu/gkb0708/api/graph
+REACT_APP_GRAPH_VIEWER_TIMEOUT_MS=30000
+```
+
+The query dialog understands the structured graph-viewer error envelope,
+shows its request ID, and offers Retry only when the failure is marked
+retryable. It also accepts the legacy string-error response while older backend
+deployments remain in service.
+
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
 
 ## Available Scripts

@@ -18,8 +18,30 @@ import {
   ToggleButtonGroup,
 } from '@mui/material';
 
-export const GRAPH_VIEWER_API_URL = 'https://jieliulab3.dcmb.med.umich.edu/gkb0708/api/graph';
+export const GRAPH_VIEWER_API_URL = process.env.REACT_APP_GRAPH_VIEWER_API_URL
+  || 'https://jieliulab3.dcmb.med.umich.edu/gkb0708/api/graph';
+const configuredTimeoutMs = Number.parseInt(process.env.REACT_APP_GRAPH_VIEWER_TIMEOUT_MS, 10);
+export const GRAPH_VIEWER_TIMEOUT_MS = Number.isFinite(configuredTimeoutMs) && configuredTimeoutMs > 0
+  ? configuredTimeoutMs
+  : 30000;
 const DEFAULT_QUERY = 'MATCH (n {id: "ENSG00000001626"})-[r]-(m) WITH n, r, m LIMIT 10 RETURN collect(DISTINCT n) + collect(DISTINCT m) AS nodes, collect(DISTINCT r) AS edges';
+
+export class GraphViewerRequestError extends Error {
+  constructor(message, { code = 'GRAPH_VIEWER_ERROR', status = null, requestId = '', retryable = false, phase = '' } = {}) {
+    super(message);
+    this.name = 'GraphViewerRequestError';
+    this.code = code;
+    this.status = status;
+    this.requestId = requestId;
+    this.retryable = retryable;
+    this.phase = phase;
+  }
+}
+
+export const formatGraphViewerError = (error) => {
+  const message = error?.message || 'Graph viewer request failed.';
+  return error?.requestId ? `${message} Request ID: ${error.requestId}` : message;
+};
 
 const normalizeInput = (value) => String(value || '')
   .trim()
@@ -67,28 +89,78 @@ export const parseGraphViewerInputs = (inputs) => inputs.flatMap((input) => {
   return [normalizeInput(input)];
 }).filter(Boolean);
 
-export const requestGraphViewer = async (request) => {
-  const response = await fetch(GRAPH_VIEWER_API_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(request),
-  });
-  if (!response.ok) {
-    throw new Error(`Graph viewer API failed with HTTP ${response.status}.`);
-  }
+export const requestGraphViewer = async (
+  request,
+  { fetchImpl = fetch, timeoutMs = GRAPH_VIEWER_TIMEOUT_MS } = {},
+) => {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
-  const payload = await response.json();
-  const graphData = payload?.combined_query_result || payload?.graph;
-  if (!graphData?.nodes || !graphData?.edges) {
-    throw new Error('Response did not contain graph nodes/edges.');
-  }
+  try {
+    const response = await fetchImpl(GRAPH_VIEWER_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+      signal: controller.signal,
+    });
+    const headerRequestId = response.headers?.get?.('X-Request-ID') || '';
+    let payload = null;
+    try {
+      payload = await response.json();
+    } catch (parseError) {
+      if (response.ok) {
+        throw new GraphViewerRequestError('Graph viewer returned invalid JSON.', {
+          code: 'INVALID_RESPONSE',
+          status: response.status,
+          requestId: headerRequestId,
+        });
+      }
+    }
 
-  return {
-    graphData,
-    coordData: payload.xy_json || payload.coords || null,
-    metadata: payload.metadata || null,
-    request,
-  };
+    if (!response.ok) {
+      const details = payload?.error;
+      const structured = details && typeof details === 'object';
+      const requestId = (structured && details.request_id) || headerRequestId;
+      throw new GraphViewerRequestError(
+        (structured && details.message)
+          || (typeof details === 'string' && details)
+          || `Graph viewer API failed with HTTP ${response.status}.`,
+        {
+          code: (structured && details.code) || `HTTP_${response.status}`,
+          status: response.status,
+          requestId,
+          retryable: Boolean(structured && details.retryable),
+          phase: (structured && details.phase) || '',
+        },
+      );
+    }
+
+    const graphData = payload?.combined_query_result || payload?.graph;
+    if (!graphData?.nodes || !graphData?.edges) {
+      throw new GraphViewerRequestError('Response did not contain graph nodes/edges.', {
+        code: 'INVALID_RESPONSE',
+        status: response.status,
+        requestId: headerRequestId,
+      });
+    }
+
+    return {
+      graphData,
+      coordData: payload.xy_json || payload.coords || null,
+      metadata: payload.metadata || null,
+      request,
+    };
+  } catch (error) {
+    if (error?.name === 'AbortError') {
+      throw new GraphViewerRequestError(
+        `Graph viewer request timed out after ${Math.ceil(timeoutMs / 1000)} seconds.`,
+        { code: 'CLIENT_TIMEOUT', retryable: true, phase: 'client_wait' },
+      );
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
 };
 
 export default function GraphViewerQueryDialog({ open, onClose, onResult }) {
@@ -97,7 +169,8 @@ export default function GraphViewerQueryDialog({ open, onClose, onResult }) {
   const [maxNodes, setMaxNodes] = useState('15');
   const [layoutMode, setLayoutMode] = useState('genome_mode');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(null);
+  const [lastRequest, setLastRequest] = useState(null);
 
   const updateInput = (index, value) => {
     setInputs((current) => current.map((entry, entryIndex) => entryIndex === index ? value : entry));
@@ -131,15 +204,29 @@ export default function GraphViewerQueryDialog({ open, onClose, onResult }) {
         throw new Error('No Cypher/request list found to auto parse.');
       }
       setInputs(expanded.length ? expanded : ['']);
-      setError('');
+      setError(null);
     } catch (parseError) {
-      setError(parseError.message || 'Auto parse failed.');
+      setError(parseError);
+    }
+  };
+
+  const runRequest = async (request) => {
+    setLoading(true);
+    setError(null);
+    setLastRequest(request);
+
+    try {
+      onResult(await requestGraphViewer(request));
+      onClose();
+    } catch (requestError) {
+      setError(requestError);
+    } finally {
+      setLoading(false);
     }
   };
 
   const submit = async () => {
-    setLoading(true);
-    setError('');
+    setError(null);
 
     try {
       const cypher = parseGraphViewerInputs(inputs);
@@ -154,12 +241,9 @@ export default function GraphViewerQueryDialog({ open, onClose, onResult }) {
         max_nodes: parsedMaxNodes,
         layout_mode: layoutMode,
       };
-      onResult(await requestGraphViewer(request));
-      onClose();
+      await runRequest(request);
     } catch (submitError) {
-      setError(submitError.message || 'Graph viewer request failed.');
-    } finally {
-      setLoading(false);
+      setError(submitError);
     }
   };
 
@@ -189,7 +273,18 @@ export default function GraphViewerQueryDialog({ open, onClose, onResult }) {
               <ToggleButton value="genome_mode">Genome browser</ToggleButton>
             </ToggleButtonGroup>
           </Stack>
-          {error && <Alert severity="error">{error}</Alert>}
+          {error && (
+            <Alert
+              severity="error"
+              action={error.retryable && lastRequest ? (
+                <Button color="inherit" size="small" onClick={() => runRequest(lastRequest)} disabled={loading}>
+                  Retry
+                </Button>
+              ) : null}
+            >
+              {formatGraphViewerError(error)}
+            </Alert>
+          )}
         </Stack>
       </DialogContent>
       <DialogActions sx={{ padding: '12px 24px' }}>
