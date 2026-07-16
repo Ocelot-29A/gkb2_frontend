@@ -1,8 +1,9 @@
 import {
+  buildExploreNeighborRequest,
   getCanonicalNodeLabel,
   getGenomeLaneModelYs,
   isOverflowId,
-  mergeExploreNeighborsCypher,
+  mergeExploreNeighborRequests,
   restoreAdjacentDeletedIds,
 } from './StandaloneKnowledgeGraph';
 
@@ -76,12 +77,37 @@ describe('getCanonicalNodeLabel', () => {
 });
 
 describe('interaction query helpers', () => {
-  test('merges repeated explores of the same node by adding limits', () => {
-    const firstQuery = mergeExploreNeighborsCypher([], 'node-1');
-    const mergedQuery = mergeExploreNeighborsCypher(firstQuery, 'node-1');
+  const selectedNode = {
+    '~id': 'ENSG00000224136',
+    '~labels': ['Gene', 'Coding_element', 'Gene'],
+    '~properties': { id: 'ENSG00000224136' },
+  };
+
+  test('builds a deterministic Neo4j-first and PostgreSQL neighbor request', () => {
+    expect(buildExploreNeighborRequest(selectedNode)).toEqual({
+      source: 'neighbors',
+      api: 'neighbors/by-node',
+      searched_id: 'ENSG00000224136',
+      node_labels: ['Coding_element', 'Gene'],
+      direction: 'both',
+      relationship_types: [],
+      limit: 10,
+      include_pgsql: true,
+      pgsql: {
+        relative_position: 'downstream',
+        feature_types: ['Gene'],
+        limit: 1,
+      },
+    });
+  });
+
+  test('merges repeated explores of the same node by adding bounded limits', () => {
+    const firstQuery = mergeExploreNeighborRequests([], selectedNode);
+    const mergedQuery = mergeExploreNeighborRequests(firstQuery, selectedNode);
 
     expect(mergedQuery).toHaveLength(1);
-    expect(mergedQuery[0].query).toContain('LIMIT 20');
+    expect(mergedQuery[0].limit).toBe(20);
+    expect(mergedQuery[0].source).toBe('neighbors');
   });
 
   test('restores adjacent nodes and edges only when edge endpoints are visible', () => {

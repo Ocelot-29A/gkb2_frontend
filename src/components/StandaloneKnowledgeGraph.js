@@ -104,6 +104,7 @@ const metaValueSx = { fontFamily: 'Inter, sans-serif', fontSize: '12px', fontWei
 
 const MAX_VISIBLE_NODES = 30;
 const NEIGHBOR_QUERY_LIMIT = 10;
+const NEIGHBOR_QUERY_MAX_LIMIT = 50;
 const HIGHLIGHT_DURATION_MS = 2200;
 
 export const isOverflowId = (id) => String(id ?? '').startsWith('overflow:');
@@ -122,51 +123,62 @@ const contextMenuItemSx = {
 
 const escapeCypherString = (value) => String(value ?? '').replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 
-const buildExploreNeighborsCypher = (nodeId, limit = NEIGHBOR_QUERY_LIMIT) => ({
-  source: 'neo4j',
-  query: [
-    `WITH "${escapeCypherString(nodeId)}" AS node_id`,
-    'MATCH (n {id: node_id})-[r]-(m)',
-    'WITH n, r, m',
-    `LIMIT ${limit}`,
-    'RETURN collect(DISTINCT n) + collect(DISTINCT m) AS nodes,',
-    '       collect(r) AS edges',
-  ].join('\n'),
-});
-
-const getExploreQueryInfo = (entry) => {
-  if (!entry || typeof entry !== 'object' || entry.source !== 'neo4j') {
-    return null;
-  }
-
-  const query = String(entry.query || '');
-  const nodeMatch = query.match(/WITH\s+"((?:\\.|[^"\\])*)"\s+AS\s+node_id/i);
-  if (!nodeMatch || !/MATCH\s+\(n\s+\{id:\s+node_id\}\)-\[r\]-\(m\)/i.test(query)) {
-    return null;
-  }
-
-  const limitMatch = query.match(/\bLIMIT\s+(\d+)/i);
+export const buildExploreNeighborRequest = (node, limit = NEIGHBOR_QUERY_LIMIT) => {
+  const nodeId = String(node?.['~id'] || node?.['~properties']?.id || '');
+  const nodeLabels = Array.isArray(node?.['~labels'])
+    ? Array.from(new Set(node['~labels'].filter(Boolean).map(String))).sort()
+    : [];
   return {
-    nodeId: nodeMatch[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\'),
-    limit: limitMatch ? Number.parseInt(limitMatch[1], 10) : NEIGHBOR_QUERY_LIMIT,
+    source: 'neighbors',
+    api: 'neighbors/by-node',
+    searched_id: nodeId,
+    node_labels: nodeLabels,
+    direction: 'both',
+    relationship_types: [],
+    limit,
+    include_pgsql: true,
+    pgsql: {
+      relative_position: 'downstream',
+      feature_types: ['Gene'],
+      limit: 1,
+    },
   };
 };
 
-export const mergeExploreNeighborsCypher = (cypherList, nodeId) => {
-  const existingIndex = cypherList.findIndex((entry) => getExploreQueryInfo(entry)?.nodeId === String(nodeId));
+const getExploreRequestInfo = (entry) => {
+  if (
+    !entry
+    || typeof entry !== 'object'
+    || entry.source !== 'neighbors'
+    || entry.api !== 'neighbors/by-node'
+  ) {
+    return null;
+  }
+  return {
+    nodeId: String(entry.searched_id || ''),
+    limit: Number.parseInt(entry.limit, 10) || NEIGHBOR_QUERY_LIMIT,
+  };
+};
+
+export const mergeExploreNeighborRequests = (queryList, node) => {
+  const nodeId = String(node?.['~id'] || node?.['~properties']?.id || '');
+  const existingIndex = queryList.findIndex((entry) => getExploreRequestInfo(entry)?.nodeId === nodeId);
   if (existingIndex === -1) {
-    return [...cypherList, buildExploreNeighborsCypher(nodeId)];
+    return [...queryList, buildExploreNeighborRequest(node)];
   }
 
-  const existingEntry = cypherList[existingIndex];
-  const existingInfo = getExploreQueryInfo(existingEntry);
-  const mergedLimit = existingInfo.limit + NEIGHBOR_QUERY_LIMIT;
-  const nextCypher = [...cypherList];
-  nextCypher[existingIndex] = {
+  const existingEntry = queryList[existingIndex];
+  const existingInfo = getExploreRequestInfo(existingEntry);
+  const mergedLimit = Math.min(
+    existingInfo.limit + NEIGHBOR_QUERY_LIMIT,
+    NEIGHBOR_QUERY_MAX_LIMIT,
+  );
+  const nextQueries = [...queryList];
+  nextQueries[existingIndex] = {
     ...existingEntry,
-    query: String(existingEntry.query).replace(/\bLIMIT\s+\d+/i, `LIMIT ${mergedLimit}`),
+    limit: mergedLimit,
   };
-  return nextCypher;
+  return nextQueries;
 };
 
 const getEdgeIdentifier = (edge, index) => edge['~id'] || index.toString();
@@ -1111,7 +1123,9 @@ export default function StandaloneKnowledgeGraph({
     interactionAbortRef.current = controller;
     setInteractionLoading(true);
     try {
-      const nextCypher = mergeExploreNeighborsCypher(activeCypherList, nodeId);
+      const selectedNode = (displayGraphData?.nodes || []).find((node) => node['~id'] === nodeId)
+        || { '~id': nodeId, '~labels': [] };
+      const nextCypher = mergeExploreNeighborRequests(activeCypherList, selectedNode);
       const key = buildGraphRequestKey(nextCypher, viewMode);
       let result = graphCacheRef.current.get(key);
       if (!result) {
