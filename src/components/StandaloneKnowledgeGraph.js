@@ -286,7 +286,11 @@ const InfocardData = ({ value, config, dataKey }) => {
   }
 
   if (type === 'string') {
-    return <>{dataKey || 'No Data'}</>;
+    return <>{value || 'No Data'}</>;
+  }
+
+  if (type === 'list') {
+    return <>{Array.isArray(value) ? (value.join('; ') || 'No Data') : (value || 'No Data')}</>;
   }
 
   if (type === 'int') {
@@ -377,31 +381,12 @@ const getSafeElementPosition = (ele) => {
   }
 };
 
-const PANK_TYPE_MAP = {
-  Gene: 'coding_elements',
-  Transcript: 'gene',
-  Protein: 'gene',
-  GO_term: 'gene_ontology',
-  Exon: 'region',
-  CDS_segments: 'region',
-  TSS_segment: 'region',
-  UTR_segments: 'region',
-};
+const CANONICAL_NODE_LABEL_PRIORITY = graphInfocard.canonical_node_label_priority || [];
+const GENERIC_NODE_LABELS = new Set(
+  (graphInfocard.generic_node_labels || []).map((label) => label.toLowerCase()),
+);
 
-const CANONICAL_NODE_LABEL_PRIORITY = [
-  'Gene',
-  'Transcript',
-  'TSS_segment',
-  'Exon',
-  'CDS_segments',
-  'UTR_segments',
-  'Protein',
-  'GO_term',
-];
-
-const GENERIC_NODE_LABELS = new Set(['ontology', 'coding_element', 'coding_elements']);
-
-const normalizeNodeType = (label) => PANK_TYPE_MAP[label] || label;
+const normalizeNodeType = (label) => label;
 
 export const getCanonicalNodeLabel = (node) => {
   const labels = Array.isArray(node?.['~labels'])
@@ -415,7 +400,7 @@ export const getCanonicalNodeLabel = (node) => {
   return canonicalLabel
     || labels.find((label) => !GENERIC_NODE_LABELS.has(label.toLowerCase()))
     || labels[0]
-    || 'coding_elements';
+    || 'Coding_element';
 };
 
 const getNodeType = (node) => {
@@ -424,24 +409,25 @@ const getNodeType = (node) => {
   const orderedLabels = [canonicalLabel, ...labels.filter((label) => label !== canonicalLabel)];
   return orderedLabels
     .map(normalizeNodeType)
-    .find((label) => graphInfocard.nodes?.[label]?.info_panel || nodeColors[label]) || 'coding_elements';
+    .find((label) => graphInfocard.nodes?.[label]?.info_panel || nodeColors[label]) || 'Coding_element';
 };
 
 const getNodeLabel = (node) => {
-  const labels = node?.['~labels'] || [];
   const properties = node?.['~properties'] || {};
-  const baseName = properties.name;
-  const baseId = properties.id || node?.['~id'] || '';
-
-  if (labels.includes('disease')) {
-    return 'T1D';
-  }
+  const baseName = properties.name || properties.id || node?.['~id'] || '';
 
   if (baseName && baseName.length <= 15) {
     return baseName.replace(/_/g, ' ');
   }
 
-  return String(baseId).replace(/_/g, ' ');
+  return String(baseName).replace(/_/g, ' ');
+};
+
+const getInfoPanel = (isEdge, type) => {
+  const configuredPanel = (isEdge ? graphInfocard.edges : graphInfocard.nodes)?.[type]?.info_panel;
+  return configuredPanel || (isEdge
+    ? graphInfocard.default_edge_info_panel
+    : graphInfocard.default_node_info_panel);
 };
 
 const getBoxCorners = (posData) => {
@@ -584,9 +570,12 @@ const buildTrackBackgroundNode = (genomeRegion) => {
 
 const InfocardMenu = ({ hoveredData }) => {
   const isEdge = hoveredData?.source && hoveredData?.target;
-  const schema = (isEdge ? graphInfocard?.edges : graphInfocard?.nodes)?.[hoveredData?.type]?.info_panel;
+  const schema = getInfoPanel(isEdge, hoveredData?.type);
   const titleColumn = schema?.find(([label]) => label === 'Title');
   const footerInfo = schema?.find(([label]) => label === 'Footer')?.[1] || [];
+  const titleValue = isEdge
+    ? hoveredData?.type
+    : getNodeLabel({ '~properties': hoveredData, '~id': hoveredData?.id });
 
   return (
     hoveredData && (schema?.length > 0 ? (
@@ -610,9 +599,8 @@ const InfocardMenu = ({ hoveredData }) => {
             }}
           >
             <InfocardData
-              value={hoveredData[titleColumn?.[1]]?.replace?.(/_/g, ' ')}
+              value={titleValue?.replace?.(/_/g, ' ')}
               dataKey={titleColumn?.[1]}
-              config={titleColumn?.[2]}
             />
           </Typography>
         </Box>
