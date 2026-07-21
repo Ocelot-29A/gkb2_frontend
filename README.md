@@ -1,4 +1,7 @@
-# THIS IS DEVLOPMENT BRANCH
+# Development branch
+
+`xuteng/react` is the active development branch for this frontend. Merge
+validated changes into that branch to update the development site.
 
 # Getting Started with Create React App
 

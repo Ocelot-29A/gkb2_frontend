@@ -345,6 +345,16 @@ const InfocardData = ({ value, config, dataKey }) => {
   return <span>{value ?? 'No Data'}</span>;
 };
 
+const hasInfocardValue = (value) => {
+  if (Array.isArray(value)) return value.length > 0;
+  return value !== undefined && value !== null && String(value).trim() !== '';
+};
+
+const formatPropertyLabel = (key) => key
+  .replace(/^alt_id_/i, 'alternate ID ')
+  .replace(/_/g, ' ')
+  .replace(/\b\w/g, (character) => character.toUpperCase());
+
 const getSafeEdgeMidpoint = (ele) => {
   try {
     if (!ele || typeof ele.midpoint !== 'function') {
@@ -425,9 +435,12 @@ const getNodeLabel = (node) => {
 
 const getInfoPanel = (isEdge, type) => {
   const configuredPanel = (isEdge ? graphInfocard.edges : graphInfocard.nodes)?.[type]?.info_panel;
-  return configuredPanel || (isEdge
-    ? graphInfocard.default_edge_info_panel
-    : graphInfocard.default_node_info_panel);
+  if (Array.isArray(configuredPanel)) return configuredPanel;
+  const profileName = isEdge
+    ? graphInfocard.edge_panel_by_type?.[type]
+    : graphInfocard.node_panel_by_label?.[type];
+  const profile = (isEdge ? graphInfocard.edge_panels : graphInfocard.node_panels)?.[profileName];
+  return profile || (isEdge ? graphInfocard.default_edge_info_panel : graphInfocard.default_node_info_panel);
 };
 
 const getBoxCorners = (posData) => {
@@ -572,7 +585,20 @@ const InfocardMenu = ({ hoveredData }) => {
   const isEdge = hoveredData?.source && hoveredData?.target;
   const schema = getInfoPanel(isEdge, hoveredData?.type);
   const titleColumn = schema?.find(([label]) => label === 'Title');
-  const footerInfo = schema?.find(([label]) => label === 'Footer')?.[1] || [];
+  const footerInfo = (schema?.find(([label]) => label === 'Footer')?.[1] || [])
+    .filter(([, key]) => hasInfocardValue(hoveredData?.[key]));
+  const configuredKeys = new Set([
+    titleColumn?.[1],
+    ...footerInfo.map(([, key]) => key),
+    ...schema.flatMap(([, content]) => Array.isArray(content)
+      ? content.map(([, key]) => key)
+      : [content]),
+  ]);
+  const additionalRows = Object.entries(hoveredData || {})
+    .filter(([key, value]) => !configuredKeys.has(key)
+      && !['label', 'type', 'Level', 'source', 'target', 'source_name', 'target_name', 'renderWidth', 'renderHeight', 'labelMaxWidth'].includes(key)
+      && hasInfocardValue(value))
+    .sort(([left], [right]) => left.localeCompare(right));
   const titleValue = isEdge
     ? hoveredData?.type
     : getNodeLabel({ '~properties': hoveredData, '~id': hoveredData?.id });
@@ -596,6 +622,8 @@ const InfocardMenu = ({ hoveredData }) => {
               fontWeight: '700',
               fontSize: '20px',
               lineHeight: '20px',
+              overflowWrap: 'anywhere',
+              wordBreak: 'break-word',
             }}
           >
             <InfocardData
@@ -604,8 +632,14 @@ const InfocardMenu = ({ hoveredData }) => {
             />
           </Typography>
         </Box>
-        {schema.map(([title, content, config]) => (
-          ['Title', 'Footer'].includes(title) ? null : (
+        {schema.map(([title, content, config]) => {
+          if (['Title', 'Footer'].includes(title)) return null;
+          const visibleContent = Array.isArray(content)
+            ? content.filter(([, key]) => hasInfocardValue(hoveredData?.[key]))
+            : content;
+          if ((Array.isArray(content) && !visibleContent.length)
+            || (!Array.isArray(content) && !hasInfocardValue(hoveredData?.[content]))) return null;
+          return (
             <Box
               key={title}
               sx={{
@@ -630,11 +664,11 @@ const InfocardMenu = ({ hoveredData }) => {
               >
                 {title}
               </Typography>
-              {Array.isArray(content) ? (
-                content.map(([label, key, rowConfig]) => (
+              {Array.isArray(visibleContent) ? (
+                visibleContent.map(([label, key, rowConfig]) => (
                   <Box
                     key={key}
-                    sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
+                    sx={{ display: 'grid', gridTemplateColumns: 'minmax(92px, 0.8fr) minmax(0, 1.2fr)', columnGap: '10px', alignItems: 'start' }}
                   >
                     <Typography
                       sx={{
@@ -651,7 +685,7 @@ const InfocardMenu = ({ hoveredData }) => {
                     <Typography
                       component="span"
                       sx={{
-                        textAlign: 'right',
+                        textAlign: 'right', minWidth: 0, overflowWrap: 'anywhere', wordBreak: 'break-word', whiteSpace: 'pre-wrap', maxHeight: '4.2em', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical',
                         fontFamily: 'Open Sans',
                         fontWeight: '600',
                         fontSize: '12px',
@@ -676,31 +710,45 @@ const InfocardMenu = ({ hoveredData }) => {
                       lineHeight: '15px',
                       wordWrap: 'break-word',
                       color: '#263238',
-                      textAlign: 'justify',
+                      textAlign: 'justify', overflowWrap: 'anywhere', wordBreak: 'break-word', whiteSpace: 'pre-wrap', maxHeight: '7.5em', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 5, WebkitBoxOrient: 'vertical',
                     }}
                   >
                     {(() => {
-                      const processedData = config !== 'string' ? addWhitespace(hoveredData[content]) : hoveredData[content];
-                      const processedKey = config === 'string' ? addWhitespace(content) : content;
+                      const processedData = config !== 'string' ? addWhitespace(hoveredData[visibleContent]) : hoveredData[visibleContent];
+                      const processedKey = config === 'string' ? addWhitespace(visibleContent) : visibleContent;
                       return <InfocardData value={processedData} dataKey={processedKey} config={config} />;
                     })()}
                   </Typography>
                 </Box>
               )}
             </Box>
-          )
-        ))}
-        <Box
+          );
+        })}
+        {additionalRows.length > 0 && <Box sx={{ width: 'calc(100% - 32px)', display: 'flex', flexDirection: 'column', padding: '16px', borderBottom: '1px solid #F0F0F0', gap: '12px' }}>
+          <Typography sx={{ alignSelf: 'center', fontFamily: 'Open Sans', fontWeight: '600', fontSize: '10px', color: '#6B7880', lineHeight: '7px', textTransform: 'uppercase' }}>
+            Additional properties
+          </Typography>
+          {additionalRows.map(([key, value]) => (
+            <Box key={key} sx={{ display: 'grid', gridTemplateColumns: 'minmax(92px, 0.8fr) minmax(0, 1.2fr)', columnGap: '10px', alignItems: 'start' }}>
+              <Typography sx={{ fontFamily: 'Open Sans', fontWeight: '600', fontSize: '12px', color: '#6B7880', lineHeight: '14px', marginTop: '-5px' }}>{formatPropertyLabel(key)}</Typography>
+              <Typography component="span" sx={{ textAlign: 'right', minWidth: 0, overflowWrap: 'anywhere', wordBreak: 'break-word', whiteSpace: 'pre-wrap', maxHeight: '4.2em', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', fontFamily: 'Open Sans', fontWeight: '600', fontSize: '12px', color: '#263238', marginLeft: '8px', lineHeight: '14px', marginTop: '-5px' }}>
+                <InfocardData value={value} dataKey={key} config={Array.isArray(value) ? 'list' : undefined} />
+              </Typography>
+            </Box>
+          ))}
+        </Box>}
+        {footerInfo.length > 0 && <Box
           sx={{
             display: 'flex',
-            height: '30px',
+            minHeight: '30px',
+            padding: '5px 10px',
             textAlign: 'center',
             alignItems: 'center',
             justifyContent: 'center',
             background: 'linear-gradient(360deg, #CACFD5 -73.08%, #F4F6F8 75%)',
           }}
         >
-          <Typography sx={{ fontWeight: '600', fontSize: '9px', color: '#5F7885' }}>
+          <Typography sx={{ fontWeight: '600', fontSize: '9px', color: '#5F7885', overflowWrap: 'anywhere', wordBreak: 'break-word', whiteSpace: 'normal' }}>
             {footerInfo.map(([label, key, footerConfig], index) => (
               index === 0 ? (
                 <span key={index}>
@@ -715,7 +763,7 @@ const InfocardMenu = ({ hoveredData }) => {
               )
             ))}
           </Typography>
-        </Box>
+        </Box>}
       </>
     ) : (
       <div
