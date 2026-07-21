@@ -21,8 +21,23 @@ import {
 
 export const GRAPH_VIEWER_API_URL = 'https://jieliulab3.dcmb.med.umich.edu/gkb0708/api/graph';
 const GRAPH_VIEWER_TIMEOUT_MS = 30000;
-const GENOME_SAMPLE_QUERY = 'MATCH (n {id: "ENSG00000001626"})-[r]-(m) WITH n, r, m LIMIT 10 RETURN collect(DISTINCT n) + collect(DISTINCT m) AS nodes, collect(DISTINCT r) AS edges';
-const KG_SAMPLE_QUERY = 'MATCH (n {id: "ENSG00000001626"})-[r]-(m) WITH n, r, m LIMIT 6 RETURN collect(DISTINCT n) + collect(DISTINCT m) AS nodes, collect(DISTINCT r) AS edges';
+const GENOME_SAMPLE_QUERY = 'MATCH (n:Coding_element:Gene {id: "ENSG00000001626"})-[r]-(m) WITH n, r, m LIMIT 10 RETURN collect(DISTINCT n) + collect(DISTINCT m) AS nodes, collect(DISTINCT r) AS edges';
+const KG_SAMPLE_QUERY = 'MATCH (n:Coding_element:Gene {id: "ENSG00000001626"})-[r]-(m) WITH n, r, m LIMIT 6 RETURN collect(DISTINCT n) + collect(DISTINCT m) AS nodes, collect(DISTINCT r) AS edges';
+const GKB_NODE_LABELS = [
+  'AB_compartment', 'CDS_segments', 'Cell_or_tissue', 'ChromHMM_state', 'Coding_element', 'Deletion',
+  'ENCODE_feature', 'Enhancer', 'Epigenomic_feature', 'Exon', 'FIRE_region', 'GO_term', 'Gene',
+  'Genomic_feature', 'Insertion', 'Loop', 'LoopAnchor', 'Non_coding_RNA', 'Non_coding_element',
+  'Ontology', 'Ontology_term', 'Promoter', 'Protein', 'Replication_timing', 'SNP', 'SNV',
+  'Sequence_variant', 'Structural_variant', 'Super_enhancer', 'TF_binding_motif', 'TSS_segment',
+  'ThreeD_structure', 'Transcript', 'UTR_segments', 'Variant', 'cCRE',
+];
+const buildPanelCoverageQuery = (label) => `MATCH (n:${label}) WITH n LIMIT 1 OPTIONAL MATCH (n)-[r]-(m) WITH n, r, m LIMIT 3 RETURN collect(DISTINCT n) + collect(DISTINCT m) AS nodes, collect(DISTINCT r) AS edges`;
+const PANEL_COVERAGE_REQUEST = (labels) => ({
+  cypher: labels.map(buildPanelCoverageQuery),
+  core_nodes: [],
+  max_nodes: 120,
+  layout_mode: 'kg_only',
+});
 
 const BUILTIN_QUERY_EXAMPLES = [
   {
@@ -61,6 +76,14 @@ const BUILTIN_QUERY_EXAMPLES = [
       max_nodes: 15,
       layout_mode: 'kg_only',
     },
+  },
+  {
+    label: 'GKB panels 1 of 2',
+    request: PANEL_COVERAGE_REQUEST(GKB_NODE_LABELS.slice(0, 18)),
+  },
+  {
+    label: 'GKB panels 2 of 2',
+    request: PANEL_COVERAGE_REQUEST(GKB_NODE_LABELS.slice(18)),
   },
 ];
 

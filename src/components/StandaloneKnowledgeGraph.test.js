@@ -5,6 +5,7 @@ import {
   mergeExploreNeighborsCypher,
   restoreAdjacentDeletedIds,
 } from './StandaloneKnowledgeGraph';
+import graphViewerSchema from '../schema/graph_viewer_schema.json';
 
 const genomeRegion = {
   lanes: [
@@ -72,6 +73,34 @@ describe('getCanonicalNodeLabel', () => {
   test('preserves unknown domain labels when no canonical label exists', () => {
     expect(getCanonicalNodeLabel({ '~labels': ['Coding_element', 'Custom_feature'] }))
       .toBe('Custom_feature');
+  });
+
+  test('selects GKB 07-18 leaf labels over hierarchy labels', () => {
+    expect(getCanonicalNodeLabel({ '~labels': ['Variant', 'Sequence_variant', 'SNP', 'SNV'] }))
+      .toBe('SNP');
+    expect(getCanonicalNodeLabel({ '~labels': ['ThreeD_structure', 'Loop'] })).toBe('Loop');
+    expect(getCanonicalNodeLabel({ '~labels': ['Epigenomic_feature', 'ENCODE_feature'] }))
+      .toBe('ENCODE_feature');
+  });
+});
+
+describe('GKB 07-18 viewer schema', () => {
+  test('covers every live Neo4j node label and relationship type', () => {
+    expect(Object.keys(graphViewerSchema.nodes).sort()).toEqual([
+      'AB_compartment', 'CDS_segments', 'Cell_or_tissue', 'ChromHMM_state', 'Coding_element',
+      'Deletion', 'ENCODE_feature', 'Enhancer', 'Epigenomic_feature', 'Exon', 'FIRE_region',
+      'GO_term', 'Gene', 'Genomic_feature', 'Insertion', 'Loop', 'LoopAnchor', 'Non_coding_RNA',
+      'Non_coding_element', 'Ontology', 'Ontology_term', 'Promoter', 'Protein', 'Replication_timing',
+      'SNP', 'SNV', 'Sequence_variant', 'Structural_variant', 'Super_enhancer', 'TF_binding_motif',
+      'TSS_segment', 'ThreeD_structure', 'Transcript', 'UTR_segments', 'Variant', 'cCRE',
+    ].sort());
+    expect(Object.keys(graphViewerSchema.edges).sort()).toEqual([
+      'ASSOCIATED_WITH_GO', 'ENCODES', 'EQTL_OF', 'EXPRESS_IN', 'FUNCTION_ANNOTATE',
+      'GENETIC_INTERACTION', 'GWAS_ASSOCIATION', 'HAS_ANCHOR_A', 'HAS_ANCHOR_B',
+      'HAS_CDS_SEGMENT', 'HAS_EXON', 'HAS_TRANSCRIPT', 'HAS_TSS', 'HAS_UTR_SEGMENT',
+      'LIGAND_RECEPTOR_PAIR', 'MAPPING_MAPPING', 'PHYSICAL_INTERACTION', 'REGULATE',
+      'REPLACED_BY', 'SUBCLASS_OF', 'TRANSLATES_TO',
+    ].sort());
   });
 });
 
