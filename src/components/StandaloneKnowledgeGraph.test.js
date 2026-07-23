@@ -1,4 +1,6 @@
 import {
+  buildPreviousLayout,
+  edgeRouteToCytoscapeData,
   getCanonicalNodeLabel,
   getGenomeLaneModelYs,
   isOverflowId,
@@ -139,5 +141,43 @@ describe('interaction query helpers', () => {
   test('recognizes overflow placeholder ids', () => {
     expect(isOverflowId('overflow:node-1')).toBe(true);
     expect(isOverflowId('node-1')).toBe(false);
+  });
+});
+
+describe('optimized edge routing', () => {
+  test('converts model-space bezier and polyline points for Cytoscape', () => {
+    expect(edgeRouteToCytoscapeData({
+      route_type: 'bezier',
+      control_points: [[100, 20]],
+    }, { x: 0, y: 0 }, { x: 100, y: 0 })).toEqual({
+      routeCurveStyle: 'unbundled-bezier',
+      curveDistance: '20',
+      curveWeight: '0.5',
+    });
+    expect(edgeRouteToCytoscapeData({
+      route_type: 'polyline',
+      waypoints: [[100, 20]],
+    }, { x: 0, y: 0 }, { x: 100, y: 0 })).toEqual({
+      routeCurveStyle: 'segments',
+      segmentDistances: '20',
+      segmentWeights: '0.5',
+    });
+  });
+
+  test('packages compatible optimized state for incremental expansion', () => {
+    const coords = { node: { start_xy: [0, 22], end_xy: [120, -22] } };
+    expect(buildPreviousLayout(coords, {}, {
+      layout: {
+        engine: 'optimized_v1',
+        version: 1,
+        config_fingerprint: 'abc',
+      },
+    })).toEqual({
+      version: 1,
+      config_fingerprint: 'abc',
+      xy_json: coords,
+      edge_routes: {},
+    });
+    expect(buildPreviousLayout(coords, {}, { layout: { engine: 'legacy' } })).toBeNull();
   });
 });

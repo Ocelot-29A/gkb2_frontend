@@ -174,6 +174,7 @@ export const requestGraphViewer = async (request, options = {}) => {
     return {
       graphData,
       coordData: payload.xy_json || payload.coords || null,
+      edgeRoutes: payload.edge_routes || null,
       metadata: payload.metadata || null,
       request,
     };
@@ -193,6 +194,7 @@ export default function GraphViewerQueryDialog({ open, onClose, onResult, exampl
   const [coreNodes, setCoreNodes] = useState('');
   const [maxNodes, setMaxNodes] = useState('15');
   const [layoutMode, setLayoutMode] = useState('kg_only');
+  const [layoutEngine, setLayoutEngine] = useState('legacy');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const availableExamples = [...BUILTIN_QUERY_EXAMPLES, ...examples];
@@ -204,6 +206,7 @@ export default function GraphViewerQueryDialog({ open, onClose, onResult, exampl
     setCoreNodes(Array.isArray(request?.core_nodes) ? request.core_nodes.join(', ') : '');
     setMaxNodes(request?.max_nodes === undefined ? '15' : String(request.max_nodes));
     setLayoutMode(request?.layout_mode || 'kg_only');
+    setLayoutEngine(request?.layout_engine || 'legacy');
     setError('');
   };
 
@@ -229,6 +232,9 @@ export default function GraphViewerQueryDialog({ open, onClose, onResult, exampl
           }
           if (parsed.layout_mode) {
             setLayoutMode(parsed.layout_mode);
+          }
+          if (parsed.layout_engine) {
+            setLayoutEngine(parsed.layout_engine);
           }
           return parsed.cypher.map(stringifyEntry);
         }
@@ -261,6 +267,7 @@ export default function GraphViewerQueryDialog({ open, onClose, onResult, exampl
         core_nodes: coreNodes.split(/[\s,]+/).filter(Boolean),
         max_nodes: parsedMaxNodes,
         layout_mode: layoutMode,
+        layout_engine: layoutEngine,
       };
       onResult(await requestGraphViewer(request));
       onClose();
@@ -315,6 +322,15 @@ export default function GraphViewerQueryDialog({ open, onClose, onResult, exampl
               <ToggleButton value="genome_mode">Genome browser</ToggleButton>
             </ToggleButtonGroup>
           </Stack>
+          <Box>
+            <Typography sx={{ fontFamily: 'Inter, sans-serif', fontSize: '12px', fontWeight: 700, color: '#64748B', marginBottom: '8px' }}>
+              Coordinate engine
+            </Typography>
+            <ToggleButtonGroup value={layoutEngine} exclusive onChange={(event, nextEngine) => nextEngine && setLayoutEngine(nextEngine)} color="secondary">
+              <ToggleButton value="legacy">Legacy Graphviz</ToggleButton>
+              <ToggleButton value="optimized_v1">Optimized v1</ToggleButton>
+            </ToggleButtonGroup>
+          </Box>
           {error && <Alert severity="error">{error}</Alert>}
         </Stack>
       </DialogContent>

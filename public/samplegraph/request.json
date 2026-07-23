@@ -25,5 +25,6 @@
     "ENST00001081202"
   ],
   "max_nodes": 15,
-  "layout_mode": "genome_mode"
+  "layout_mode": "genome_mode",
+  "layout_engine": "optimized_v1"
 }

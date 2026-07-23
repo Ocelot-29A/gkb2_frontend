@@ -77,6 +77,7 @@ export default function SampleGraphPage() {
           <Alert severity="error">{error}</Alert>
         ) : queryRequest ? (
           <StandaloneKnowledgeGraph
+            queryRequest={queryRequest}
             queryExamples={[{ label: 'Initial sample graph', request: queryRequest }]}
             containerHeight="calc(100vh - 315px)"
             defaultLegendVisible={true}

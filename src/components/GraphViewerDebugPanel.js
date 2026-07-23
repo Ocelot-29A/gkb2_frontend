@@ -164,6 +164,7 @@ const parseCypherInputContainer = (input, index) => {
 const getGraphPayload = (payload) => ({
   graphData: payload?.combined_query_result || payload?.graph || null,
   coordData: payload?.xy_json || payload?.coords || null,
+  edgeRoutes: payload?.edge_routes || null,
   metadata: payload?.metadata || null,
 });
 
@@ -436,6 +437,7 @@ export default function GraphViewerDebugPanel() {
             <StandaloneKnowledgeGraph
               graphData={graphPayload.graphData}
               coordData={graphPayload.coordData}
+              edgeRoutes={graphPayload.edgeRoutes}
               metadata={graphPayload.metadata}
               containerHeight='720px'
               defaultLegendVisible={true}

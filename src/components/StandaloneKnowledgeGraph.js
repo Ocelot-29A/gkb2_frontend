@@ -217,7 +217,11 @@ const buildFindConnectionCypher = (nodeId, visibleNodeIds) => ({
   ].join('\n'),
 });
 
-const buildGraphRequestKey = (cypherList, mode) => JSON.stringify({ cypher: cypherList, mode });
+const buildGraphRequestKey = (cypherList, mode, engine) => JSON.stringify({
+  cypher: cypherList,
+  mode,
+  engine,
+});
 
 const modeOptionSx = {
   display: 'flex',
@@ -557,6 +561,73 @@ const getEdgeCurveDistance = (edgeId) => {
   return curveDistances[Math.abs(hash) % curveDistances.length];
 };
 
+const toRenderedRoutePoint = (point) => ({
+  x: scaleX(Number(point?.[0])),
+  y: scaleYPosition(Number(point?.[1])),
+});
+
+const toRelativeControlPoint = (point, source, target) => {
+  const dx = target.x - source.x;
+  const dy = target.y - source.y;
+  const lengthSquared = dx * dx + dy * dy;
+  if (!Number.isFinite(lengthSquared) || lengthSquared <= 1e-9) {
+    return null;
+  }
+  const rendered = toRenderedRoutePoint(point);
+  if (!Number.isFinite(rendered.x) || !Number.isFinite(rendered.y)) {
+    return null;
+  }
+  const weight = ((rendered.x - source.x) * dx + (rendered.y - source.y) * dy) / lengthSquared;
+  const projectedX = source.x + weight * dx;
+  const projectedY = source.y + weight * dy;
+  const distance = ((rendered.x - projectedX) * -dy + (rendered.y - projectedY) * dx)
+    / Math.sqrt(lengthSquared);
+  return { distance, weight };
+};
+
+export const edgeRouteToCytoscapeData = (route, source, target) => {
+  if (!route || !source || !target) {
+    return null;
+  }
+  const points = route.route_type === 'bezier' ? route.control_points : route.waypoints;
+  if (!['bezier', 'polyline'].includes(route.route_type) || !Array.isArray(points)) {
+    return null;
+  }
+  const converted = points
+    .map((point) => toRelativeControlPoint(point, source, target))
+    .filter(Boolean);
+  if (!converted.length && points.length) {
+    return null;
+  }
+  const distances = converted.map(({ distance }) => String(Number(distance.toFixed(3)))).join(' ');
+  const weights = converted.map(({ weight }) => String(Number(weight.toFixed(6)))).join(' ');
+  if (route.route_type === 'polyline') {
+    return {
+      routeCurveStyle: 'segments',
+      segmentDistances: distances,
+      segmentWeights: weights,
+    };
+  }
+  return {
+    routeCurveStyle: 'unbundled-bezier',
+    curveDistance: distances || '0',
+    curveWeight: weights || '0.5',
+  };
+};
+
+export const buildPreviousLayout = (coordData, edgeRoutes, metadata) => {
+  const layout = metadata?.layout;
+  if (layout?.engine !== 'optimized_v1' || !layout?.config_fingerprint || !coordData) {
+    return null;
+  }
+  return {
+    version: layout.version || 1,
+    config_fingerprint: layout.config_fingerprint,
+    xy_json: coordData,
+    edge_routes: edgeRoutes || {},
+  };
+};
+
 const buildTrackBackgroundNode = (genomeRegion) => {
   if (!genomeRegion) {
     return null;
@@ -801,6 +872,7 @@ const InfocardMenu = ({ hoveredData }) => {
 export default function StandaloneKnowledgeGraph({
   graphData = null,
   coordData = null,
+  edgeRoutes = null,
   metadata = null,
   queryRequest = null,
   queryExamples = [],
@@ -844,6 +916,7 @@ export default function StandaloneKnowledgeGraph({
   const [queryDialogOpen, setQueryDialogOpen] = useState(false);
   const [queryResult, setQueryResult] = useState(null);
   const [viewMode, setViewMode] = useState(metadata?.layout?.mode || 'kg_only');
+  const [layoutEngine, setLayoutEngine] = useState(metadata?.layout?.engine || queryRequest?.layout_engine || 'legacy');
   const [showZoomToolbarGroup, setShowZoomToolbarGroup] = useState(true);
   const [thumbnailImage, setThumbnailImage] = useState('');
   const [thumbnailViewport, setThumbnailViewport] = useState(null);
@@ -876,6 +949,7 @@ export default function StandaloneKnowledgeGraph({
 
   const displayGraphData = interactionGraph?.graphData ?? queryResult?.graphData ?? graphData;
   const displayCoordData = interactionGraph?.coordData ?? queryResult?.coordData ?? coordData;
+  const displayEdgeRoutes = interactionGraph?.edgeRoutes ?? queryResult?.edgeRoutes ?? edgeRoutes;
   const displayMetadata = interactionGraph?.metadata ?? queryResult?.metadata ?? metadata;
   const effectiveMetadata = displayMetadata
     ? { ...displayMetadata, layout: { ...displayMetadata.layout, mode: viewMode } }
@@ -918,6 +992,7 @@ export default function StandaloneKnowledgeGraph({
     if (queryResult?.metadata?.layout?.mode) {
       setViewMode(queryResult.metadata.layout.mode);
     }
+    setLayoutEngine(queryResult?.metadata?.layout?.engine || queryResult?.request?.layout_engine || 'legacy');
   }, [queryResult]);
 
   // Two things can require a graph fetch: (1) a brand-new base query list arriving
@@ -941,6 +1016,10 @@ export default function StandaloneKnowledgeGraph({
         || queryResult?.request?.layout_mode
         || queryRequest?.layout_mode
         || 'kg_only';
+      const baselineEngine = queryResult?.metadata?.layout?.engine
+        || queryResult?.request?.layout_engine
+        || queryRequest?.layout_engine
+        || 'legacy';
       const staticGraphData = queryResult?.graphData ?? graphData;
       const hasStaticGraph = Boolean(staticGraphData?.nodes);
 
@@ -955,10 +1034,11 @@ export default function StandaloneKnowledgeGraph({
         const baseline = {
           graphData: staticGraphData,
           coordData: queryResult?.coordData ?? coordData,
+          edgeRoutes: queryResult?.edgeRoutes ?? edgeRoutes,
           metadata: queryResult?.metadata ?? metadata,
           request: queryResult?.request ?? { ...(queryRequest || {}), cypher: baseCypher },
         };
-        const key = buildGraphRequestKey(baseCypher, baselineMode);
+        const key = buildGraphRequestKey(baseCypher, baselineMode, baselineEngine);
         graphCacheRef.current.set(key, baseline);
         lastFetchedKeyRef.current = key;
         setInteractionGraph(baseline);
@@ -973,6 +1053,9 @@ export default function StandaloneKnowledgeGraph({
       if (viewMode !== baselineMode) {
         setViewMode(baselineMode);
       }
+      if (layoutEngine !== baselineEngine) {
+        setLayoutEngine(baselineEngine);
+      }
       return undefined;
     }
 
@@ -981,7 +1064,7 @@ export default function StandaloneKnowledgeGraph({
       return undefined;
     }
 
-    const key = buildGraphRequestKey(cypherList, viewMode);
+    const key = buildGraphRequestKey(cypherList, viewMode, layoutEngine);
     if (key === lastFetchedKeyRef.current) {
       return undefined;
     }
@@ -995,7 +1078,14 @@ export default function StandaloneKnowledgeGraph({
       try {
         let result = graphCacheRef.current.get(key);
         if (!result) {
-          result = await requestGraphViewer({ ...(displayQueryRequest || {}), cypher: cypherList, layout_mode: viewMode }, { signal: controller.signal });
+          const previousLayout = buildPreviousLayout(displayCoordData, displayEdgeRoutes, displayMetadata);
+          result = await requestGraphViewer({
+            ...(displayQueryRequest || {}),
+            cypher: cypherList,
+            layout_mode: viewMode,
+            layout_engine: layoutEngine,
+            ...(previousLayout ? { previous_layout: previousLayout } : {}),
+          }, { signal: controller.signal });
           graphCacheRef.current.set(key, result);
         }
         if (!cancelled) {
@@ -1021,7 +1111,7 @@ export default function StandaloneKnowledgeGraph({
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [queryResult, queryRequest, interactionHistory?.present.cypher, viewMode]);
+  }, [queryResult, queryRequest, interactionHistory?.present.cypher, viewMode, layoutEngine]);
 
   useEffect(() => {
     hoveredIdRef.current = hoveredId;
@@ -1148,10 +1238,17 @@ export default function StandaloneKnowledgeGraph({
     setInteractionLoading(true);
     try {
       const nextCypher = mergeExploreNeighborsCypher(activeCypherList, nodeId);
-      const key = buildGraphRequestKey(nextCypher, viewMode);
+      const key = buildGraphRequestKey(nextCypher, viewMode, layoutEngine);
       let result = graphCacheRef.current.get(key);
       if (!result) {
-        result = await requestGraphViewer({ ...(displayQueryRequest || {}), cypher: nextCypher, layout_mode: viewMode }, { signal: controller.signal });
+        const previousLayout = buildPreviousLayout(displayCoordData, displayEdgeRoutes, displayMetadata);
+        result = await requestGraphViewer({
+          ...(displayQueryRequest || {}),
+          cypher: nextCypher,
+          layout_mode: viewMode,
+          layout_engine: layoutEngine,
+          ...(previousLayout ? { previous_layout: previousLayout } : {}),
+        }, { signal: controller.signal });
         graphCacheRef.current.set(key, result);
       }
 
@@ -1211,10 +1308,17 @@ export default function StandaloneKnowledgeGraph({
     setInteractionLoading(true);
     try {
       const nextCypher = [...activeCypherList, buildFindConnectionCypher(nodeId, Array.from(visibleNodeIds))];
-      const key = buildGraphRequestKey(nextCypher, viewMode);
+      const key = buildGraphRequestKey(nextCypher, viewMode, layoutEngine);
       let result = graphCacheRef.current.get(key);
       if (!result) {
-        result = await requestGraphViewer({ ...(displayQueryRequest || {}), cypher: nextCypher, layout_mode: viewMode }, { signal: controller.signal });
+        const previousLayout = buildPreviousLayout(displayCoordData, displayEdgeRoutes, displayMetadata);
+        result = await requestGraphViewer({
+          ...(displayQueryRequest || {}),
+          cypher: nextCypher,
+          layout_mode: viewMode,
+          layout_engine: layoutEngine,
+          ...(previousLayout ? { previous_layout: previousLayout } : {}),
+        }, { signal: controller.signal });
         graphCacheRef.current.set(key, result);
       }
 
@@ -1525,6 +1629,10 @@ export default function StandaloneKnowledgeGraph({
       acc[node.data.id] = node.data.label;
       return acc;
     }, {});
+    const nodePositionMap = graphNodes.reduce((acc, node) => {
+      acc[node.data.id] = node.position;
+      return acc;
+    }, {});
 
     const uniqueEdgesMap = {};
     result.edges.forEach((edge, index) => {
@@ -1535,20 +1643,33 @@ export default function StandaloneKnowledgeGraph({
       uniqueEdgesMap[edgeId] = edge;
     });
 
-    const edges = Object.values(uniqueEdgesMap).map((edge) => ({
-      data: {
-        id: edge['~id'],
-        source: edgeIsInverted[edge['~type']] ? edge['~end'] : edge['~start'],
+    const edges = Object.values(uniqueEdgesMap).map((edge) => {
+      const edgeId = edge['~id'];
+      const source = edgeIsInverted[edge['~type']] ? edge['~end'] : edge['~start'];
+      const target = edgeIsInverted[edge['~type']] ? edge['~start'] : edge['~end'];
+      const routeData = edgeRouteToCytoscapeData(
+        displayEdgeRoutes?.[edgeId],
+        nodePositionMap[source],
+        nodePositionMap[target],
+      );
+      return {
+        data: {
+          id: edgeId,
+          source,
         source_name: nodeNameMap[edge['~start']],
-        target: edgeIsInverted[edge['~type']] ? edge['~start'] : edge['~end'],
+          target,
         target_name: nodeNameMap[edge['~end']],
         type: edge['~type'],
         label: edgeLabels[edge['~type']] || edge['~type'].replace(/_/g, ' '),
-        curveDistance: String(getEdgeCurveDistance(edge['~id'])),
-        curveWeight: '0.5',
+          routeCurveStyle: routeData?.routeCurveStyle || (viewMode === 'kg_only' ? 'straight' : 'unbundled-bezier'),
+          curveDistance: routeData?.curveDistance || String(getEdgeCurveDistance(edgeId)),
+          curveWeight: routeData?.curveWeight || '0.5',
+          segmentDistances: routeData?.segmentDistances || '',
+          segmentWeights: routeData?.segmentWeights || '',
         ...edge['~properties'],
-      },
-    }));
+        },
+      };
+    });
 
     if (cyRef.current) {
       cyRef.current.destroy();
@@ -1603,11 +1724,11 @@ export default function StandaloneKnowledgeGraph({
         {
           selector: 'edge',
           style: {
-            'curve-style': viewMode === 'kg_only' ? 'straight' : 'unbundled-bezier',
-            ...(viewMode === 'kg_only' ? {} : {
-              'control-point-distances': 'data(curveDistance)',
-              'control-point-weights': 'data(curveWeight)',
-            }),
+            'curve-style': 'data(routeCurveStyle)',
+            'control-point-distances': 'data(curveDistance)',
+            'control-point-weights': 'data(curveWeight)',
+            'segment-distances': 'data(segmentDistances)',
+            'segment-weights': 'data(segmentWeights)',
             'z-index-compare': 'manual',
             'z-index': 5,
           },
@@ -1754,7 +1875,7 @@ export default function StandaloneKnowledgeGraph({
       cyRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [displayCoordData, genomeRegion, displayGraphData, queryResultPage, interactionHistory?.present.deletedIds]);
+  }, [displayCoordData, displayEdgeRoutes, genomeRegion, displayGraphData, queryResultPage, interactionHistory?.present.deletedIds]);
 
   useEffect(() => {
     const cy = cyRef.current;
@@ -2172,7 +2293,12 @@ export default function StandaloneKnowledgeGraph({
         open={queryDialogOpen}
         examples={queryExamples}
         onClose={() => setQueryDialogOpen(false)}
-        onResult={(payload) => { setQueryResult(payload); setViewMode(payload.metadata?.layout?.mode || 'kg_only'); setActionMessage(null); }}
+        onResult={(payload) => {
+          setQueryResult(payload);
+          setViewMode(payload.metadata?.layout?.mode || 'kg_only');
+          setLayoutEngine(payload.metadata?.layout?.engine || payload.request?.layout_engine || 'legacy');
+          setActionMessage(null);
+        }}
       />
       </div>
     </>
