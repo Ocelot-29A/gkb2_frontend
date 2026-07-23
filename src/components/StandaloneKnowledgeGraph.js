@@ -2272,6 +2272,12 @@ export default function StandaloneKnowledgeGraph({
             </Box>
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: '28px', padding: '0 32px', borderRight: '1px solid #CCD4FF' }}>
+            <Box>
+              <Typography sx={metaLabelSx}>Layout engine</Typography>
+              <Typography sx={metaValueSx}>
+                {displayMetadata?.layout?.engine === 'optimized_v1' ? 'Optimized v1' : 'Legacy'}
+              </Typography>
+            </Box>
             <Box><Typography sx={metaLabelSx}>Nodes</Typography><Typography sx={metaValueSx}>{displayMetadata?.filtered_node_count ?? displayGraphData?.nodes?.length ?? 0}</Typography></Box>
             <Box><Typography sx={metaLabelSx}>Edges</Typography><Typography sx={metaValueSx}>{displayMetadata?.filtered_edge_count ?? displayGraphData?.edges?.length ?? 0}</Typography></Box>
             <Box><Typography sx={metaLabelSx}>Visible nodes</Typography><Typography sx={metaValueSx}>{displayMetadata?.real_visible_node_count ?? displayGraphData?.nodes?.length ?? 0}</Typography></Box>
