@@ -189,12 +189,27 @@ export const requestGraphViewer = async (request, options = {}) => {
   }
 };
 
-export default function GraphViewerQueryDialog({ open, onClose, onResult, examples = [] }) {
-  const [inputs, setInputs] = useState(['']);
-  const [coreNodes, setCoreNodes] = useState('');
-  const [maxNodes, setMaxNodes] = useState('15');
-  const [layoutMode, setLayoutMode] = useState('kg_only');
-  const [layoutEngine, setLayoutEngine] = useState('legacy');
+export default function GraphViewerQueryDialog({
+  open,
+  onClose,
+  onResult,
+  examples = [],
+  initialRequest = null,
+}) {
+  const [inputs, setInputs] = useState(() => {
+    const initialCypher = Array.isArray(initialRequest?.cypher)
+      ? initialRequest.cypher.map(stringifyEntry)
+      : [];
+    return initialCypher.length ? initialCypher : [''];
+  });
+  const [coreNodes, setCoreNodes] = useState(
+    Array.isArray(initialRequest?.core_nodes) ? initialRequest.core_nodes.join(', ') : '',
+  );
+  const [maxNodes, setMaxNodes] = useState(
+    initialRequest?.max_nodes === undefined ? '15' : String(initialRequest.max_nodes),
+  );
+  const [layoutMode, setLayoutMode] = useState(initialRequest?.layout_mode || 'kg_only');
+  const [layoutEngine, setLayoutEngine] = useState(initialRequest?.layout_engine || 'legacy');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const availableExamples = [...BUILTIN_QUERY_EXAMPLES, ...examples];

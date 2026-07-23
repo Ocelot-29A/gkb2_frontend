@@ -1660,13 +1660,16 @@ export default function StandaloneKnowledgeGraph({
           target,
         target_name: nodeNameMap[edge['~end']],
         type: edge['~type'],
-        label: edgeLabels[edge['~type']] || edge['~type'].replace(/_/g, ' '),
+          label: edgeLabels[edge['~type']] || edge['~type'].replace(/_/g, ' '),
           routeCurveStyle: routeData?.routeCurveStyle || (viewMode === 'kg_only' ? 'straight' : 'unbundled-bezier'),
-          curveDistance: routeData?.curveDistance || String(getEdgeCurveDistance(edgeId)),
-          curveWeight: routeData?.curveWeight || '0.5',
-          segmentDistances: routeData?.segmentDistances || '',
-          segmentWeights: routeData?.segmentWeights || '',
-        ...edge['~properties'],
+          ...(routeData?.routeCurveStyle === 'segments' ? {
+            segmentDistances: routeData.segmentDistances,
+            segmentWeights: routeData.segmentWeights,
+          } : {
+            curveDistance: routeData?.curveDistance || String(getEdgeCurveDistance(edgeId)),
+            curveWeight: routeData?.curveWeight || '0.5',
+          }),
+          ...edge['~properties'],
         },
       };
     });
@@ -1725,12 +1728,22 @@ export default function StandaloneKnowledgeGraph({
           selector: 'edge',
           style: {
             'curve-style': 'data(routeCurveStyle)',
-            'control-point-distances': 'data(curveDistance)',
-            'control-point-weights': 'data(curveWeight)',
-            'segment-distances': 'data(segmentDistances)',
-            'segment-weights': 'data(segmentWeights)',
             'z-index-compare': 'manual',
             'z-index': 5,
+          },
+        },
+        {
+          selector: 'edge[routeCurveStyle = "unbundled-bezier"]',
+          style: {
+            'control-point-distances': 'data(curveDistance)',
+            'control-point-weights': 'data(curveWeight)',
+          },
+        },
+        {
+          selector: 'edge[routeCurveStyle = "segments"]',
+          style: {
+            'segment-distances': 'data(segmentDistances)',
+            'segment-weights': 'data(segmentWeights)',
           },
         },
         {
@@ -2292,6 +2305,7 @@ export default function StandaloneKnowledgeGraph({
       <GraphViewerQueryDialog
         open={queryDialogOpen}
         examples={queryExamples}
+        initialRequest={displayQueryRequest}
         onClose={() => setQueryDialogOpen(false)}
         onResult={(payload) => {
           setQueryResult(payload);
