@@ -1,5 +1,6 @@
 import {
   buildPreviousLayout,
+  edgeLabelToCytoscapeData,
   edgeRouteToCytoscapeData,
   getCanonicalNodeLabel,
   getGenomeLaneModelYs,
@@ -148,11 +149,11 @@ describe('optimized edge routing', () => {
   test('converts model-space bezier and polyline points for Cytoscape', () => {
     expect(edgeRouteToCytoscapeData({
       route_type: 'bezier',
-      control_points: [[100, 20]],
+      control_points: [[35, 20], [65, 20]],
     }, { x: 0, y: 0 }, { x: 100, y: 0 })).toEqual({
       routeCurveStyle: 'unbundled-bezier',
-      curveDistance: '20',
-      curveWeight: '0.5',
+      curveDistance: '20 20',
+      curveWeight: '0.175 0.325',
     });
     expect(edgeRouteToCytoscapeData({
       route_type: 'polyline',
@@ -161,6 +162,20 @@ describe('optimized edge routing', () => {
       routeCurveStyle: 'segments',
       segmentDistances: '20',
       segmentWeights: '0.5',
+    });
+  });
+
+  test('uses route label visibility and safe anchor offsets when supplied', () => {
+    expect(edgeLabelToCytoscapeData({
+      label_visible: false,
+    }, { x: 0, y: 0 }, { x: 100, y: 0 }, 'related to')).toEqual({
+      displayLabel: '', labelMarginX: '0', labelMarginY: '0',
+    });
+    expect(edgeLabelToCytoscapeData({
+      label_visible: true,
+      label_anchor: [50, 20],
+    }, { x: 0, y: 0 }, { x: 100, y: 0 }, 'related to')).toEqual({
+      displayLabel: 'related to', labelMarginX: '-25', labelMarginY: '20',
     });
   });
 

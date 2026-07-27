@@ -615,6 +615,25 @@ export const edgeRouteToCytoscapeData = (route, source, target) => {
   };
 };
 
+export const edgeLabelToCytoscapeData = (route, source, target, label) => {
+  if (!route) {
+    return { displayLabel: label, labelMarginX: '0', labelMarginY: '0' };
+  }
+  if (!source || !target || route.label_visible === false) {
+    return { displayLabel: '', labelMarginX: '0', labelMarginY: '0' };
+  }
+  const anchor = Array.isArray(route.label_anchor) ? toRenderedRoutePoint(route.label_anchor) : null;
+  if (!anchor || !Number.isFinite(anchor.x) || !Number.isFinite(anchor.y)) {
+    return { displayLabel: label, labelMarginX: '0', labelMarginY: '0' };
+  }
+  const midpoint = { x: (source.x + target.x) / 2, y: (source.y + target.y) / 2 };
+  return {
+    displayLabel: label,
+    labelMarginX: String(Number((anchor.x - midpoint.x).toFixed(3))),
+    labelMarginY: String(Number((anchor.y - midpoint.y).toFixed(3))),
+  };
+};
+
 export const buildPreviousLayout = (coordData, edgeRoutes, metadata) => {
   const layout = metadata?.layout;
   if (layout?.engine !== 'optimized_v1' || !layout?.config_fingerprint || !coordData) {
@@ -1652,6 +1671,13 @@ export default function StandaloneKnowledgeGraph({
         nodePositionMap[source],
         nodePositionMap[target],
       );
+      const label = edgeLabels[edge['~type']] || edge['~type'].replace(/_/g, ' ');
+      const labelData = edgeLabelToCytoscapeData(
+        displayEdgeRoutes?.[edgeId],
+        nodePositionMap[source],
+        nodePositionMap[target],
+        label,
+      );
       return {
         data: {
           id: edgeId,
@@ -1660,7 +1686,10 @@ export default function StandaloneKnowledgeGraph({
           target,
         target_name: nodeNameMap[edge['~end']],
         type: edge['~type'],
-          label: edgeLabels[edge['~type']] || edge['~type'].replace(/_/g, ' '),
+          label,
+          displayLabel: labelData.displayLabel,
+          labelMarginX: labelData.labelMarginX,
+          labelMarginY: labelData.labelMarginY,
           routeCurveStyle: routeData?.routeCurveStyle || (viewMode === 'kg_only' ? 'straight' : 'unbundled-bezier'),
           ...(routeData?.routeCurveStyle === 'segments' ? {
             segmentDistances: routeData.segmentDistances,
@@ -1728,6 +1757,12 @@ export default function StandaloneKnowledgeGraph({
           selector: 'edge',
           style: {
             'curve-style': 'data(routeCurveStyle)',
+            label: 'data(displayLabel)',
+            'text-background-padding': '3px',
+            'text-margin-x': 'data(labelMarginX)',
+            'text-margin-y': 'data(labelMarginY)',
+            'text-wrap': 'ellipsis',
+            'text-max-width': '150px',
             'z-index-compare': 'manual',
             'z-index': 5,
           },
