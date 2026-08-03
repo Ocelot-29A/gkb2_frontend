@@ -19,7 +19,8 @@ import {
   Typography,
 } from '@mui/material';
 
-export const GRAPH_VIEWER_API_URL = 'https://jieliulab3.dcmb.med.umich.edu/gkb0708/api/graph';
+export const GRAPH_VIEWER_API_URL = process.env.REACT_APP_GRAPH_VIEWER_API_URL
+  || 'https://jieliulab3.dcmb.med.umich.edu/gkb0708/api/graph';
 const GRAPH_VIEWER_TIMEOUT_MS = 30000;
 const GENOME_SAMPLE_QUERY = 'MATCH (n:Coding_element:Gene {id: "ENSG00000001626"})-[r]-(m) WITH n, r, m LIMIT 10 RETURN collect(DISTINCT n) + collect(DISTINCT m) AS nodes, collect(DISTINCT r) AS edges';
 const KG_SAMPLE_QUERY = 'MATCH (n:Coding_element:Gene {id: "ENSG00000001626"})-[r]-(m) WITH n, r, m LIMIT 6 RETURN collect(DISTINCT n) + collect(DISTINCT m) AS nodes, collect(DISTINCT r) AS edges';

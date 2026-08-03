@@ -1,0 +1,26 @@
+{
+  "nodes": [
+    { "~id": "Ex_CVB", "~entityType": "node", "~labels": ["ExternalFactor"], "~properties": { "id": "Ex_CVB", "name": "Enterovirus" } },
+    { "~id": "P_MDA5", "~entityType": "node", "~labels": ["Protein"], "~properties": { "id": "P_MDA5", "name": "MDA5" } },
+    { "~id": "Y_IFN1", "~entityType": "node", "~labels": ["Cytokine"], "~properties": { "id": "Y_IFN1", "name": "Type I interferon" } },
+    { "~id": "Pr_ERstress", "~entityType": "node", "~labels": ["Process"], "~properties": { "id": "Pr_ERstress", "name": "ER stress" } },
+    { "~id": "C_betaS", "~entityType": "node", "~labels": ["Cell"], "~properties": { "id": "C_betaS", "name": "Stressed beta cell", "cell_container_id": "beta" } },
+    { "~id": "A_pool", "~entityType": "node", "~labels": ["Peptide"], "~properties": { "id": "A_pool", "name": "Neoantigen peptide pool", "cell_container_id": "beta" } },
+    { "~id": "P_HLA1", "~entityType": "node", "~labels": ["Protein"], "~properties": { "id": "P_HLA1", "name": "HLA class I hyperexpression", "cell_container_id": "beta", "cell_region": "membrane" } },
+    { "~id": "C_effCD8", "~entityType": "node", "~labels": ["Cell"], "~properties": { "id": "C_effCD8", "name": "Autoreactive CD8 T cell", "cell_container_id": "cd8" } },
+    { "~id": "Pr_killing", "~entityType": "node", "~labels": ["Process"], "~properties": { "id": "Pr_killing", "name": "Cytotoxic killing" } },
+    { "~id": "O_betaDeath", "~entityType": "node", "~labels": ["Outcome"], "~properties": { "id": "O_betaDeath", "name": "Beta-cell death" } }
+  ],
+  "edges": [
+    { "~id": "I:01", "~entityType": "relationship", "~start": "Ex_CVB", "~end": "P_MDA5", "~type": "ACTIVATES", "~properties": { "id": "I:01" } },
+    { "~id": "I:02", "~entityType": "relationship", "~start": "P_MDA5", "~end": "Y_IFN1", "~type": "INDUCES", "~properties": { "id": "I:02" } },
+    { "~id": "I:03", "~entityType": "relationship", "~start": "Y_IFN1", "~end": "Pr_ERstress", "~type": "INDUCES", "~properties": { "id": "I:03" } },
+    { "~id": "I:04", "~entityType": "relationship", "~start": "Pr_ERstress", "~end": "C_betaS", "~type": "ACTIVATES", "~properties": { "id": "I:04" } },
+    { "~id": "I:05", "~entityType": "relationship", "~start": "C_betaS", "~end": "A_pool", "~type": "PRESENTS_TO", "~properties": { "id": "I:05" } },
+    { "~id": "I:06", "~entityType": "relationship", "~start": "Y_IFN1", "~end": "P_HLA1", "~type": "UPREGULATES", "~properties": { "id": "I:06" } },
+    { "~id": "I:07", "~entityType": "relationship", "~start": "P_HLA1", "~end": "C_effCD8", "~type": "PRESENTS_TO", "~properties": { "id": "I:07" } },
+    { "~id": "I:08", "~entityType": "relationship", "~start": "C_effCD8", "~end": "Pr_killing", "~type": "UNDERGOES", "~properties": { "id": "I:08" } },
+    { "~id": "I:09", "~entityType": "relationship", "~start": "Pr_killing", "~end": "C_betaS", "~type": "KILLS", "~properties": { "id": "I:09" } },
+    { "~id": "I:10", "~entityType": "relationship", "~start": "C_betaS", "~end": "O_betaDeath", "~type": "LEADS_TO", "~properties": { "id": "I:10" } }
+  ]
+}

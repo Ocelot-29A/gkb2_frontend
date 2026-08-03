@@ -1,0 +1,26 @@
+{
+  "nodes": [
+    { "~id": "A_proinsulin", "~entityType": "node", "~labels": ["Peptide"], "~properties": { "id": "A_proinsulin", "name": "Thymic proinsulin" } },
+    { "~id": "An_cortex", "~entityType": "node", "~labels": ["Anatomy"], "~properties": { "id": "An_cortex", "name": "Thymic cortex" } },
+    { "~id": "C_cTEC", "~entityType": "node", "~labels": ["Cell"], "~properties": { "id": "C_cTEC", "name": "Cortical thymic epithelial cell" } },
+    { "~id": "Pr_posSel", "~entityType": "node", "~labels": ["Process"], "~properties": { "id": "Pr_posSel", "name": "Positive selection" } },
+    { "~id": "An_medulla", "~entityType": "node", "~labels": ["Anatomy"], "~properties": { "id": "An_medulla", "name": "Thymic medulla" } },
+    { "~id": "C_mTEC", "~entityType": "node", "~labels": ["Cell"], "~properties": { "id": "C_mTEC", "name": "Medullary thymic epithelial cell" } },
+    { "~id": "Pr_transfer", "~entityType": "node", "~labels": ["Process"], "~properties": { "id": "Pr_transfer", "name": "Antigen transfer to thymic DC" } },
+    { "~id": "Pr_negSel", "~entityType": "node", "~labels": ["Process"], "~properties": { "id": "Pr_negSel", "name": "Negative selection" } },
+    { "~id": "Pr_escape", "~entityType": "node", "~labels": ["Process"], "~properties": { "id": "Pr_escape", "name": "Escape (low affinity)" } },
+    { "~id": "C_autoCD8", "~entityType": "node", "~labels": ["Cell"], "~properties": { "id": "C_autoCD8", "name": "Self-reactive CD8 clone" } }
+  ],
+  "edges": [
+    { "~id": "T:01", "~entityType": "relationship", "~start": "A_proinsulin", "~end": "C_cTEC", "~type": "PRESENTS_TO", "~properties": { "id": "T:01" } },
+    { "~id": "T:02", "~entityType": "relationship", "~start": "C_cTEC", "~end": "An_cortex", "~type": "LOCATED_IN", "~properties": { "id": "T:02" } },
+    { "~id": "T:03", "~entityType": "relationship", "~start": "An_cortex", "~end": "Pr_posSel", "~type": "UNDERGOES", "~properties": { "id": "T:03" } },
+    { "~id": "T:04", "~entityType": "relationship", "~start": "Pr_posSel", "~end": "An_medulla", "~type": "MIGRATES_TO", "~properties": { "id": "T:04" } },
+    { "~id": "T:05", "~entityType": "relationship", "~start": "C_mTEC", "~end": "Pr_transfer", "~type": "PRESENTS_TO", "~properties": { "id": "T:05" } },
+    { "~id": "T:06", "~entityType": "relationship", "~start": "Pr_transfer", "~end": "Pr_negSel", "~type": "INDUCES", "~properties": { "id": "T:06" } },
+    { "~id": "T:07", "~entityType": "relationship", "~start": "Pr_negSel", "~end": "C_autoCD8", "~type": "INHIBITS", "~properties": { "id": "T:07" } },
+    { "~id": "T:08", "~entityType": "relationship", "~start": "An_medulla", "~end": "Pr_escape", "~type": "UNDERGOES", "~properties": { "id": "T:08" } },
+    { "~id": "T:09", "~entityType": "relationship", "~start": "Pr_escape", "~end": "C_autoCD8", "~type": "ACTIVATES", "~properties": { "id": "T:09" } },
+    { "~id": "T:10", "~entityType": "relationship", "~start": "C_mTEC", "~end": "An_medulla", "~type": "LOCATED_IN", "~properties": { "id": "T:10" } }
+  ]
+}

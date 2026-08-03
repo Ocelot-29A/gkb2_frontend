@@ -1,0 +1,21 @@
+{
+  "nodes": [
+    {"~id":"T1D:CELL:BETA","~entityType":"node","~labels":["Cell"],"~properties":{"id":"T1D:CELL:BETA","name":"Stressed beta cell (synthetic)","cell_container_id":"T1D:CELL:BETA","cell_region":"cell","description":"Synthetic beta-cell compartment; not a patient observation.","data_source":"Local T1D two-cell demo","data_version":"synthetic-v1"}},
+    {"~id":"T1D:GENE:INS","~entityType":"node","~labels":["Gene"],"~properties":{"id":"T1D:GENE:INS","name":"INS","cell_container_id":"T1D:CELL:BETA","cell_region":"cytoplasm","description":"Synthetic intracellular gene node.","data_source":"Local T1D two-cell demo","data_version":"synthetic-v1"}},
+    {"~id":"T1D:PROTEIN:INSULIN","~entityType":"node","~labels":["Protein"],"~properties":{"id":"T1D:PROTEIN:INSULIN","name":"Insulin","cell_container_id":"T1D:CELL:BETA","cell_region":"cytoplasm","description":"Synthetic intracellular protein node.","data_source":"Local T1D two-cell demo","data_version":"synthetic-v1"}},
+    {"~id":"T1D:PROTEIN:HLA1","~entityType":"node","~labels":["Protein"],"~properties":{"id":"T1D:PROTEIN:HLA1","name":"HLA class I","cell_container_id":"T1D:CELL:BETA","cell_region":"membrane","description":"Synthetic membrane protein node.","data_source":"Local T1D two-cell demo","data_version":"synthetic-v1"}},
+    {"~id":"T1D:PEPTIDE:INS","~entityType":"node","~labels":["Protein"],"~properties":{"id":"T1D:PEPTIDE:INS","name":"Insulin peptide","cell_container_id":"T1D:CELL:BETA","cell_region":"membrane","description":"Synthetic antigen displayed at the beta-cell membrane.","data_source":"Local T1D two-cell demo","data_version":"synthetic-v1"}},
+    {"~id":"T1D:CELL:CD8","~entityType":"node","~labels":["Cell"],"~properties":{"id":"T1D:CELL:CD8","name":"Autoreactive CD8 T cell (synthetic)","cell_container_id":"T1D:CELL:CD8","cell_region":"cell","description":"Synthetic T-cell compartment; not a patient observation.","data_source":"Local T1D two-cell demo","data_version":"synthetic-v1"}},
+    {"~id":"T1D:PROTEIN:TCR","~entityType":"node","~labels":["Protein"],"~properties":{"id":"T1D:PROTEIN:TCR","name":"T-cell receptor","cell_container_id":"T1D:CELL:CD8","cell_region":"membrane","description":"Synthetic membrane receptor node.","data_source":"Local T1D two-cell demo","data_version":"synthetic-v1"}},
+    {"~id":"T1D:PROTEIN:GRANZYME_B","~entityType":"node","~labels":["Protein"],"~properties":{"id":"T1D:PROTEIN:GRANZYME_B","name":"Granzyme B","cell_container_id":"T1D:CELL:CD8","cell_region":"cytoplasm","description":"Synthetic intracellular cytotoxic effector node.","data_source":"Local T1D two-cell demo","data_version":"synthetic-v1"}}
+  ],
+  "edges": [
+    {"~id":"T1D:CE:1","~entityType":"relationship","~start":"T1D:CELL:BETA","~end":"T1D:GENE:INS","~type":"EXPRESSES","~properties":{"id":"T1D:CE:1","data_source":"Local T1D two-cell demo"}},
+    {"~id":"T1D:CE:2","~entityType":"relationship","~start":"T1D:GENE:INS","~end":"T1D:PROTEIN:INSULIN","~type":"ENCODES","~properties":{"id":"T1D:CE:2","data_source":"Local T1D two-cell demo"}},
+    {"~id":"T1D:CE:3","~entityType":"relationship","~start":"T1D:PROTEIN:INSULIN","~end":"T1D:PEPTIDE:INS","~type":"GENERATES","~properties":{"id":"T1D:CE:3","data_source":"Local T1D two-cell demo"}},
+    {"~id":"T1D:CE:4","~entityType":"relationship","~start":"T1D:PEPTIDE:INS","~end":"T1D:PROTEIN:HLA1","~type":"BINDS","~properties":{"id":"T1D:CE:4","data_source":"Local T1D two-cell demo"}},
+    {"~id":"T1D:CE:5","~entityType":"relationship","~start":"T1D:PROTEIN:HLA1","~end":"T1D:PROTEIN:TCR","~type":"PRESENTS_TO","~properties":{"id":"T1D:CE:5","data_source":"Local T1D two-cell demo"}},
+    {"~id":"T1D:CE:6","~entityType":"relationship","~start":"T1D:PROTEIN:TCR","~end":"T1D:PROTEIN:GRANZYME_B","~type":"INDUCES","~properties":{"id":"T1D:CE:6","data_source":"Local T1D two-cell demo"}},
+    {"~id":"T1D:CE:7","~entityType":"relationship","~start":"T1D:PROTEIN:GRANZYME_B","~end":"T1D:CELL:BETA","~type":"KILLS","~properties":{"id":"T1D:CE:7","data_source":"Local T1D two-cell demo"}}
+  ]
+}

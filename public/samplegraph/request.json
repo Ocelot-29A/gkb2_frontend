@@ -1,14 +1,9 @@
 {
-  "cypher": [
-    {
-      "source": "neo4j",
-      "query": "MATCH (g:Gene {id: \"ENSG00000001626\"})-[gt:HAS_TRANSCRIPT]-(t:Transcript)\nWITH g, gt, t ORDER BY t.id LIMIT 1\nOPTIONAL MATCH (t)-[r]-(m)\nWHERE m:Exon OR m:CDS_segments OR m:UTR_segments OR m:TSS_segment\nWITH g, gt, t,\n     collect(DISTINCT m)[0..8] AS children,\n     collect(DISTINCT r)[0..8] AS child_edges\nRETURN [g, t] + children AS nodes,\n       [gt] + child_edges AS edges"
-    }
-  ],
-  "core_nodes": [
-    "ENSG00000001626"
-  ],
-  "max_nodes": 15,
-  "layout_mode": "genome_mode",
-  "layout_engine": "optimized_v1"
+  "demo_id": "t1d-immune-synthetic",
+  "cypher": [],
+  "core_nodes": ["T1D:GENE:INS"],
+  "max_nodes": 8,
+  "layout_mode": "kg_only",
+  "layout_engine": "static_demo_v1",
+  "description": "Synthetic T1D immune-network fixture for local graph viewer development. It contains no patient or production-service data."
 }

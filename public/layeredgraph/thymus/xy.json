@@ -1,0 +1,12 @@
+{
+  "A_proinsulin": { "x": 500, "y": 600, "width": 360, "height": 80, "Level": "Core" },
+  "C_cTEC": { "x": 1350, "y": 430, "width": 470, "height": 80, "Level": "Core" },
+  "An_cortex": { "x": 1350, "y": 760, "width": 380, "height": 80, "Level": "Core" },
+  "Pr_posSel": { "x": 2300, "y": 600, "width": 380, "height": 80, "Level": "Core" },
+  "An_medulla": { "x": 3350, "y": 600, "width": 390, "height": 80, "Level": "Core" },
+  "C_mTEC": { "x": 3350, "y": 920, "width": 480, "height": 80, "Level": "Core" },
+  "Pr_transfer": { "x": 4450, "y": 920, "width": 520, "height": 80, "Level": "Core" },
+  "Pr_negSel": { "x": 5550, "y": 760, "width": 390, "height": 80, "Level": "Core" },
+  "Pr_escape": { "x": 5550, "y": 1120, "width": 410, "height": 80, "Level": "Core" },
+  "C_autoCD8": { "x": 6700, "y": 940, "width": 470, "height": 80, "Level": "Core" }
+}

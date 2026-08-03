@@ -105,8 +105,18 @@ const metaValueSx = { fontFamily: 'Inter, sans-serif', fontSize: '12px', fontWei
 const MAX_VISIBLE_NODES = 30;
 const NEIGHBOR_QUERY_LIMIT = 10;
 const HIGHLIGHT_DURATION_MS = 2200;
+const EMPTY_GRAPH_REGIONS = Object.freeze([]);
 
 export const isOverflowId = (id) => String(id ?? '').startsWith('overflow:');
+
+const openLinkedGraph = (node) => {
+  const graphLink = node?.data?.('graph_link');
+  if (typeof graphLink !== 'string' || !graphLink.startsWith('/')) {
+    return false;
+  }
+  window.location.assign(graphLink);
+  return true;
+};
 
 const contextMenuItemSx = {
   justifyContent: 'flex-start',
@@ -608,6 +618,17 @@ export const edgeRouteToCytoscapeData = (route, source, target) => {
       segmentWeights: weights,
     };
   }
+  // Cytoscape's unbundled Bézier renderer can overshoot an endpoint when an
+  // obstacle-avoidance control point projects outside the source-target span.
+  // Preserve that exact safe corridor with rounded segments instead.
+  if (converted.some(({ weight }) => weight < 0 || weight > 1)) {
+    return {
+      routeCurveStyle: 'round-segments',
+      segmentDistances: distances,
+      segmentWeights: weights,
+      segmentRadii: converted.map(() => '36').join(' '),
+    };
+  }
   return {
     routeCurveStyle: 'unbundled-bezier',
     curveDistance: distances || '0',
@@ -670,6 +691,99 @@ const buildTrackBackgroundNode = (genomeRegion) => {
     locked: true,
   };
 };
+
+const buildCellBackgroundNodes = (cellRegions) => (cellRegions || [])
+  .filter((region) => region?.id
+    && Number.isFinite(region.x)
+    && Number.isFinite(region.y)
+    && Number.isFinite(region.width)
+    && Number.isFinite(region.height))
+  .map((region) => ({
+    data: {
+      id: `__cell_background__:${region.id}`,
+      label: region.label || 'Cell',
+      cellBackground: 'true',
+      cellFill: region.fill || '#EFF6FF',
+      cellBorder: region.border || '#3B82F6',
+      renderWidth: scaleX(region.width),
+      renderHeight: scaleYPosition(region.height),
+    },
+    position: {
+      x: scaleX(region.x),
+      y: scaleYPosition(region.y),
+    },
+    selectable: false,
+    grabbable: false,
+    pannable: false,
+    locked: true,
+  }));
+
+const buildMechanismBackgroundNodes = (mechanismRegions) => (mechanismRegions || [])
+  .filter((region) => region?.id
+    && Number.isFinite(region.x)
+    && Number.isFinite(region.y)
+    && Number.isFinite(region.width)
+    && Number.isFinite(region.height))
+  .map((region) => ({
+    data: {
+      id: `__mechanism_background__:${region.id}`,
+      mechanismRegionId: region.id,
+      label: region.label || region.id,
+      mechanismBackground: 'true',
+      mechanismFill: region.fill || '#F8FAFC',
+      mechanismBorder: region.border || '#94A3B8',
+      mechanismTitleFontSize: Number(region.title_font_size) || 26,
+      renderWidth: scaleX(region.width),
+      renderHeight: scaleYPosition(region.height),
+    },
+    position: {
+      x: scaleX(region.x + region.width / 2),
+      y: scaleYPosition(region.y + region.height / 2),
+    },
+    selectable: false,
+    grabbable: false,
+    pannable: false,
+    locked: true,
+  }));
+
+const buildCanvasImageNode = (image) => {
+  if (
+    !image?.url
+    || !Number.isFinite(image.x)
+    || !Number.isFinite(image.y)
+    || !Number.isFinite(image.width)
+    || !Number.isFinite(image.height)
+  ) {
+    return null;
+  }
+
+  return {
+    data: {
+      id: '__canvas_image__',
+      label: '',
+      canvasImage: 'true',
+      canvasImageUrl: image.url,
+      canvasImageOpacity: Number.isFinite(image.opacity) ? image.opacity : 0.72,
+      canvasImageFit: image.fit || 'contain',
+      renderWidth: scaleX(image.width),
+      renderHeight: scaleHeight(image.height),
+    },
+    position: {
+      x: scaleX(image.x + image.width / 2),
+      y: scaleYPosition(image.y + image.height / 2),
+    },
+    selectable: false,
+    grabbable: false,
+    pannable: false,
+    locked: true,
+  };
+};
+
+const viewModeLabel = (viewMode) => ({
+  genome_mode: 'Genome browser mode',
+  cell_type_mode: 'Cell type mode',
+  kg_only: 'KG mode',
+}[viewMode] || 'KG mode');
 
 const InfocardMenu = ({ hoveredData }) => {
   const isEdge = hoveredData?.source && hoveredData?.target;
@@ -912,6 +1026,7 @@ export default function StandaloneKnowledgeGraph({
   const clickMenuEnabledRef = useRef(true);
   const contextMenuRef = useRef(null);
   const modeMenuRef = useRef(null);
+  const focusMenuRef = useRef(null);
   const baseCypherRef = useRef(null);
   const graphCacheRef = useRef(new Map());
   const lastFetchedKeyRef = useRef(null);
@@ -932,6 +1047,8 @@ export default function StandaloneKnowledgeGraph({
   const [clickMenuEnabled, setClickMenuEnabled] = useState(true);
   const [downloadMenuOpen, setDownloadMenuOpen] = useState(false);
   const [modeMenuOpen, setModeMenuOpen] = useState(false);
+  const [focusMenuOpen, setFocusMenuOpen] = useState(false);
+  const [activeFocusLabel, setActiveFocusLabel] = useState('Overview');
   const [queryDialogOpen, setQueryDialogOpen] = useState(false);
   const [queryResult, setQueryResult] = useState(null);
   const [viewMode, setViewMode] = useState(metadata?.layout?.mode || 'kg_only');
@@ -978,6 +1095,8 @@ export default function StandaloneKnowledgeGraph({
   const activeDeletedIds = new Set(interactionHistory?.present.deletedIds || []);
   const canUndo = Boolean(interactionHistory?.past.length);
   const canRedo = Boolean(interactionHistory?.future.length);
+  const exportNodeLimit = Number(displayMetadata?.layout?.static_export_limit) || MAX_VISIBLE_NODES;
+  const activeLegend = Array.isArray(displayMetadata?.legend) ? displayMetadata.legend : legendSchema;
 
   const getVisibleNodeIds = () => {
     const ids = new Set((displayGraphData?.nodes || []).map((node) => node['~id']));
@@ -1185,6 +1304,16 @@ export default function StandaloneKnowledgeGraph({
   const genomeRegion = ['genome_track', 'genome_mode'].includes(viewMode)
     ? effectiveMetadata?.layout?.genome_region
     : null;
+  const cellRegions = viewMode === 'cell_type_mode'
+    ? effectiveMetadata?.layout?.cell_regions
+    : EMPTY_GRAPH_REGIONS;
+  const mechanismRegions = viewMode === 'cell_type_mode'
+    ? effectiveMetadata?.layout?.mechanism_regions
+    : EMPTY_GRAPH_REGIONS;
+  const canvasImage = effectiveMetadata?.layout?.background_image || null;
+  const minimumZoom = Number(effectiveMetadata?.layout?.min_zoom) || 0.6;
+  const maximumZoom = Number(effectiveMetadata?.layout?.max_zoom) || 4;
+  const edgeLabelZoomThreshold = Number(effectiveMetadata?.layout?.edge_label_zoom_threshold) || null;
 
   const trackOverlay = (() => {
     if (!genomeRegion || !viewportState.width || !viewportState.height) {
@@ -1209,20 +1338,45 @@ export default function StandaloneKnowledgeGraph({
 
   const handleZoomIn = () => {
     if (cyRef.current) {
-      cyRef.current.zoom({ level: cyRef.current.zoom() / 1.2, renderedPosition: center });
+      cyRef.current.zoom({ level: Math.min(maximumZoom, cyRef.current.zoom() * 1.2), renderedPosition: center });
     }
   };
 
   const handleZoomOut = () => {
     if (cyRef.current) {
-      cyRef.current.zoom({ level: cyRef.current.zoom() * 1.2, renderedPosition: center });
+      cyRef.current.zoom({ level: Math.max(minimumZoom, cyRef.current.zoom() / 1.2), renderedPosition: center });
     }
   };
 
   const handleRecenter = () => {
     if (cyRef.current) {
-      cyRef.current.zoom(initZoom);
-      cyRef.current.center();
+      if (effectiveMetadata?.layout?.initial_view === 'fit') {
+        cyRef.current.fit(cyRef.current.elements(), 48);
+      } else {
+        cyRef.current.zoom(initZoom);
+        cyRef.current.center();
+      }
+    }
+  };
+
+  const handleFocusRegion = (region) => {
+    setFocusMenuOpen(false);
+    setActiveFocusLabel(region?.label || 'Overview');
+    if (!cyRef.current) {
+      return;
+    }
+    if (!region) {
+      cyRef.current.fit(cyRef.current.elements(), 48);
+      return;
+    }
+    const background = cyRef.current.getElementById(`__mechanism_background__:${region.id}`);
+    if (background?.nonempty()) {
+      cyRef.current.fit(background, 72);
+      const focusZoom = Number(effectiveMetadata?.layout?.module_focus_zoom) || 0.24;
+      if (cyRef.current.zoom() < focusZoom) {
+        cyRef.current.zoom(Math.min(maximumZoom, focusZoom));
+        cyRef.current.center(background);
+      }
     }
   };
 
@@ -1413,7 +1567,11 @@ export default function StandaloneKnowledgeGraph({
     if (!cyRef.current) {
       return;
     }
-    const png = cyRef.current.png({ full: true, scale: 8 });
+    const png = cyRef.current.png(
+      exportNodeLimit > MAX_VISIBLE_NODES
+        ? { full: true, maxWidth: 8000, maxHeight: 8000, bg: '#FFFFFF' }
+        : { full: true, scale: 8 },
+    );
     const link = document.createElement('a');
     link.href = png;
     link.download = 'knowledge_graph.png';
@@ -1485,7 +1643,14 @@ export default function StandaloneKnowledgeGraph({
     const topLeft = project(clamp(extent.x1, bounds.x1, bounds.x2), clamp(extent.y1, bounds.y1, bounds.y2));
     const bottomRight = project(clamp(extent.x2, bounds.x1, bounds.x2), clamp(extent.y2, bounds.y1, bounds.y2));
 
-    setThumbnailImage(cy.png({ full: true, scale: 1, bg: '#FFFFFF' }));
+    // Bound the raster size: full-resolution export of the static mechanism
+    // canvas exceeds browser canvas limits and otherwise returns `data:,`.
+    setThumbnailImage(cy.png({
+      full: true,
+      maxWidth: 336,
+      maxHeight: 160,
+      bg: '#FFFFFF',
+    }));
     setThumbnailViewport({
       left: topLeft.x,
       top: topLeft.y,
@@ -1631,6 +1796,7 @@ export default function StandaloneKnowledgeGraph({
           label: getNodeLabel(node),
           type: getNodeType(node),
           Level: posData.Level || 'Core',
+          renderFontSize: Number(effectiveMetadata?.layout?.node_font_size) || 6,
           renderWidth,
           renderHeight,
           labelMaxWidth: getLabelMaxWidth(renderWidth),
@@ -1641,7 +1807,16 @@ export default function StandaloneKnowledgeGraph({
 
     const nodes = (() => {
       const backgroundNode = buildTrackBackgroundNode(genomeRegion);
-      return backgroundNode ? [backgroundNode, ...graphNodes] : graphNodes;
+      const canvasImageNode = buildCanvasImageNode(canvasImage);
+      const cellBackgroundNodes = buildCellBackgroundNodes(cellRegions);
+      const mechanismBackgroundNodes = buildMechanismBackgroundNodes(mechanismRegions);
+      return [
+        ...(canvasImageNode ? [canvasImageNode] : []),
+        ...mechanismBackgroundNodes,
+        ...(backgroundNode ? [backgroundNode] : []),
+        ...cellBackgroundNodes,
+        ...graphNodes,
+      ];
     })();
 
     const nodeNameMap = graphNodes.reduce((acc, node) => {
@@ -1685,15 +1860,22 @@ export default function StandaloneKnowledgeGraph({
         source_name: nodeNameMap[edge['~start']],
           target,
         target_name: nodeNameMap[edge['~end']],
-        type: edge['~type'],
+          type: edge['~type'],
           label,
-          displayLabel: labelData.displayLabel,
+          renderFontSize: Number(effectiveMetadata?.layout?.edge_font_size) || 4,
+          renderEdgeWidth: Number(effectiveMetadata?.layout?.edge_width) || 1,
+          renderEdgeOpacity: Number(effectiveMetadata?.layout?.edge_opacity) || 1,
+          renderEdgeColor: effectiveMetadata?.layout?.edge_color || '#D3D3D3',
+          renderArrowScale: Number(effectiveMetadata?.layout?.edge_arrow_scale) || 0.4,
+          baseLabel: labelData.displayLabel,
+          displayLabel: edgeLabelZoomThreshold ? '' : labelData.displayLabel,
           labelMarginX: labelData.labelMarginX,
           labelMarginY: labelData.labelMarginY,
           routeCurveStyle: routeData?.routeCurveStyle || (viewMode === 'kg_only' ? 'straight' : 'unbundled-bezier'),
-          ...(routeData?.routeCurveStyle === 'segments' ? {
+          ...(['segments', 'round-segments'].includes(routeData?.routeCurveStyle) ? {
             segmentDistances: routeData.segmentDistances,
             segmentWeights: routeData.segmentWeights,
+            ...(routeData.segmentRadii ? { segmentRadii: routeData.segmentRadii } : {}),
           } : {
             curveDistance: routeData?.curveDistance || String(getEdgeCurveDistance(edgeId)),
             curveWeight: routeData?.curveWeight || '0.5',
@@ -1719,13 +1901,47 @@ export default function StandaloneKnowledgeGraph({
           },
         },
         {
+          selector: 'node[renderFontSize]',
+          style: {
+            'font-size': 'data(renderFontSize)',
+          },
+        },
+        {
+          selector: 'node[type = "Anatomy"]',
+          style: {
+            'background-color': '#FFFFFF',
+            'background-opacity': 1,
+            'border-color': '#64748B',
+            'border-width': 2,
+            color: '#0F172A',
+          },
+        },
+        {
+          selector: 'node[image_url]',
+          style: {
+            shape: 'data(image_shape)',
+            'background-image': 'data(image_url)',
+            'background-fit': 'data(image_fit)',
+            'background-opacity': 'data(image_opacity)',
+            'background-color': '#FFFFFF',
+            'border-color': 'data(image_border_color)',
+            'border-width': 'data(image_border_width)',
+            'text-valign': 'bottom',
+            'text-margin-y': '10px',
+            'text-background-color': '#FFFFFF',
+            'text-background-opacity': 0.94,
+            'text-background-padding': '5px',
+            'text-background-shape': 'roundrectangle',
+          },
+        },
+        {
           selector: 'node[renderHeight]',
           style: {
             height: 'data(renderHeight)',
           },
         },
         {
-          selector: 'node[labelMaxWidth][trackBackground != "true"]',
+          selector: 'node[labelMaxWidth][trackBackground != "true"][cellBackground != "true"][mechanismBackground != "true"]',
           style: {
             'text-wrap': 'ellipsis',
             'text-max-width': 'data(labelMaxWidth)',
@@ -1747,7 +1963,70 @@ export default function StandaloneKnowledgeGraph({
           },
         },
         {
-          selector: 'node[trackBackground != "true"]',
+          selector: 'node[canvasImage = "true"]',
+          style: {
+            shape: 'rectangle',
+            label: '',
+            'background-image': 'data(canvasImageUrl)',
+            'background-fit': 'data(canvasImageFit)',
+            'background-opacity': 'data(canvasImageOpacity)',
+            'background-color': '#FCFAF6',
+            'border-width': 0,
+            'z-index-compare': 'manual',
+            'z-index': -2,
+            events: 'no',
+            'overlay-opacity': 0,
+          },
+        },
+        {
+          selector: 'node[cellBackground = "true"]',
+          style: {
+            shape: 'ellipse',
+            label: 'data(label)',
+            'background-color': 'data(cellFill)',
+            'background-opacity': 0.28,
+            'border-width': 5,
+            'border-color': 'data(cellBorder)',
+            color: 'data(cellBorder)',
+            'font-size': '16px',
+            'font-weight': 700,
+            'text-valign': 'top',
+            'text-margin-y': '-12px',
+            'z-index-compare': 'manual',
+            'z-index': 0,
+            'events': 'no',
+            'overlay-opacity': 0,
+          },
+        },
+        {
+          selector: 'node[mechanismBackground = "true"]',
+          style: {
+            shape: 'round-rectangle',
+            label: 'data(label)',
+            'background-color': 'data(mechanismFill)',
+            'background-opacity': 0.38,
+            'border-width': 3,
+            'border-style': 'dashed',
+            'border-color': 'data(mechanismBorder)',
+            color: 'data(mechanismBorder)',
+            'font-size': 'data(mechanismTitleFontSize)',
+            'font-weight': 700,
+            'text-valign': 'top',
+            'text-halign': 'left',
+            'text-margin-x': '18px',
+            'text-margin-y': '18px',
+            'text-background-color': '#FFFFFF',
+            'text-background-opacity': 0.92,
+            'text-background-padding': '7px',
+            'text-background-shape': 'roundrectangle',
+            'z-index-compare': 'manual',
+            'z-index': -1,
+            'events': 'no',
+            'overlay-opacity': 0,
+          },
+        },
+        {
+          selector: 'node[trackBackground != "true"][cellBackground != "true"][mechanismBackground != "true"][canvasImage != "true"]',
           style: {
             'z-index-compare': 'manual',
             'z-index': 10,
@@ -1768,6 +2047,22 @@ export default function StandaloneKnowledgeGraph({
           },
         },
         {
+          selector: 'edge[renderFontSize]',
+          style: {
+            'font-size': 'data(renderFontSize)',
+          },
+        },
+        {
+          selector: 'edge[renderEdgeWidth]',
+          style: {
+            width: 'data(renderEdgeWidth)',
+            opacity: 'data(renderEdgeOpacity)',
+            'line-color': 'data(renderEdgeColor)',
+            'target-arrow-color': 'data(renderEdgeColor)',
+            'arrow-scale': 'data(renderArrowScale)',
+          },
+        },
+        {
           selector: 'edge[routeCurveStyle = "unbundled-bezier"]',
           style: {
             'control-point-distances': 'data(curveDistance)',
@@ -1779,6 +2074,15 @@ export default function StandaloneKnowledgeGraph({
           style: {
             'segment-distances': 'data(segmentDistances)',
             'segment-weights': 'data(segmentWeights)',
+          },
+        },
+        {
+          selector: 'edge[routeCurveStyle = "round-segments"]',
+          style: {
+            'segment-distances': 'data(segmentDistances)',
+            'segment-weights': 'data(segmentWeights)',
+            'segment-radii': 'data(segmentRadii)',
+            'radius-type': 'arc-radius',
           },
         },
         {
@@ -1799,8 +2103,8 @@ export default function StandaloneKnowledgeGraph({
       ]),
       layout: { name: 'preset' },
       zoom: 1.5,
-      minZoom: 0.6,
-      maxZoom: 4,
+      minZoom: minimumZoom,
+      maxZoom: maximumZoom,
       pan: { x: 0, y: 0 },
     });
 
@@ -1825,12 +2129,23 @@ export default function StandaloneKnowledgeGraph({
       document.body.style.cursor = 'pointer';
       setNodeHovered(true);
       setHoveredId(evt.target.id());
+      if (evt.target.isEdge?.() && edgeLabelZoomThreshold) {
+        evt.target.addClass('kg-edge-hover');
+        evt.target.data('displayLabel', evt.target.data('baseLabel'));
+      }
     };
 
     const handleOut = (evt) => {
       if (evt.target.id() === hoveredIdRef.current) {
         document.body.style.cursor = 'default';
         setNodeHovered(false);
+      }
+      if (evt.target.isEdge?.() && edgeLabelZoomThreshold) {
+        evt.target.removeClass('kg-edge-hover');
+        evt.target.data(
+          'displayLabel',
+          cy.zoom() >= edgeLabelZoomThreshold ? evt.target.data('baseLabel') : '',
+        );
       }
     };
 
@@ -1862,11 +2177,18 @@ export default function StandaloneKnowledgeGraph({
     };
 
     const handleNodeTap = (evt) => {
-      if (!clickMenuEnabledRef.current) {
+      const node = evt.target;
+      if (
+        node.data('trackBackground') === 'true'
+        || node.data('cellBackground') === 'true'
+        || node.data('mechanismBackground') === 'true'
+      ) {
         return;
       }
-      const node = evt.target;
-      if (node.data('trackBackground') === 'true') {
+      if (openLinkedGraph(node)) {
+        return;
+      }
+      if (!clickMenuEnabledRef.current) {
         return;
       }
       setContextMenu({ type: 'node', id: node.id(), x: evt.renderedPosition.x, y: evt.renderedPosition.y });
@@ -1886,8 +2208,12 @@ export default function StandaloneKnowledgeGraph({
       }
     };
 
-    cy.reset();
-    cy.center();
+    if (effectiveMetadata?.layout?.initial_view === 'fit') {
+      cy.fit(cy.elements(), 48);
+    } else {
+      cy.reset();
+      cy.center();
+    }
     setZoomLevel(cy.zoom());
     setInitZoom(cy.zoom());
     syncViewportState();
@@ -1907,6 +2233,14 @@ export default function StandaloneKnowledgeGraph({
     cy.on('zoom', () => {
       setContextMenu(null);
       setZoomLevel(cy.zoom());
+      if (edgeLabelZoomThreshold) {
+        const showLabels = cy.zoom() >= edgeLabelZoomThreshold;
+        cy.edges().forEach((edge) => {
+          if (!edge.hasClass('kg-edge-hover')) {
+            edge.data('displayLabel', showLabels ? edge.data('baseLabel') : '');
+          }
+        });
+      }
       syncViewportState();
     });
     cy.on('resize', () => {
@@ -1923,7 +2257,7 @@ export default function StandaloneKnowledgeGraph({
       cyRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [displayCoordData, displayEdgeRoutes, genomeRegion, displayGraphData, queryResultPage, interactionHistory?.present.deletedIds]);
+  }, [displayCoordData, displayEdgeRoutes, genomeRegion, cellRegions, mechanismRegions, canvasImage, displayGraphData, queryResultPage, interactionHistory?.present.deletedIds]);
 
   useEffect(() => {
     const cy = cyRef.current;
@@ -1987,11 +2321,35 @@ export default function StandaloneKnowledgeGraph({
     };
   }, [modeMenuOpen]);
 
+  useEffect(() => {
+    if (!focusMenuOpen) {
+      return undefined;
+    }
+
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        setFocusMenuOpen(false);
+      }
+    };
+    const handleDocumentPointerDown = (event) => {
+      if (focusMenuRef.current && !focusMenuRef.current.contains(event.target)) {
+        setFocusMenuOpen(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('mousedown', handleDocumentPointerDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('mousedown', handleDocumentPointerDown);
+    };
+  }, [focusMenuOpen]);
+
   const zoomToolbarButtons = (
     <>
       <Button disabled onClick={handleFullscreen} variant="outlined" startIcon={<ZoomOutMapIcon sx={{ fontSize: '16px' }} />} sx={toolbarButtonSx}>Fullscreen</Button>
-      <Button onClick={handleZoomIn} variant="outlined" disabled={zoomLevel <= 0.6} startIcon={<ZoomInIcon sx={{ fontSize: '16px' }} />} sx={toolbarButtonSx}>Zoom in</Button>
-      <Button onClick={handleZoomOut} variant="outlined" disabled={zoomLevel >= 4} startIcon={<ZoomOutIcon sx={{ fontSize: '16px' }} />} sx={toolbarButtonSx}>Zoom out</Button>
+      <Button onClick={handleZoomIn} variant="outlined" disabled={zoomLevel >= maximumZoom} startIcon={<ZoomInIcon sx={{ fontSize: '16px' }} />} sx={toolbarButtonSx}>Zoom in</Button>
+      <Button onClick={handleZoomOut} variant="outlined" disabled={zoomLevel <= minimumZoom} startIcon={<ZoomOutIcon sx={{ fontSize: '16px' }} />} sx={toolbarButtonSx}>Zoom out</Button>
       <Button onClick={handleRecenter} variant="outlined" startIcon={<CenterFocusStrongIcon sx={{ fontSize: '16px' }} />} sx={toolbarButtonSx}>Recenter</Button>
     </>
   );
@@ -2002,10 +2360,10 @@ export default function StandaloneKnowledgeGraph({
       <Box ref={toolbarRowRef} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', height: '80px', padding: '0 32px', background: '#FFFFFF', flexWrap: 'nowrap' }}>
         <Box ref={toolbarTitleRef} sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', flexShrink: 0 }}>
           <Typography sx={{ fontFamily: 'Inter, sans-serif', fontSize: '16px', fontWeight: 600, lineHeight: '22px', color: '#0F172A' }}>
-            Knowledge Graph Viewer
+            {displayMetadata?.viewer?.title || 'Knowledge Graph Viewer'}
           </Typography>
           <Typography sx={{ fontFamily: 'Inter, sans-serif', fontSize: '12px', fontWeight: 400, lineHeight: '16px', color: '#94A3B8', marginTop: '2px' }}>
-            Neighbor Exploration
+            {displayMetadata?.viewer?.subtitle || 'Neighbor Exploration'}
           </Typography>
         </Box>
         <Box
@@ -2032,16 +2390,16 @@ export default function StandaloneKnowledgeGraph({
                   <Button onClick={handleDownload} fullWidth size="small" sx={{ justifyContent: 'flex-start', color: '#1C3C68', textTransform: 'none', fontFamily: 'Inter, sans-serif', fontSize: '12px' }}>Download PNG</Button>
                   <Button
                     onClick={handleDownloadJson}
-                    disabled={getVisibleNodeIds().size > MAX_VISIBLE_NODES}
+                    disabled={getVisibleNodeIds().size > exportNodeLimit}
                     fullWidth
                     size="small"
                     sx={{ justifyContent: 'flex-start', color: '#1C3C68', textTransform: 'none', fontFamily: 'Inter, sans-serif', fontSize: '12px', '&.Mui-disabled': { color: '#B7C4D6' } }}
                   >
                     Download JSON
                   </Button>
-                  {getVisibleNodeIds().size > MAX_VISIBLE_NODES && (
+                  {getVisibleNodeIds().size > exportNodeLimit && (
                     <Typography sx={{ fontFamily: 'Inter, sans-serif', fontSize: '10px', color: '#94A3B8', padding: '2px 8px 0' }}>
-                      JSON export supports up to {MAX_VISIBLE_NODES} visible nodes.
+                      JSON export supports up to {exportNodeLimit} visible nodes.
                     </Typography>
                   )}
                 </Box>
@@ -2049,9 +2407,30 @@ export default function StandaloneKnowledgeGraph({
             </Box>
             <SwitchToggle label="Hover info" icon={<VisibilityOutlinedIcon sx={{ fontSize: '16px', color: '#1C3C68' }} />} enabled={infocardEnabled} onChange={() => setInfocardEnabled((previous) => !previous)} />
             <SwitchToggle label="Click menu" icon={<AdsClickIcon sx={{ fontSize: '16px', color: '#1C3C68' }} />} enabled={clickMenuEnabled} onChange={() => setClickMenuEnabled((previous) => !previous)} />
+            {mechanismRegions.length > 0 && (
+              <Box ref={focusMenuRef} sx={{ position: 'relative' }}>
+                <Button onClick={() => setFocusMenuOpen((previous) => !previous)} variant="outlined" startIcon={<HubIcon sx={{ fontSize: '15px' }} />} endIcon={<KeyboardArrowDownIcon sx={{ fontSize: '12px' }} />} sx={{ ...toolbarButtonSx, maxWidth: '190px' }}>
+                  <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{activeFocusLabel}</Box>
+                </Button>
+                {focusMenuOpen && (
+                  <Box sx={{ position: 'absolute', top: '44px', right: 0, width: '270px', maxHeight: '420px', overflowY: 'auto', padding: '6px', background: '#FFFFFF', border: '1px solid #E0E4EB', borderRadius: '8px', boxShadow: '0 5px 15px rgba(48, 69, 82, 0.18)', zIndex: 20 }}>
+                    <Button fullWidth onClick={() => handleFocusRegion(null)} sx={modeOptionSx}>
+                      <Typography component="span" sx={modeOptionTitleSx}>Overview</Typography>
+                      <Typography component="span" sx={modeOptionSubtitleSx}>Fit the complete T1D mechanism</Typography>
+                    </Button>
+                    {mechanismRegions.map((region) => (
+                      <Button key={region.id} fullWidth onClick={() => handleFocusRegion(region)} sx={modeOptionSx}>
+                        <Typography component="span" sx={modeOptionTitleSx}>{region.label}</Typography>
+                        <Typography component="span" sx={modeOptionSubtitleSx}>Focus this mechanism module</Typography>
+                      </Button>
+                    ))}
+                  </Box>
+                )}
+              </Box>
+            )}
             <Box ref={modeMenuRef} sx={{ position: 'relative' }}>
               <Button onClick={() => setModeMenuOpen((previous) => !previous)} variant="outlined" startIcon={<GridViewIcon sx={{ fontSize: '15px' }} />} endIcon={<KeyboardArrowDownIcon sx={{ fontSize: '12px' }} />} sx={toolbarButtonSx}>
-                {viewMode === 'genome_mode' ? 'Genome browser mode' : 'KG mode'}
+                {viewModeLabel(viewMode)}
               </Button>
               {modeMenuOpen && (
                 <Box sx={{ position: 'absolute', top: '44px', right: 0, width: '220px', padding: '6px', background: '#FFFFFF', border: '1px solid #E0E4EB', borderRadius: '8px', boxShadow: '0 5px 15px rgba(48, 69, 82, 0.18)', zIndex: 20 }}>
@@ -2062,6 +2441,10 @@ export default function StandaloneKnowledgeGraph({
                   <Button fullWidth disabled={interactionLoading || !activeCypherList.length} onClick={() => handleModeChange('genome_mode')} sx={modeOptionSx}>
                     <Typography component="span" sx={modeOptionTitleSx}>Genome browser mode</Typography>
                     <Typography component="span" sx={modeOptionSubtitleSx}>Genome tracks + KG around</Typography>
+                  </Button>
+                  <Button fullWidth disabled={interactionLoading || !activeCypherList.length} onClick={() => handleModeChange('cell_type_mode')} sx={modeOptionSx}>
+                    <Typography component="span" sx={modeOptionTitleSx}>Cell type mode</Typography>
+                    <Typography component="span" sx={modeOptionSubtitleSx}>Cell membranes + molecular context</Typography>
                   </Button>
                 </Box>
               )}
@@ -2242,7 +2625,7 @@ export default function StandaloneKnowledgeGraph({
                 <Typography sx={{ fontFamily: 'Inter, sans-serif', fontSize: '12px', fontWeight: 600, letterSpacing: '1.2px', textTransform: 'uppercase', color: '#94A3B8', paddingBottom: '8px' }}>
                   Node types
                 </Typography>
-                {Array.isArray(legendSchema) && legendSchema.map(({ label, color }) => (
+                {Array.isArray(activeLegend) && activeLegend.map(({ label, color }) => (
                   <LegendItem key={label} label={label} color={color} />
                 ))}
               </div>
@@ -2281,10 +2664,10 @@ export default function StandaloneKnowledgeGraph({
           <IconButton disabled onClick={handleFullscreen} size="small" sx={{ padding: 0 }}>
             <ZoomOutMapIcon sx={{ fontSize: '24px', color: '#1C3C68' }} />
           </IconButton>
-          <IconButton onClick={handleZoomIn} disabled={zoomLevel <= 0.6} size="small" sx={{ padding: 0 }}>
+          <IconButton onClick={handleZoomIn} disabled={zoomLevel >= maximumZoom} size="small" sx={{ padding: 0 }}>
             <ZoomInIcon sx={{ fontSize: '24px', color: '#1C3C68' }} />
           </IconButton>
-          <IconButton onClick={handleZoomOut} disabled={zoomLevel >= 4} size="small" sx={{ padding: 0 }}>
+          <IconButton onClick={handleZoomOut} disabled={zoomLevel <= minimumZoom} size="small" sx={{ padding: 0 }}>
             <ZoomOutIcon sx={{ fontSize: '24px', color: '#1C3C68' }} />
           </IconButton>
           <IconButton onClick={handleRecenter} size="small" sx={{ padding: 0 }}>
@@ -2301,7 +2684,7 @@ export default function StandaloneKnowledgeGraph({
               <Box sx={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                 <Box sx={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#10B981' }} />
                 <Typography sx={{ fontFamily: 'Inter, sans-serif', fontSize: '12px', fontWeight: 400, color: '#10B981' }}>
-                  {viewMode === 'genome_mode' ? 'Genome mode' : 'KG mode'}
+                  {viewModeLabel(viewMode)}
                 </Typography>
               </Box>
             </Box>
@@ -2310,7 +2693,9 @@ export default function StandaloneKnowledgeGraph({
             <Box>
               <Typography sx={metaLabelSx}>Layout engine</Typography>
               <Typography sx={metaValueSx}>
-                {displayMetadata?.layout?.engine === 'optimized_v1' ? 'Optimized v1' : 'Legacy'}
+                {displayMetadata?.layout?.engine === 'optimized_v1'
+                  ? 'Optimized v1'
+                  : String(displayMetadata?.layout?.engine || 'legacy').replace(/_/g, ' ')}
               </Typography>
             </Box>
             <Box><Typography sx={metaLabelSx}>Nodes</Typography><Typography sx={metaValueSx}>{displayMetadata?.filtered_node_count ?? displayGraphData?.nodes?.length ?? 0}</Typography></Box>

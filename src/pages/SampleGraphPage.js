@@ -10,18 +10,19 @@ import {
 
 import StandaloneKnowledgeGraph from '../components/StandaloneKnowledgeGraph';
 
-const SAMPLEGRAPH_BASE_URL = `${process.env.PUBLIC_URL || ''}/samplegraph`;
+const SAMPLEGRAPH_API_URL = process.env.REACT_APP_SAMPLEGRAPH_API_URL;
+const MECHANISMGRAPH_API_URL = process.env.REACT_APP_MECHANISMGRAPH_API_URL;
 
-const loadJson = async (path) => {
-  const response = await fetch(`${SAMPLEGRAPH_BASE_URL}/${path}`);
+const loadJson = async (baseUrl, path) => {
+  const response = await fetch(`${baseUrl}/${path}`);
   if (!response.ok) {
     throw new Error(`Failed to load ${path}: ${response.status}`);
   }
   return response.json();
 };
 
-export default function SampleGraphPage() {
-  const [queryRequest, setQueryRequest] = useState(null);
+export default function SampleGraphPage({ fixtureName = 'samplegraph' }) {
+  const [demo, setDemo] = useState(null);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -30,13 +31,44 @@ export default function SampleGraphPage() {
     const load = async () => {
       try {
         setError('');
-        const request = await loadJson('request.json');
+        const fixtureBaseUrl = `${process.env.PUBLIC_URL || ''}/${fixtureName}`;
+        const apiUrl = fixtureName === 'mechanismgraph' ? MECHANISMGRAPH_API_URL : SAMPLEGRAPH_API_URL;
+        const loadedDemo = apiUrl && ['samplegraph', 'mechanismgraph'].includes(fixtureName)
+          ? await (async () => {
+            const response = await fetch(apiUrl);
+            if (!response.ok) {
+              throw new Error(`Failed to load local T1D demo: ${response.status}`);
+            }
+            const payload = await response.json();
+            return {
+              queryRequest: payload.request,
+              graphData: payload.combined_query_result,
+              coordData: payload.xy_json,
+              edgeRoutes: payload.edge_routes || null,
+              metadata: payload.metadata,
+            };
+          })()
+          : await Promise.all([
+            loadJson(fixtureBaseUrl, 'request.json'),
+            loadJson(fixtureBaseUrl, 'graph.json'),
+            loadJson(fixtureBaseUrl, 'xy.json'),
+            fixtureName === 'mechanismgraph'
+              ? loadJson(fixtureBaseUrl, 'edge_routes.json')
+              : Promise.resolve(null),
+            loadJson(fixtureBaseUrl, 'metadata.json'),
+          ]).then(([queryRequest, graphData, coordData, edgeRoutes, metadata]) => ({
+            queryRequest,
+            graphData,
+            coordData,
+            edgeRoutes,
+            metadata,
+          }));
 
         if (!active) {
           return;
         }
 
-        setQueryRequest(request);
+        setDemo(loadedDemo);
       } catch (err) {
         if (active) {
           setError(err.message || 'Failed to load sample graph data.');
@@ -49,7 +81,7 @@ export default function SampleGraphPage() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [fixtureName]);
 
   return (
     <Box
@@ -75,10 +107,14 @@ export default function SampleGraphPage() {
       >
         {error ? (
           <Alert severity="error">{error}</Alert>
-        ) : queryRequest ? (
+        ) : demo ? (
           <StandaloneKnowledgeGraph
-            queryRequest={queryRequest}
-            queryExamples={[{ label: 'Initial sample graph', request: queryRequest }]}
+            graphData={demo.graphData}
+            coordData={demo.coordData}
+            edgeRoutes={demo.edgeRoutes}
+            metadata={demo.metadata}
+            queryRequest={demo.queryRequest?.cypher?.length ? demo.queryRequest : null}
+            queryExamples={[{ label: fixtureName === 'mechanismgraph' ? 'Full static T1D mechanism' : 'Synthetic T1D immune network', request: demo.queryRequest }]}
             containerHeight="calc(100vh - 315px)"
             defaultLegendVisible={true}
           />

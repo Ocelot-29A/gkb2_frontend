@@ -1,0 +1,25 @@
+{
+  "viewer": {
+    "title": "T1D immune GPS · Layer 2: islet inflammation and beta-cell death",
+    "subtitle": "Stress, antigen presentation, CD8 recognition, and beta-cell destruction"
+  },
+  "layout": {
+    "engine": "static_layered_demo_v1",
+    "mode": "cell_type_mode",
+    "mechanism_regions": [],
+    "initial_view": "fit",
+    "min_zoom": 0.3,
+    "max_zoom": 4,
+    "node_font_size": 12,
+    "edge_font_size": 9,
+    "edge_width": 3,
+    "edge_opacity": 0.8,
+    "edge_color": "#64748B",
+    "cell_regions": [
+      { "id": "beta", "label": "Stressed beta cell", "x": 4000, "y": 750, "width": 1500, "height": 780, "fill": "#FEE2E2", "border": "#DC2626" },
+      { "id": "cd8", "label": "Autoreactive CD8 T cell", "x": 5700, "y": 780, "width": 980, "height": 560, "fill": "#DBEAFE", "border": "#2563EB" }
+    ]
+  },
+  "filtered_node_count": 10,
+  "filtered_edge_count": 10
+}

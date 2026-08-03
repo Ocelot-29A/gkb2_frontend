@@ -88,21 +88,28 @@ describe('getCanonicalNodeLabel', () => {
 });
 
 describe('GKB 07-18 viewer schema', () => {
-  test('covers every live Neo4j node label and relationship type', () => {
+  test('covers every live Neo4j and curated T1D node label and relationship type', () => {
     expect(Object.keys(graphViewerSchema.nodes).sort()).toEqual([
-      'AB_compartment', 'CDS_segments', 'Cell_or_tissue', 'ChromHMM_state', 'Coding_element',
-      'Deletion', 'ENCODE_feature', 'Enhancer', 'Epigenomic_feature', 'Exon', 'FIRE_region',
-      'GO_term', 'Gene', 'Genomic_feature', 'Insertion', 'Loop', 'LoopAnchor', 'Non_coding_RNA',
-      'Non_coding_element', 'Ontology', 'Ontology_term', 'Promoter', 'Protein', 'Replication_timing',
-      'SNP', 'SNV', 'Sequence_variant', 'Structural_variant', 'Super_enhancer', 'TF_binding_motif',
-      'TSS_segment', 'ThreeD_structure', 'Transcript', 'UTR_segments', 'Variant', 'cCRE',
+      'AB_compartment', 'Anatomy', 'Antibody', 'CDS_segments', 'Cell', 'CellType',
+      'Cell_or_tissue', 'Chemical', 'Chemokine', 'ChromHMM_state', 'Coding_element', 'Cytokine',
+      'Deletion', 'ENCODE_feature', 'Enhancer', 'Epigenomic_feature', 'Exon', 'ExternalFactor',
+      'FIRE_region', 'GO_term', 'Gene', 'Genomic_feature', 'Insertion', 'Loop', 'LoopAnchor',
+      'Non_coding_RNA', 'Non_coding_element', 'Ontology', 'Ontology_term', 'Outcome', 'Pathology',
+      'Peptide', 'Process', 'Promoter', 'Protein', 'Replication_timing', 'SNP', 'SNV',
+      'Sequence_variant', 'Structural_variant', 'Super_enhancer', 'TF_binding_motif', 'TSS_segment',
+      'ThreeD_structure', 'Transcript', 'UTR_segments', 'Variant', 'cCRE',
     ].sort());
     expect(Object.keys(graphViewerSchema.edges).sort()).toEqual([
-      'ASSOCIATED_WITH_GO', 'ENCODES', 'EQTL_OF', 'EXPRESS_IN', 'FUNCTION_ANNOTATE',
-      'GENETIC_INTERACTION', 'GWAS_ASSOCIATION', 'HAS_ANCHOR_A', 'HAS_ANCHOR_B',
-      'HAS_CDS_SEGMENT', 'HAS_EXON', 'HAS_TRANSCRIPT', 'HAS_TSS', 'HAS_UTR_SEGMENT',
-      'LIGAND_RECEPTOR_PAIR', 'MAPPING_MAPPING', 'PHYSICAL_INTERACTION', 'REGULATE',
-      'REPLACED_BY', 'SUBCLASS_OF', 'TRANSLATES_TO',
+      'ACTS_ON', 'ASSOCIATED_WITH_GO', 'BINDS', 'COMPETES_WITH', 'CONFERS_RISK',
+      'CONTRIBUTES_TO', 'CO_STIMULATES', 'DIFFERENTIATES_INTO', 'DRAINS_TO', 'ENCODED_BY',
+      'ENCODES', 'EQTL_OF', 'EXPRESSES', 'EXPRESS_IN', 'FEEDS_BACK_TO', 'FUNCTION_ANNOTATE',
+      'GENERATES', 'GENETIC_INTERACTION', 'GWAS_ASSOCIATION', 'HAS_ANCHOR_A', 'HAS_ANCHOR_B',
+      'HAS_CDS_SEGMENT', 'HAS_EXON', 'HAS_STATE', 'HAS_TRANSCRIPT', 'HAS_TSS',
+      'HAS_UTR_SEGMENT', 'INDUCES', 'INFECTS', 'INFILTRATES', 'INHIBITS', 'KILLS',
+      'LIGAND_RECEPTOR_PAIR', 'LOCATED_IN', 'MAPPING_MAPPING', 'MIGRATES_TO', 'MODIFIES',
+      'PHYSICAL_INTERACTION', 'PRESENTS_TO', 'PROVIDES_HELP_TO', 'RECOGNIZES', 'RECRUITS',
+      'REGULATE', 'REPLACED_BY', 'RESULTS_IN', 'SECRETES', 'SENSED_BY', 'SUBCLASS_OF',
+      'TRANSLATES_TO', 'UNDERGOES', 'UPREGULATES',
     ].sort());
   });
 });
@@ -162,6 +169,18 @@ describe('optimized edge routing', () => {
       routeCurveStyle: 'segments',
       segmentDistances: '20',
       segmentWeights: '0.5',
+    });
+  });
+
+  test('uses rounded safe corridors for bezier controls beyond either endpoint', () => {
+    expect(edgeRouteToCytoscapeData({
+      route_type: 'bezier',
+      control_points: [[-40, 20], [60, 20]],
+    }, { x: 0, y: 0 }, { x: 100, y: 0 })).toEqual({
+      routeCurveStyle: 'round-segments',
+      segmentDistances: '20 20',
+      segmentWeights: '-0.2 0.3',
+      segmentRadii: '36 36',
     });
   });
 

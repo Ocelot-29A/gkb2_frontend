@@ -1,0 +1,12 @@
+{
+  "demo":{"name":"Synthetic T1D two-cell interaction","data_classification":"synthetic; no patient or production data"},
+  "input_node_count":8,
+  "input_edge_count":7,
+  "filtered_node_count":8,
+  "filtered_edge_count":7,
+  "hidden_node_count":0,
+  "layout":{"mode":"cell_type_mode","engine":"static_cell_demo_v1","cell_regions":[
+    {"id":"T1D:CELL:BETA","label":"Stressed beta cell","x":-360,"y":0,"width":540,"height":380,"fill":"#FEF3C7","border":"#D97706"},
+    {"id":"T1D:CELL:CD8","label":"Autoreactive CD8 T cell","x":300,"y":0,"width":470,"height":380,"fill":"#DBEAFE","border":"#2563EB"}
+  ]}
+}

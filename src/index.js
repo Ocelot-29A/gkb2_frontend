@@ -8,9 +8,10 @@ import {
   BrowserRouter,
   Route,
   Routes,
+  useLocation,
 } from 'react-router-dom';
 
-import { Container } from '@mui/material';
+import { Box, Container, Typography } from '@mui/material';
 
 import DebugPage from './components/Debug';
 import IntermediatePage from './components/IntermediatePage';
@@ -32,6 +33,41 @@ import UsecasesPage from './pages/UsecasePage';
 import { store } from './redux/store';
 import ResultPage from './SearchResult';
 
+function SiteHeader() {
+  const { pathname } = useLocation();
+
+  if (pathname.startsWith('/layeredgraph') || pathname.startsWith('/T1D_GPS') || ['/samplegraph', '/samplegraph/', '/cellgraph', '/cellgraph/', '/mechanismgraph', '/mechanismgraph/'].includes(pathname)) {
+    return (
+      <Box
+        component="header"
+        sx={{
+          minHeight: '99px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          px: 3,
+        }}
+      >
+        <Typography
+          component="h1"
+          sx={{
+            color: '#1C3D5E',
+            fontFamily: 'Inter, sans-serif',
+            fontSize: { xs: '24px', sm: '32px' },
+            fontWeight: 700,
+            lineHeight: 1.2,
+            m: 0,
+          }}
+        >
+          T1D immune GPS
+        </Typography>
+      </Box>
+    );
+  }
+
+  return <NavBar />;
+}
+
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <Provider store={store}>
@@ -41,7 +77,7 @@ root.render(
       background: "linear-gradient(270deg, #F5F9FE 0%, #E7F1FE 100%)"
     }}>
       <BrowserRouter>
-        <NavBar />
+        <SiteHeader />
         <Routes>
           <Route path="/pipeline" element={<Pipeline />} />
           <Route path="/qtldatasource" element={<QTLDataSource />} />
@@ -57,6 +93,14 @@ root.render(
           <Route path="/" element={<LandingPage />} />
           <Route path="/debug" element={<DebugPage />} />
           <Route path="/samplegraph" element={<SampleGraphPage />} />
+          <Route path="/cellgraph" element={<SampleGraphPage fixtureName="cellgraph" />} />
+          <Route path="/mechanismgraph" element={<SampleGraphPage fixtureName="mechanismgraph" />} />
+          <Route path="/layeredgraph" element={<SampleGraphPage fixtureName="layeredgraph/overview" />} />
+          <Route path="/layeredgraph/thymus" element={<SampleGraphPage fixtureName="layeredgraph/thymus" />} />
+          <Route path="/layeredgraph/islet" element={<SampleGraphPage fixtureName="layeredgraph/islet" />} />
+          <Route path="/T1D_GPS" element={<SampleGraphPage fixtureName="layeredgraph/overview" />} />
+          <Route path="/T1D_GPS/thymus" element={<SampleGraphPage fixtureName="layeredgraph/thymus" />} />
+          <Route path="/T1D_GPS/islet" element={<SampleGraphPage fixtureName="layeredgraph/islet" />} />
           <Route path="/graphquery" element={<QueryPage />} />
           <Route path="/graphresult" element={<GraphQueryResultPage />} />
         </Routes>

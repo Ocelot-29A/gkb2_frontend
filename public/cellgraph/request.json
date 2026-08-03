@@ -1,0 +1,9 @@
+{
+  "demo_id":"t1d-two-cell-synthetic",
+  "cypher":[],
+  "core_nodes":["T1D:CELL:BETA","T1D:CELL:CD8"],
+  "max_nodes":8,
+  "layout_mode":"cell_type_mode",
+  "layout_engine":"static_cell_demo_v1",
+  "description":"Synthetic two-cell T1D interaction fixture for local cell type mode development. It contains no patient or production-service data."
+}

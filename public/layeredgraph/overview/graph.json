@@ -1,0 +1,53 @@
+{
+  "nodes": [
+    { "~id": "An_thymus", "~entityType": "node", "~labels": ["Anatomy"], "~properties": { "id": "An_thymus", "name": "Thymus · open detail", "graph_link": "/T1D_GPS/thymus", "layer": "organ entrance", "image_url": "/layeredgraph/assets/thymus-node.png", "image_fit": "cover", "image_opacity": 1, "image_shape": "round-rectangle", "image_border_color": "#BE5C6E", "image_border_width": 5, "description": "Click to enter the thymic-selection network." } },
+    { "~id": "Pr_medSel", "~entityType": "node", "~labels": ["Process"], "~properties": { "id": "Pr_medSel", "name": "Medullary selection", "compartment": "thymic medulla" } },
+    { "~id": "Pr_escape", "~entityType": "node", "~labels": ["Process"], "~properties": { "id": "Pr_escape", "name": "Escape (low affinity)", "compartment": "thymic medulla" } },
+    { "~id": "C_selfCD8", "~entityType": "node", "~labels": ["Cell"], "~properties": { "id": "C_selfCD8", "name": "Self-reactive CD8 single-positive thymocyte" } },
+    { "~id": "C_nCD8", "~entityType": "node", "~labels": ["Cell"], "~properties": { "id": "C_nCD8", "name": "Naive self-reactive CD8 T cell", "state": "peripheral repertoire" } },
+
+    { "~id": "An_pLN", "~entityType": "node", "~labels": ["Anatomy"], "~properties": { "id": "An_pLN", "name": "Pancreatic lymph node", "layer": "organ anchor", "image_url": "/layeredgraph/assets/pancreatic-lymph-node.png", "image_fit": "cover", "image_opacity": 1, "image_shape": "round-rectangle", "image_border_color": "#2F8F83", "image_border_width": 5, "description": "Draining lymph node where islet antigen presentation and T-cell priming occur." } },
+    { "~id": "A_pool", "~entityType": "node", "~labels": ["Peptide"], "~properties": { "id": "A_pool", "name": "Islet antigen pool" } },
+    { "~id": "C_migDC", "~entityType": "node", "~labels": ["Cell"], "~properties": { "id": "C_migDC", "name": "Migratory dendritic cell" } },
+    { "~id": "Pr_costim", "~entityType": "node", "~labels": ["Process"], "~properties": { "id": "Pr_costim", "name": "Co-stimulation", "compartment": "pancreatic lymph node" } },
+    { "~id": "C_effCD8", "~entityType": "node", "~labels": ["Cell"], "~properties": { "id": "C_effCD8", "name": "Effector CD8 T cell", "state": "islet-homing" } },
+    { "~id": "Pr_homing", "~entityType": "node", "~labels": ["Process"], "~properties": { "id": "Pr_homing", "name": "Effector homing to islet", "compartment": "circulation to islet" } },
+
+    { "~id": "An_islet", "~entityType": "node", "~labels": ["Anatomy"], "~properties": { "id": "An_islet", "name": "Pancreatic islet · open detail", "graph_link": "/T1D_GPS/islet", "layer": "organ entrance", "image_url": "/layeredgraph/assets/pancreatic-islet-node.png", "image_fit": "cover", "image_opacity": 1, "image_shape": "round-rectangle", "image_border_color": "#C98523", "image_border_width": 5, "description": "Click to enter the islet inflammation and beta-cell destruction network." } },
+    { "~id": "C_betaS", "~entityType": "node", "~labels": ["Cell"], "~properties": { "id": "C_betaS", "name": "Stressed beta cell" } },
+    { "~id": "Pr_ERstress", "~entityType": "node", "~labels": ["Process"], "~properties": { "id": "Pr_ERstress", "name": "Endoplasmic reticulum stress (UPR)", "compartment": "islet" } },
+    { "~id": "K_CXCL10", "~entityType": "node", "~labels": ["Chemokine"], "~properties": { "id": "K_CXCL10", "name": "CXCL10" } },
+    { "~id": "Pa_insulitis", "~entityType": "node", "~labels": ["Pathology"], "~properties": { "id": "Pa_insulitis", "name": "Insulitis" } },
+    { "~id": "C_isletDC", "~entityType": "node", "~labels": ["Cell"], "~properties": { "id": "C_isletDC", "name": "Islet dendritic cell" } },
+    { "~id": "Pr_presInSitu", "~entityType": "node", "~labels": ["Process"], "~properties": { "id": "Pr_presInSitu", "name": "Antigen presentation in situ", "compartment": "islet" } },
+    { "~id": "C_CTL", "~entityType": "node", "~labels": ["Cell"], "~properties": { "id": "C_CTL", "name": "Cytotoxic T lymphocyte" } },
+    { "~id": "O_betaDeath", "~entityType": "node", "~labels": ["Outcome"], "~properties": { "id": "O_betaDeath", "name": "Beta-cell death" } },
+    { "~id": "O_T1D", "~entityType": "node", "~labels": ["Outcome"], "~properties": { "id": "O_T1D", "name": "Type 1 diabetes" } }
+  ],
+  "edges": [
+    { "~id": "L1:01", "~entityType": "relationship", "~start": "Pr_medSel", "~end": "An_thymus", "~type": "LOCATED_IN", "~properties": { "id": "L1:01", "overview_summary": true } },
+    { "~id": "L1:02", "~entityType": "relationship", "~start": "Pr_medSel", "~end": "Pr_escape", "~type": "RESULTS_IN", "~properties": { "id": "L1:02", "affinity": "low" } },
+    { "~id": "L1:03", "~entityType": "relationship", "~start": "Pr_escape", "~end": "C_selfCD8", "~type": "RESULTS_IN", "~properties": { "id": "L1:03" } },
+    { "~id": "L1:04", "~entityType": "relationship", "~start": "C_selfCD8", "~end": "C_nCD8", "~type": "DIFFERENTIATES_INTO", "~properties": { "id": "L1:04" } },
+
+    { "~id": "L1:05", "~entityType": "relationship", "~start": "A_pool", "~end": "An_pLN", "~type": "DRAINS_TO", "~properties": { "id": "L1:05", "process": "Pr_drainage" } },
+    { "~id": "L1:06", "~entityType": "relationship", "~start": "C_migDC", "~end": "An_pLN", "~type": "MIGRATES_TO", "~properties": { "id": "L1:06", "route": "afferent lymphatic" } },
+    { "~id": "L1:07", "~entityType": "relationship", "~start": "C_migDC", "~end": "C_nCD8", "~type": "PRESENTS_TO", "~properties": { "id": "L1:07", "via": "HLA class I cross-presentation" } },
+    { "~id": "L1:08", "~entityType": "relationship", "~start": "C_nCD8", "~end": "Pr_costim", "~type": "UNDERGOES", "~properties": { "id": "L1:08", "overview_summary": true } },
+    { "~id": "L1:09", "~entityType": "relationship", "~start": "C_nCD8", "~end": "C_effCD8", "~type": "DIFFERENTIATES_INTO", "~properties": { "id": "L1:09", "driven_by": "IL-2, IL-12, IL-21" } },
+    { "~id": "L1:10", "~entityType": "relationship", "~start": "C_effCD8", "~end": "Pr_homing", "~type": "UNDERGOES", "~properties": { "id": "L1:10", "overview_summary": true } },
+    { "~id": "L1:11", "~entityType": "relationship", "~start": "C_effCD8", "~end": "An_islet", "~type": "MIGRATES_TO", "~properties": { "id": "L1:11", "process": "Pr_homing" } },
+
+    { "~id": "L1:12", "~entityType": "relationship", "~start": "C_betaS", "~end": "An_islet", "~type": "LOCATED_IN", "~properties": { "id": "L1:12" } },
+    { "~id": "L1:13", "~entityType": "relationship", "~start": "C_betaS", "~end": "Pr_ERstress", "~type": "UNDERGOES", "~properties": { "id": "L1:13" } },
+    { "~id": "L1:14", "~entityType": "relationship", "~start": "C_betaS", "~end": "K_CXCL10", "~type": "SECRETES", "~properties": { "id": "L1:14" } },
+    { "~id": "L1:15", "~entityType": "relationship", "~start": "K_CXCL10", "~end": "C_effCD8", "~type": "RECRUITS", "~properties": { "id": "L1:15", "receptor": "CXCR3" } },
+    { "~id": "L1:16", "~entityType": "relationship", "~start": "C_effCD8", "~end": "Pa_insulitis", "~type": "INFILTRATES", "~properties": { "id": "L1:16" } },
+    { "~id": "L1:17", "~entityType": "relationship", "~start": "C_isletDC", "~end": "Pr_presInSitu", "~type": "UNDERGOES", "~properties": { "id": "L1:17" } },
+    { "~id": "L1:18", "~entityType": "relationship", "~start": "Pr_presInSitu", "~end": "C_CTL", "~type": "RESULTS_IN", "~properties": { "id": "L1:18", "note": "local CD8 activation" } },
+    { "~id": "L1:19", "~entityType": "relationship", "~start": "C_CTL", "~end": "C_betaS", "~type": "KILLS", "~properties": { "id": "L1:19", "mechanism": "perforin-granzyme" } },
+    { "~id": "L1:20", "~entityType": "relationship", "~start": "C_betaS", "~end": "O_betaDeath", "~type": "UNDERGOES", "~properties": { "id": "L1:20", "modes": "apoptosis, necrosis" } },
+    { "~id": "L1:21", "~entityType": "relationship", "~start": "O_betaDeath", "~end": "A_pool", "~type": "FEEDS_BACK_TO", "~properties": { "id": "L1:21", "mediators": "released antigen, cytokines" } },
+    { "~id": "L1:22", "~entityType": "relationship", "~start": "O_betaDeath", "~end": "O_T1D", "~type": "RESULTS_IN", "~properties": { "id": "L1:22", "condition": "loss of functional beta-cell mass" } }
+  ]
+}

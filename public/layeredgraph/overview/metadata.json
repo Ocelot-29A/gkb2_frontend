@@ -1,0 +1,39 @@
+{
+  "viewer": {
+    "title": "T1D immune GPS · Layer 1: multi-organ overview",
+    "subtitle": "Click the illustrated Thymus or Pancreatic islet to enter Layer 2"
+  },
+  "layout": {
+    "engine": "static_layered_demo_v2",
+    "mode": "cell_type_mode",
+    "mechanism_regions": [],
+    "cell_regions": [],
+    "initial_view": "fit",
+    "min_zoom": 0.22,
+    "max_zoom": 4,
+    "node_font_size": 20,
+    "edge_font_size": 9,
+    "edge_width": 3,
+    "edge_opacity": 0.8,
+    "edge_color": "#52647A",
+    "edge_arrow_scale": 0.7,
+    "background_image": {
+      "url": "/layeredgraph/assets/t1d-multi-organ-atlas.png",
+      "x": 2500,
+      "y": 20,
+      "width": 2600,
+      "height": 1463,
+      "fit": "contain",
+      "opacity": 0.62
+    }
+  },
+  "legend": [
+    { "label": "Immune cells", "color": "#93C5FD" },
+    { "label": "Immune processes", "color": "#FDBA74" },
+    { "label": "Antigens and chemokines", "color": "#FCD34D" },
+    { "label": "Pathology and outcomes", "color": "#FB7185" },
+    { "label": "Illustrated organ entrance", "color": "#2F8F83" }
+  ],
+  "filtered_node_count": 21,
+  "filtered_edge_count": 22
+}

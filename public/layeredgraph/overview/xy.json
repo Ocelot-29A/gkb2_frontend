@@ -1,0 +1,25 @@
+{
+  "Pr_medSel": { "x": 2650, "y": 240, "width": 430, "height": 84, "Level": "Core" },
+  "Pr_escape": { "x": 3150, "y": 360, "width": 430, "height": 84, "Level": "Core" },
+  "C_selfCD8": { "x": 3650, "y": 470, "width": 520, "height": 84, "Level": "Core" },
+  "C_nCD8": { "x": 4150, "y": 580, "width": 480, "height": 84, "Level": "Core" },
+  "An_thymus": { "x": 4650, "y": 285, "width": 650, "height": 460, "Level": "Core" },
+
+  "C_migDC": { "x": 3500, "y": 685, "width": 430, "height": 84, "Level": "Core" },
+  "A_pool": { "x": 3650, "y": 875, "width": 390, "height": 84, "Level": "Core" },
+  "An_pLN": { "x": 4550, "y": 660, "width": 630, "height": 440, "Level": "Core" },
+  "Pr_costim": { "x": 5000, "y": 585, "width": 390, "height": 84, "Level": "Core" },
+  "C_effCD8": { "x": 5200, "y": 700, "width": 430, "height": 84, "Level": "Core" },
+  "Pr_homing": { "x": 5750, "y": 810, "width": 440, "height": 84, "Level": "Core" },
+
+  "An_islet": { "x": 4850, "y": 950, "width": 710, "height": 520, "Level": "Core" },
+  "C_betaS": { "x": 5200, "y": 1100, "width": 390, "height": 84, "Level": "Core" },
+  "Pr_ERstress": { "x": 5800, "y": 1215, "width": 500, "height": 84, "Level": "Core" },
+  "K_CXCL10": { "x": 5610, "y": 980, "width": 300, "height": 84, "Level": "Core" },
+  "Pa_insulitis": { "x": 5880, "y": 860, "width": 330, "height": 84, "Level": "Core" },
+  "C_isletDC": { "x": 5800, "y": 1130, "width": 390, "height": 84, "Level": "Core" },
+  "Pr_presInSitu": { "x": 6350, "y": 1235, "width": 500, "height": 84, "Level": "Core" },
+  "C_CTL": { "x": 6240, "y": 1060, "width": 420, "height": 84, "Level": "Core" },
+  "O_betaDeath": { "x": 6460, "y": 860, "width": 370, "height": 84, "Level": "Core" },
+  "O_T1D": { "x": 6650, "y": 1020, "width": 350, "height": 84, "Level": "Core" }
+}

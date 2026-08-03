@@ -1,0 +1,12 @@
+{
+  "Ex_CVB": { "x": 450, "y": 420, "width": 360, "height": 80, "Level": "Core" },
+  "P_MDA5": { "x": 1250, "y": 420, "width": 330, "height": 80, "Level": "Core" },
+  "Y_IFN1": { "x": 2050, "y": 420, "width": 420, "height": 80, "Level": "Core" },
+  "Pr_ERstress": { "x": 2900, "y": 420, "width": 350, "height": 80, "Level": "Core" },
+  "C_betaS": { "x": 3850, "y": 570, "width": 400, "height": 80, "Level": "Core" },
+  "A_pool": { "x": 3850, "y": 860, "width": 430, "height": 80, "Level": "Core" },
+  "P_HLA1": { "x": 4650, "y": 570, "width": 500, "height": 80, "Level": "Core" },
+  "C_effCD8": { "x": 5700, "y": 720, "width": 460, "height": 80, "Level": "Core" },
+  "Pr_killing": { "x": 6600, "y": 720, "width": 380, "height": 80, "Level": "Core" },
+  "O_betaDeath": { "x": 7550, "y": 720, "width": 400, "height": 80, "Level": "Core" }
+}

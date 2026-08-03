@@ -1,0 +1,10 @@
+{
+  "T1D:CELL:BETA":{"start_xy":[-570,-190],"end_xy":[-390,-230],"Level":"Core"},
+  "T1D:GENE:INS":{"start_xy":[-590,-5],"end_xy":[-430,-49],"Level":"Neighbor"},
+  "T1D:PROTEIN:INSULIN":{"start_xy":[-590,105],"end_xy":[-410,61],"Level":"Neighbor"},
+  "T1D:PROTEIN:HLA1":{"start_xy":[-310,28],"end_xy":[-140,-16],"Level":"Neighbor"},
+  "T1D:PEPTIDE:INS":{"start_xy":[-325,118],"end_xy":[-145,74],"Level":"Neighbor"},
+  "T1D:CELL:CD8":{"start_xy":[250,-190],"end_xy":[470,-230],"Level":"Core"},
+  "T1D:PROTEIN:TCR":{"start_xy":[60,28],"end_xy":[220,-16],"Level":"Neighbor"},
+  "T1D:PROTEIN:GRANZYME_B":{"start_xy":[260,85],"end_xy":[455,41],"Level":"Neighbor"}
+}
