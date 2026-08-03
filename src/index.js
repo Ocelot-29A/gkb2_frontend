@@ -35,8 +35,9 @@ import ResultPage from './SearchResult';
 
 function SiteHeader() {
   const { pathname } = useLocation();
+  const isT1DGps = pathname.startsWith('/layeredgraph') || pathname.startsWith('/T1D_GPS');
 
-  if (pathname.startsWith('/layeredgraph') || pathname.startsWith('/T1D_GPS') || ['/samplegraph', '/samplegraph/', '/cellgraph', '/cellgraph/', '/mechanismgraph', '/mechanismgraph/'].includes(pathname)) {
+  if (isT1DGps || ['/samplegraph', '/samplegraph/', '/cellgraph', '/cellgraph/', '/mechanismgraph', '/mechanismgraph/'].includes(pathname)) {
     return (
       <Box
         component="header"
@@ -46,12 +47,13 @@ function SiteHeader() {
           alignItems: 'center',
           justifyContent: 'center',
           px: 3,
+          background: isT1DGps ? 'linear-gradient(180deg, #F7F0E5 0%, #F4EDE2 100%)' : 'transparent',
         }}
       >
         <Typography
           component="h1"
           sx={{
-            color: '#1C3D5E',
+            color: isT1DGps ? '#365D57' : '#1C3D5E',
             fontFamily: 'Inter, sans-serif',
             fontSize: { xs: '24px', sm: '32px' },
             fontWeight: 700,

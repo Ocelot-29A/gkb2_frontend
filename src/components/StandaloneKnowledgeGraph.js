@@ -106,6 +106,20 @@ const MAX_VISIBLE_NODES = 30;
 const NEIGHBOR_QUERY_LIMIT = 10;
 const HIGHLIGHT_DURATION_MS = 2200;
 const EMPTY_GRAPH_REGIONS = Object.freeze([]);
+const EMPTY_VIEWER_COLORS = Object.freeze({});
+const DEFAULT_VIEWER_PALETTE = Object.freeze({
+  canvas: '#F5F8FB',
+  surface: '#FFFFFF',
+  softSurface: '#F8FAFC',
+  border: '#E0E4EB',
+  ink: '#0F172A',
+  mutedInk: '#94A3B8',
+  control: '#1C3C68',
+  controlHover: '#16304F',
+  overview: '#F0F7FF',
+  overviewBorder: '#E0EAF5',
+  shadow: 'rgba(15, 23, 42, 0.08)',
+});
 
 export const isOverflowId = (id) => String(id ?? '').startsWith('overflow:');
 
@@ -249,7 +263,7 @@ const modeOptionSx = {
 const modeOptionTitleSx = { fontFamily: 'Inter, sans-serif', fontSize: '12px', fontWeight: 600, lineHeight: '16px', color: '#1C3C68' };
 const modeOptionSubtitleSx = { fontFamily: 'Inter, sans-serif', fontSize: '11px', fontWeight: 400, lineHeight: '14px', color: '#94A3B8' };
 
-const SwitchToggle = ({ label, icon, enabled, onChange }) => (
+const SwitchToggle = ({ label, icon, enabled, onChange, palette = DEFAULT_VIEWER_PALETTE }) => (
   <Box
     component="button"
     type="button"
@@ -261,15 +275,15 @@ const SwitchToggle = ({ label, icon, enabled, onChange }) => (
       gap: '4px',
       height: '36px',
       padding: '0 8px',
-      border: '1px solid #E0E4EB',
+      border: `1px solid ${palette.border}`,
       borderRadius: '10px',
-      backgroundColor: '#FFFFFF',
+      backgroundColor: palette.surface,
       cursor: 'pointer',
-      '&:hover': { borderColor: '#B9C6D6', backgroundColor: '#F8FAFC' },
+      '&:hover': { borderColor: palette.control, backgroundColor: palette.softSurface },
     }}
   >
     {icon}
-    <Typography sx={{ fontFamily: 'Inter, sans-serif', fontSize: '12px', fontWeight: 400, lineHeight: '16px', color: '#1C3C68', whiteSpace: 'nowrap' }}>
+    <Typography sx={{ fontFamily: 'Inter, sans-serif', fontSize: '12px', fontWeight: 400, lineHeight: '16px', color: palette.control, whiteSpace: 'nowrap' }}>
       {label}
     </Typography>
     <span
@@ -283,7 +297,7 @@ const SwitchToggle = ({ label, icon, enabled, onChange }) => (
         padding: '2px',
         boxSizing: 'border-box',
         borderRadius: '256px',
-        backgroundColor: enabled ? '#1A74FF' : '#D0D6E1',
+        backgroundColor: enabled ? palette.control : '#C9C5BD',
       }}
     >
       <span style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#FFFFFF' }} />
@@ -1090,6 +1104,22 @@ export default function StandaloneKnowledgeGraph({
   const effectiveMetadata = displayMetadata
     ? { ...displayMetadata, layout: { ...displayMetadata.layout, mode: viewMode } }
     : null;
+  const viewerPalette = {
+    ...DEFAULT_VIEWER_PALETTE,
+    ...(effectiveMetadata?.layout?.viewer_palette || {}),
+  };
+  const viewerNodeColors = effectiveMetadata?.layout?.node_colors || EMPTY_VIEWER_COLORS;
+  const viewerNodeTextColors = effectiveMetadata?.layout?.node_text_colors || EMPTY_VIEWER_COLORS;
+  const viewerToolbarButtonSx = {
+    ...toolbarButtonSx,
+    border: `1px solid ${viewerPalette.border}`,
+    backgroundColor: viewerPalette.surface,
+    color: viewerPalette.control,
+    '&:hover': {
+      borderColor: viewerPalette.control,
+      backgroundColor: viewerPalette.softSurface,
+    },
+  };
   const displayQueryRequest = queryResult?.request || queryRequest;
   const activeCypherList = interactionHistory?.present.cypher || displayQueryRequest?.cypher || [];
   const activeDeletedIds = new Set(interactionHistory?.present.deletedIds || []);
@@ -1893,7 +1923,16 @@ export default function StandaloneKnowledgeGraph({
     cyRef.current = cytoscape({
       container: containerRef.current,
       elements: { nodes, edges },
-      style: nodeStyle.concat([
+      style: nodeStyle.concat(
+        Object.entries(viewerNodeColors).map(([type, color]) => ({
+          selector: `node[type = "${type}"][Level = "Core"]`,
+          style: {
+            'background-color': color,
+            'border-color': color,
+            color: viewerNodeTextColors[type] || '#193336',
+          },
+        })),
+        [
         {
           selector: 'node[renderWidth]',
           style: {
@@ -2257,7 +2296,7 @@ export default function StandaloneKnowledgeGraph({
       cyRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [displayCoordData, displayEdgeRoutes, genomeRegion, cellRegions, mechanismRegions, canvasImage, displayGraphData, queryResultPage, interactionHistory?.present.deletedIds]);
+  }, [displayCoordData, displayEdgeRoutes, genomeRegion, cellRegions, mechanismRegions, canvasImage, viewerNodeColors, viewerNodeTextColors, displayGraphData, queryResultPage, interactionHistory?.present.deletedIds]);
 
   useEffect(() => {
     const cy = cyRef.current;
@@ -2347,22 +2386,22 @@ export default function StandaloneKnowledgeGraph({
 
   const zoomToolbarButtons = (
     <>
-      <Button disabled onClick={handleFullscreen} variant="outlined" startIcon={<ZoomOutMapIcon sx={{ fontSize: '16px' }} />} sx={toolbarButtonSx}>Fullscreen</Button>
-      <Button onClick={handleZoomIn} variant="outlined" disabled={zoomLevel >= maximumZoom} startIcon={<ZoomInIcon sx={{ fontSize: '16px' }} />} sx={toolbarButtonSx}>Zoom in</Button>
-      <Button onClick={handleZoomOut} variant="outlined" disabled={zoomLevel <= minimumZoom} startIcon={<ZoomOutIcon sx={{ fontSize: '16px' }} />} sx={toolbarButtonSx}>Zoom out</Button>
-      <Button onClick={handleRecenter} variant="outlined" startIcon={<CenterFocusStrongIcon sx={{ fontSize: '16px' }} />} sx={toolbarButtonSx}>Recenter</Button>
+      <Button disabled onClick={handleFullscreen} variant="outlined" startIcon={<ZoomOutMapIcon sx={{ fontSize: '16px' }} />} sx={viewerToolbarButtonSx}>Fullscreen</Button>
+      <Button onClick={handleZoomIn} variant="outlined" disabled={zoomLevel >= maximumZoom} startIcon={<ZoomInIcon sx={{ fontSize: '16px' }} />} sx={viewerToolbarButtonSx}>Zoom in</Button>
+      <Button onClick={handleZoomOut} variant="outlined" disabled={zoomLevel <= minimumZoom} startIcon={<ZoomOutIcon sx={{ fontSize: '16px' }} />} sx={viewerToolbarButtonSx}>Zoom out</Button>
+      <Button onClick={handleRecenter} variant="outlined" startIcon={<CenterFocusStrongIcon sx={{ fontSize: '16px' }} />} sx={viewerToolbarButtonSx}>Recenter</Button>
     </>
   );
 
   return (
     <>
-      <div style={{ display: 'flex', flexDirection: 'column', position: 'relative', width: '100%', height: '100%', color: '#263238', ...sx }}>
-      <Box ref={toolbarRowRef} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', height: '80px', padding: '0 32px', background: '#FFFFFF', flexWrap: 'nowrap' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', position: 'relative', width: '100%', height: '100%', color: viewerPalette.ink, ...sx }}>
+      <Box ref={toolbarRowRef} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', height: '80px', padding: '0 32px', background: viewerPalette.surface, flexWrap: 'nowrap' }}>
         <Box ref={toolbarTitleRef} sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', flexShrink: 0 }}>
-          <Typography sx={{ fontFamily: 'Inter, sans-serif', fontSize: '16px', fontWeight: 600, lineHeight: '22px', color: '#0F172A' }}>
+          <Typography sx={{ fontFamily: 'Inter, sans-serif', fontSize: '16px', fontWeight: 600, lineHeight: '22px', color: viewerPalette.ink }}>
             {displayMetadata?.viewer?.title || 'Knowledge Graph Viewer'}
           </Typography>
-          <Typography sx={{ fontFamily: 'Inter, sans-serif', fontSize: '12px', fontWeight: 400, lineHeight: '16px', color: '#94A3B8', marginTop: '2px' }}>
+          <Typography sx={{ fontFamily: 'Inter, sans-serif', fontSize: '12px', fontWeight: 400, lineHeight: '16px', color: viewerPalette.mutedInk, marginTop: '2px' }}>
             {displayMetadata?.viewer?.subtitle || 'Neighbor Exploration'}
           </Typography>
         </Box>
@@ -2379,14 +2418,14 @@ export default function StandaloneKnowledgeGraph({
               <Box sx={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 {zoomToolbarButtons}
               </Box>
-              <Box sx={{ width: '1px', alignSelf: 'stretch', backgroundColor: '#E0E4EB' }} />
+              <Box sx={{ width: '1px', alignSelf: 'stretch', backgroundColor: viewerPalette.border }} />
             </>
           )}
           <Box ref={toolbarSecondaryGroupRef} sx={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Box sx={{ position: 'relative' }}>
-              <Button onClick={() => setDownloadMenuOpen((previous) => !previous)} variant="outlined" startIcon={<FileDownloadIcon sx={{ fontSize: '16px' }} />} sx={toolbarButtonSx}>Download</Button>
+              <Button onClick={() => setDownloadMenuOpen((previous) => !previous)} variant="outlined" startIcon={<FileDownloadIcon sx={{ fontSize: '16px' }} />} sx={viewerToolbarButtonSx}>Download</Button>
               {downloadMenuOpen && (
-                <Box sx={{ position: 'absolute', top: '44px', left: 0, width: '174px', padding: '6px', background: '#FFFFFF', border: '1px solid #E0E4EB', borderRadius: '8px', boxShadow: '0 5px 15px rgba(48, 69, 82, 0.18)', zIndex: 20 }}>
+                <Box sx={{ position: 'absolute', top: '44px', left: 0, width: '174px', padding: '6px', background: viewerPalette.surface, border: `1px solid ${viewerPalette.border}`, borderRadius: '8px', boxShadow: `0 5px 15px ${viewerPalette.shadow}`, zIndex: 20 }}>
                   <Button onClick={handleDownload} fullWidth size="small" sx={{ justifyContent: 'flex-start', color: '#1C3C68', textTransform: 'none', fontFamily: 'Inter, sans-serif', fontSize: '12px' }}>Download PNG</Button>
                   <Button
                     onClick={handleDownloadJson}
@@ -2405,15 +2444,15 @@ export default function StandaloneKnowledgeGraph({
                 </Box>
               )}
             </Box>
-            <SwitchToggle label="Hover info" icon={<VisibilityOutlinedIcon sx={{ fontSize: '16px', color: '#1C3C68' }} />} enabled={infocardEnabled} onChange={() => setInfocardEnabled((previous) => !previous)} />
-            <SwitchToggle label="Click menu" icon={<AdsClickIcon sx={{ fontSize: '16px', color: '#1C3C68' }} />} enabled={clickMenuEnabled} onChange={() => setClickMenuEnabled((previous) => !previous)} />
+            <SwitchToggle label="Hover info" icon={<VisibilityOutlinedIcon sx={{ fontSize: '16px', color: viewerPalette.control }} />} enabled={infocardEnabled} onChange={() => setInfocardEnabled((previous) => !previous)} palette={viewerPalette} />
+            <SwitchToggle label="Click menu" icon={<AdsClickIcon sx={{ fontSize: '16px', color: viewerPalette.control }} />} enabled={clickMenuEnabled} onChange={() => setClickMenuEnabled((previous) => !previous)} palette={viewerPalette} />
             {mechanismRegions.length > 0 && (
               <Box ref={focusMenuRef} sx={{ position: 'relative' }}>
-                <Button onClick={() => setFocusMenuOpen((previous) => !previous)} variant="outlined" startIcon={<HubIcon sx={{ fontSize: '15px' }} />} endIcon={<KeyboardArrowDownIcon sx={{ fontSize: '12px' }} />} sx={{ ...toolbarButtonSx, maxWidth: '190px' }}>
+                <Button onClick={() => setFocusMenuOpen((previous) => !previous)} variant="outlined" startIcon={<HubIcon sx={{ fontSize: '15px' }} />} endIcon={<KeyboardArrowDownIcon sx={{ fontSize: '12px' }} />} sx={{ ...viewerToolbarButtonSx, maxWidth: '190px' }}>
                   <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{activeFocusLabel}</Box>
                 </Button>
                 {focusMenuOpen && (
-                  <Box sx={{ position: 'absolute', top: '44px', right: 0, width: '270px', maxHeight: '420px', overflowY: 'auto', padding: '6px', background: '#FFFFFF', border: '1px solid #E0E4EB', borderRadius: '8px', boxShadow: '0 5px 15px rgba(48, 69, 82, 0.18)', zIndex: 20 }}>
+                  <Box sx={{ position: 'absolute', top: '44px', right: 0, width: '270px', maxHeight: '420px', overflowY: 'auto', padding: '6px', background: viewerPalette.surface, border: `1px solid ${viewerPalette.border}`, borderRadius: '8px', boxShadow: `0 5px 15px ${viewerPalette.shadow}`, zIndex: 20 }}>
                     <Button fullWidth onClick={() => handleFocusRegion(null)} sx={modeOptionSx}>
                       <Typography component="span" sx={modeOptionTitleSx}>Overview</Typography>
                       <Typography component="span" sx={modeOptionSubtitleSx}>Fit the complete T1D mechanism</Typography>
@@ -2429,11 +2468,11 @@ export default function StandaloneKnowledgeGraph({
               </Box>
             )}
             <Box ref={modeMenuRef} sx={{ position: 'relative' }}>
-              <Button onClick={() => setModeMenuOpen((previous) => !previous)} variant="outlined" startIcon={<GridViewIcon sx={{ fontSize: '15px' }} />} endIcon={<KeyboardArrowDownIcon sx={{ fontSize: '12px' }} />} sx={toolbarButtonSx}>
+              <Button onClick={() => setModeMenuOpen((previous) => !previous)} variant="outlined" startIcon={<GridViewIcon sx={{ fontSize: '15px' }} />} endIcon={<KeyboardArrowDownIcon sx={{ fontSize: '12px' }} />} sx={viewerToolbarButtonSx}>
                 {viewModeLabel(viewMode)}
               </Button>
               {modeMenuOpen && (
-                <Box sx={{ position: 'absolute', top: '44px', right: 0, width: '220px', padding: '6px', background: '#FFFFFF', border: '1px solid #E0E4EB', borderRadius: '8px', boxShadow: '0 5px 15px rgba(48, 69, 82, 0.18)', zIndex: 20 }}>
+                <Box sx={{ position: 'absolute', top: '44px', right: 0, width: '220px', padding: '6px', background: viewerPalette.surface, border: `1px solid ${viewerPalette.border}`, borderRadius: '8px', boxShadow: `0 5px 15px ${viewerPalette.shadow}`, zIndex: 20 }}>
                   <Button fullWidth disabled={interactionLoading || !activeCypherList.length} onClick={() => handleModeChange('kg_only')} sx={modeOptionSx}>
                     <Typography component="span" sx={modeOptionTitleSx}>KG mode</Typography>
                     <Typography component="span" sx={modeOptionSubtitleSx}>Generic graph layout</Typography>
@@ -2449,17 +2488,17 @@ export default function StandaloneKnowledgeGraph({
                 </Box>
               )}
             </Box>
-            <IconButton onClick={handleUndo} disabled={!canUndo} size="small" sx={{ width: '36px', height: '36px', border: '1px solid #E0E4EB', borderRadius: '10px' }} aria-label="Undo">
-              <UndoIcon sx={{ fontSize: '18px', color: canUndo ? '#1C3C68' : '#D1D9E6' }} />
+              <IconButton onClick={handleUndo} disabled={!canUndo} size="small" sx={{ width: '36px', height: '36px', border: `1px solid ${viewerPalette.border}`, borderRadius: '10px' }} aria-label="Undo">
+              <UndoIcon sx={{ fontSize: '18px', color: canUndo ? viewerPalette.control : '#C9C5BD' }} />
             </IconButton>
-            <IconButton onClick={handleRedo} disabled={!canRedo} size="small" sx={{ width: '36px', height: '36px', border: '1px solid #E0E4EB', borderRadius: '10px' }} aria-label="Redo">
-              <RedoIcon sx={{ fontSize: '18px', color: canRedo ? '#1C3C68' : '#D1D9E6' }} />
+            <IconButton onClick={handleRedo} disabled={!canRedo} size="small" sx={{ width: '36px', height: '36px', border: `1px solid ${viewerPalette.border}`, borderRadius: '10px' }} aria-label="Redo">
+              <RedoIcon sx={{ fontSize: '18px', color: canRedo ? viewerPalette.control : '#C9C5BD' }} />
             </IconButton>
-            <Button onClick={handleResetGraph} variant="outlined" startIcon={<SyncIcon sx={{ fontSize: '16px' }} />} sx={{ ...toolbarButtonSx, color: '#374151' }}>Reset graph</Button>
+            <Button onClick={handleResetGraph} variant="outlined" startIcon={<SyncIcon sx={{ fontSize: '16px' }} />} sx={{ ...viewerToolbarButtonSx, color: viewerPalette.ink }}>Reset graph</Button>
           </Box>
         </Box>
       </Box>
-      <div style={{ position: 'relative', height: containerHeight, minHeight: '460px', overflow: 'hidden', background: 'transparent' }}>
+      <div style={{ position: 'relative', height: containerHeight, minHeight: '460px', overflow: 'hidden', background: viewerPalette.canvas }}>
       {actionMessage && (
         <Alert severity={actionMessage.severity} onClose={() => setActionMessage(null)} sx={{ position: 'absolute', top: '12px', right: '16px', zIndex: 8, maxWidth: '420px' }}>
           {actionMessage.text}
@@ -2470,7 +2509,7 @@ export default function StandaloneKnowledgeGraph({
           style={{
             width: '100%',
             height: '100%',
-            backgroundColor: 'transparent',
+            backgroundColor: viewerPalette.canvas,
             border: 'none',
             position: 'relative',
             zIndex: 1,
@@ -2549,8 +2588,8 @@ export default function StandaloneKnowledgeGraph({
             top: contextMenu.y + 10,
             width: '190px',
             padding: '6px',
-            background: '#FFFFFF',
-            border: '1px solid #E0E4EB',
+            background: viewerPalette.surface,
+            border: `1px solid ${viewerPalette.border}`,
             borderRadius: '8px',
             boxShadow: '0 5px 15px rgba(48, 69, 82, 0.18)',
             zIndex: 30,
@@ -2611,9 +2650,9 @@ export default function StandaloneKnowledgeGraph({
             zIndex: 4,
           }}
         >
-          <div style={{ display: 'flex', flexDirection: 'column', flex: '0 1 auto', minHeight: 0, overflow: 'hidden', background: '#FFFFFF', border: '0.75px solid #E2E8F0', borderRadius: '16px', boxShadow: '0px 8px 12px rgba(15, 23, 42, 0.08)' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', flex: '0 1 auto', minHeight: 0, overflow: 'hidden', background: viewerPalette.surface, border: `0.75px solid ${viewerPalette.border}`, borderRadius: '16px', boxShadow: `0px 8px 12px ${viewerPalette.shadow}` }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px 12.75px', borderBottom: legendVisible ? '0.75px solid #F1F5F9' : 'none' }}>
-              <Typography sx={{ fontFamily: 'Inter, sans-serif', fontSize: '16px', fontWeight: 600, lineHeight: '24px', color: '#0F172A' }}>
+              <Typography sx={{ fontFamily: 'Inter, sans-serif', fontSize: '16px', fontWeight: 600, lineHeight: '24px', color: viewerPalette.ink }}>
                 Legend
               </Typography>
               <IconButton onClick={() => setLegendVisible((prev) => !prev)} size="small" sx={{ width: '28px', height: '28px' }} aria-label={legendVisible ? 'Collapse legend' : 'Expand legend'}>
@@ -2622,7 +2661,7 @@ export default function StandaloneKnowledgeGraph({
             </div>
             {legendVisible && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', overflowY: 'auto', padding: '12px 20px 16px' }}>
-                <Typography sx={{ fontFamily: 'Inter, sans-serif', fontSize: '12px', fontWeight: 600, letterSpacing: '1.2px', textTransform: 'uppercase', color: '#94A3B8', paddingBottom: '8px' }}>
+                <Typography sx={{ fontFamily: 'Inter, sans-serif', fontSize: '12px', fontWeight: 600, letterSpacing: '1.2px', textTransform: 'uppercase', color: viewerPalette.mutedInk, paddingBottom: '8px' }}>
                   Node types
                 </Typography>
                 {Array.isArray(activeLegend) && activeLegend.map(({ label, color }) => (
@@ -2633,12 +2672,12 @@ export default function StandaloneKnowledgeGraph({
           </div>
           <Box
             onClick={handleThumbnailClick}
-            sx={{ display: 'flex', flexDirection: 'column', flex: '0 0 auto', gap: '12px', padding: '16px 20px', background: '#FFFFFF', border: '0.75px solid #E2E8F0', borderRadius: '16px', boxShadow: '0px 8px 12px rgba(15, 23, 42, 0.08)' }}
+            sx={{ display: 'flex', flexDirection: 'column', flex: '0 0 auto', gap: '12px', padding: '16px 20px', background: viewerPalette.surface, border: `0.75px solid ${viewerPalette.border}`, borderRadius: '16px', boxShadow: `0px 8px 12px ${viewerPalette.shadow}` }}
           >
-            <Typography sx={{ fontFamily: 'Inter, sans-serif', fontSize: '12px', fontWeight: 600, letterSpacing: '1.2px', textTransform: 'uppercase', color: '#94A3B8' }}>
+            <Typography sx={{ fontFamily: 'Inter, sans-serif', fontSize: '12px', fontWeight: 600, letterSpacing: '1.2px', textTransform: 'uppercase', color: viewerPalette.mutedInk }}>
               Overview
             </Typography>
-            <Box sx={{ position: 'relative', width: '100%', height: '80px', background: '#F0F7FF', border: '0.75px solid #E0EAF5', borderRadius: '14px', overflow: 'hidden', cursor: 'crosshair' }}>
+            <Box sx={{ position: 'relative', width: '100%', height: '80px', background: viewerPalette.overview, border: `0.75px solid ${viewerPalette.overviewBorder}`, borderRadius: '14px', overflow: 'hidden', cursor: 'crosshair' }}>
               {thumbnailImage && <img src={thumbnailImage} alt="Graph overview" style={{ width: '100%', height: '100%', objectFit: 'fill', opacity: 0.85 }} />}
               {thumbnailViewport && <div style={{ position: 'absolute', left: `${thumbnailViewport.left}px`, top: `${thumbnailViewport.top}px`, width: `${thumbnailViewport.width}px`, height: `${thumbnailViewport.height}px`, boxSizing: 'border-box', border: '2px solid #3F88C5', pointerEvents: 'none' }} />}
             </Box>
@@ -2655,30 +2694,30 @@ export default function StandaloneKnowledgeGraph({
             alignItems: 'center',
             gap: '24px',
             padding: '16px 12px',
-            background: '#FFFFFF',
+            background: viewerPalette.surface,
             borderRadius: '12px',
-            boxShadow: '0px 8px 12px rgba(15, 23, 42, 0.08)',
+            boxShadow: `0px 8px 12px ${viewerPalette.shadow}`,
             zIndex: 4,
           }}
         >
           <IconButton disabled onClick={handleFullscreen} size="small" sx={{ padding: 0 }}>
-            <ZoomOutMapIcon sx={{ fontSize: '24px', color: '#1C3C68' }} />
+            <ZoomOutMapIcon sx={{ fontSize: '24px', color: viewerPalette.control }} />
           </IconButton>
           <IconButton onClick={handleZoomIn} disabled={zoomLevel >= maximumZoom} size="small" sx={{ padding: 0 }}>
-            <ZoomInIcon sx={{ fontSize: '24px', color: '#1C3C68' }} />
+            <ZoomInIcon sx={{ fontSize: '24px', color: viewerPalette.control }} />
           </IconButton>
           <IconButton onClick={handleZoomOut} disabled={zoomLevel <= minimumZoom} size="small" sx={{ padding: 0 }}>
-            <ZoomOutIcon sx={{ fontSize: '24px', color: '#1C3C68' }} />
+            <ZoomOutIcon sx={{ fontSize: '24px', color: viewerPalette.control }} />
           </IconButton>
           <IconButton onClick={handleRecenter} size="small" sx={{ padding: 0 }}>
-            <CenterFocusStrongIcon sx={{ fontSize: '24px', color: '#1C3C68' }} />
+            <CenterFocusStrongIcon sx={{ fontSize: '24px', color: viewerPalette.control }} />
           </IconButton>
         </Box>
       </div>
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', minHeight: '120px', padding: '16px 32px', background: '#FFFFFF', borderBottomLeftRadius: '20px', borderBottomRightRadius: '20px', flexWrap: 'wrap', gap: 2 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', minHeight: '120px', padding: '16px 32px', background: viewerPalette.surface, borderBottomLeftRadius: '20px', borderBottomRightRadius: '20px', flexWrap: 'wrap', gap: 2 }}>
         <Box sx={{ display: 'flex', alignItems: 'stretch', flexWrap: 'wrap' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: '28px', paddingRight: '32px', borderRight: '1px solid #CCD4FF' }}>
-            <Typography sx={{ fontFamily: 'Inter, sans-serif', fontSize: '14px', fontWeight: 600, color: '#1C3C68' }}>Metadata</Typography>
+            <Typography sx={{ fontFamily: 'Inter, sans-serif', fontSize: '14px', fontWeight: 600, color: viewerPalette.control }}>Metadata</Typography>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: '4px', justifyContent: 'center' }}>
               <Typography sx={{ fontFamily: 'Inter, sans-serif', fontSize: '12px', fontWeight: 500, color: '#94A3B8' }}>Graph status</Typography>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -2715,14 +2754,14 @@ export default function StandaloneKnowledgeGraph({
             minWidth: '175px',
             padding: '6px 50px',
             borderRadius: '8px',
-            backgroundColor: '#1C3C68',
+            backgroundColor: viewerPalette.control,
             color: '#FFFFFF',
             fontFamily: 'Inter, sans-serif',
             fontSize: '16px',
             fontWeight: 600,
             textTransform: 'none',
             boxShadow: 'none',
-            '&:hover': { backgroundColor: '#16304F', boxShadow: 'none' },
+            '&:hover': { backgroundColor: viewerPalette.controlHover, boxShadow: 'none' },
           }}
         >
           Query Graph

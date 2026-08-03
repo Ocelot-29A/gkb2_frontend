@@ -24,6 +24,7 @@ const loadJson = async (baseUrl, path) => {
 export default function SampleGraphPage({ fixtureName = 'samplegraph' }) {
   const [demo, setDemo] = useState(null);
   const [error, setError] = useState('');
+  const isLayeredT1DDemo = fixtureName.startsWith('layeredgraph');
 
   useEffect(() => {
     let active = true;
@@ -91,6 +92,7 @@ export default function SampleGraphPage({ fixtureName = 'samplegraph' }) {
         display: 'flex',
         padding: { xs: '12px', md: '16px 24px' },
         boxSizing: 'border-box',
+        background: isLayeredT1DDemo ? 'linear-gradient(180deg, #F7F0E5 0%, #F4EDE2 100%)' : 'transparent',
       }}
     >
       <Box
@@ -98,11 +100,13 @@ export default function SampleGraphPage({ fixtureName = 'samplegraph' }) {
           width: '100%',
           display: 'flex',
           flexDirection: 'column',
-          border: '3px solid #FFFFFF',
+          border: `3px solid ${isLayeredT1DDemo ? '#FFF9F0' : '#FFFFFF'}`,
           borderRadius: '20px',
           overflow: 'hidden',
-          boxShadow: '8px 6px 33px 0px #D8E6F8',
-          backgroundImage: 'linear-gradient(170deg, #F5FAFF 10.17%, #FCFCFC 69.1%)',
+          boxShadow: isLayeredT1DDemo ? '8px 6px 33px 0px rgba(107, 92, 70, 0.14)' : '8px 6px 33px 0px #D8E6F8',
+          backgroundImage: isLayeredT1DDemo
+            ? 'linear-gradient(165deg, #FBF6EC 10%, #F6EEE2 72%)'
+            : 'linear-gradient(170deg, #F5FAFF 10.17%, #FCFCFC 69.1%)',
         }}
       >
         {error ? (

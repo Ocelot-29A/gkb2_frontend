@@ -14,12 +14,40 @@
     "edge_font_size": 9,
     "edge_width": 3,
     "edge_opacity": 0.8,
-    "edge_color": "#64748B",
+    "edge_color": "#657879",
+    "viewer_palette": {
+      "canvas": "#F7F0E5",
+      "surface": "#FFF9F0",
+      "softSurface": "#F3E9DA",
+      "border": "#D9CDBD",
+      "ink": "#304B49",
+      "mutedInk": "#7B8176",
+      "control": "#365D57",
+      "controlHover": "#284A45",
+      "overview": "#EEE5D6",
+      "overviewBorder": "#D4C3AD",
+      "shadow": "rgba(91, 77, 58, 0.14)"
+    },
+    "node_colors": {
+      "Cell": "#9DC7D7",
+      "Cytokine": "#C6BDD9",
+      "Chemokine": "#AE9AC6",
+      "Peptide": "#E5BF69",
+      "Process": "#DFAA70",
+      "Pathology": "#D88E8F",
+      "Outcome": "#BE6875"
+    },
     "cell_regions": [
       { "id": "beta", "label": "Stressed beta cell", "x": 4000, "y": 750, "width": 1500, "height": 780, "fill": "#FEE2E2", "border": "#DC2626" },
       { "id": "cd8", "label": "Autoreactive CD8 T cell", "x": 5700, "y": 780, "width": 980, "height": 560, "fill": "#DBEAFE", "border": "#2563EB" }
     ]
   },
+  "legend": [
+    { "label": "Immune cells", "color": "#9DC7D7" },
+    { "label": "Immune processes", "color": "#DFAA70" },
+    { "label": "Antigens and chemokines", "color": "#E5BF69" },
+    { "label": "Pathology and outcomes", "color": "#BE6875" }
+  ],
   "filtered_node_count": 10,
   "filtered_edge_count": 10
 }
