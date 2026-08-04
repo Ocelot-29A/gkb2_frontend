@@ -33,3 +33,6 @@ temp/*
 # release.  The builder writes the complete fixture bundle and retained
 # local review snapshots here locally.
 /public/t1d-gps-v4*/
+
+# Generated, report-only static fixtures for the T1D Immune GPS v5 demo.
+/public/t1d-gps-v5*/

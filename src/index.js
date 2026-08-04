@@ -27,6 +27,7 @@ import Ontology from './pages/Ontology';
 import Pipeline from './pages/Pipeline';
 import QTLDataSource from './pages/QTL_data_source';
 import SampleGraphPage from './pages/SampleGraphPage';
+import { T1D_GPS_V5_VIEW_PATHS } from './pages/t1dGpsV5Routes';
 import StatPage from './pages/StatPage';
 import Tutorial from './pages/Tutorial';
 import UsecasesPage from './pages/UsecasePage';
@@ -123,6 +124,14 @@ root.render(
           <Route path="/T1D_GPS/v4/details/pln-effector-regulation" element={<SampleGraphPage fixtureName="t1d-gps-v4/details/pln-effector-regulation" />} />
           <Route path="/T1D_GPS/v4/details/pln-bcell-germinal-centre" element={<SampleGraphPage fixtureName="t1d-gps-v4/details/pln-bcell-germinal-centre" />} />
           <Route path="/T1D_GPS/v4/details/blood-biomarkers-outcome" element={<SampleGraphPage fixtureName="t1d-gps-v4/details/blood-biomarkers-outcome" />} />
+          <Route path="/T1D_GPS/v5" element={<SampleGraphPage fixtureName="t1d-gps-v5/overview" />} />
+          {T1D_GPS_V5_VIEW_PATHS.map((viewPath) => (
+            <Route
+              key={viewPath}
+              path={`/T1D_GPS/v5/${viewPath}`}
+              element={<SampleGraphPage fixtureName={`t1d-gps-v5/${viewPath}`} />}
+            />
+          ))}
           <Route path="/graphquery" element={<QueryPage />} />
           <Route path="/graphresult" element={<GraphQueryResultPage />} />
         </Routes>
