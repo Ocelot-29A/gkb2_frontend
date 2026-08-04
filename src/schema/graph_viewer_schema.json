@@ -20,7 +20,15 @@
     "preview_selection_method", "preview_anchor_ids", "graph_link", "not_evidence",
     "cell_container_id", "cell_region", "display_compartment", "membrane_tolerance",
     "canonical_source_id", "canonical_target_id", "canonical_start_id", "canonical_end_id",
-    "render_width", "render_height", "label_max_width"
+    "render_width", "render_height", "label_max_width",
+    "renderFontSize", "renderWidth", "renderHeight", "labelMaxWidth", "labelWrap",
+    "renderEdgeWidth", "renderEdgeOpacity", "renderEdgeColor", "renderArrowScale",
+    "baseLabel", "displayLabel", "labelMarginX", "labelMarginY",
+    "routeCurveStyle", "segmentDistances", "segmentWeights", "segmentRadii",
+    "curveDistance", "curveWeight",
+    "previewNodeImageUrl", "previewNodeImageBackground", "previewNodeImageBorderColor",
+    "previewNodeImageBorderWidth", "previewNodeImageFit", "previewNodeImagePadding",
+    "image_border_color", "image_border_width", "background_color", "border_color"
   ],
   "default_node_info_panel": [
     ["Title", "name"],

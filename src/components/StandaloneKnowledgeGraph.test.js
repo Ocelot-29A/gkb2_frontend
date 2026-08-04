@@ -100,6 +100,10 @@ describe('GKB 07-18 viewer schema', () => {
       'gene_set_annotations_json',
       'preview_cache_key',
       'cell_container_id',
+      'labelWrap',
+      'renderFontSize',
+      'renderEdgeColor',
+      'previewNodeImageBorderColor',
     ]));
   });
 
