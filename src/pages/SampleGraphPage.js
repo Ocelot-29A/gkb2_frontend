@@ -28,19 +28,28 @@ const versionedFixtureConfig = {
   },
 };
 
-export const fixtureBaseUrlFor = (fixtureName, hostname = window.location.hostname) => {
+const fixtureVersionFor = (fixtureName) => Object.keys(versionedFixtureConfig)
+  .find((version) => fixtureName.startsWith(`${version}/`));
+
+export const fixtureRootUrlFor = (fixtureName, hostname = window.location.hostname) => {
   const publicBaseUrl = process.env.PUBLIC_URL || '';
-  const fixtureVersion = Object.keys(versionedFixtureConfig)
-    .find((version) => fixtureName.startsWith(`${version}/`));
+  const fixtureVersion = fixtureVersionFor(fixtureName);
   if (!fixtureVersion) {
     return `${publicBaseUrl}/${fixtureName}`;
   }
-
-  const viewPath = fixtureName.slice(`${fixtureVersion}/`.length);
   const isLocalViewer = ['127.0.0.1', 'localhost'].includes(hostname);
   const { overrideUrl, deployedUrl } = versionedFixtureConfig[fixtureVersion];
-  const fixtureRoot = overrideUrl
+  return overrideUrl
     || (isLocalViewer ? `${publicBaseUrl}/${fixtureVersion}` : deployedUrl);
+};
+
+export const fixtureBaseUrlFor = (fixtureName, hostname = window.location.hostname) => {
+  const fixtureRoot = fixtureRootUrlFor(fixtureName, hostname);
+  const fixtureVersion = fixtureVersionFor(fixtureName);
+  if (!fixtureVersion) {
+    return fixtureRoot;
+  }
+  const viewPath = fixtureName.slice(`${fixtureVersion}/`.length);
   return `${fixtureRoot.replace(/\/$/, '')}/${viewPath}`;
 };
 
@@ -64,6 +73,7 @@ export default function SampleGraphPage({ fixtureName = 'samplegraph' }) {
       try {
         setError('');
         const fixtureBaseUrl = fixtureBaseUrlFor(fixtureName);
+        const fixtureAssetBaseUrl = fixtureRootUrlFor(fixtureName);
         const apiUrl = fixtureName === 'mechanismgraph' ? MECHANISMGRAPH_API_URL : SAMPLEGRAPH_API_URL;
         const loadedDemo = apiUrl && ['samplegraph', 'mechanismgraph'].includes(fixtureName)
           ? await (async () => {
@@ -78,6 +88,7 @@ export default function SampleGraphPage({ fixtureName = 'samplegraph' }) {
               coordData: payload.xy_json,
               edgeRoutes: payload.edge_routes || null,
               metadata: payload.metadata,
+              assetBaseUrl: fixtureAssetBaseUrl,
             };
           })()
           : await Promise.all([
@@ -94,6 +105,7 @@ export default function SampleGraphPage({ fixtureName = 'samplegraph' }) {
             coordData,
             edgeRoutes,
             metadata,
+            assetBaseUrl: fixtureAssetBaseUrl,
           }));
 
         if (!active) {
@@ -149,6 +161,7 @@ export default function SampleGraphPage({ fixtureName = 'samplegraph' }) {
             edgeRoutes={demo.edgeRoutes}
             metadata={demo.metadata}
             queryRequest={demo.queryRequest?.cypher?.length ? demo.queryRequest : null}
+            assetBaseUrl={demo.assetBaseUrl}
             queryExamples={[{ label: fixtureName === 'mechanismgraph' ? 'Full static T1D mechanism' : 'Synthetic T1D immune network', request: demo.queryRequest }]}
             containerHeight="calc(100vh - 315px)"
             defaultLegendVisible={true}

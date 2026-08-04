@@ -4,8 +4,11 @@ import {
   edgeRouteToCytoscapeData,
   getCanonicalNodeLabel,
   getGenomeLaneModelYs,
+  getNodeBodyPreviewData,
+  getNodePrimaryAction,
   isOverflowId,
   mergeExploreNeighborsCypher,
+  resolvePreviewAssetUrl,
   restoreAdjacentDeletedIds,
 } from './StandaloneKnowledgeGraph';
 import graphViewerSchema from '../schema/graph_viewer_schema.json';
@@ -150,6 +153,75 @@ describe('interaction query helpers', () => {
   test('recognizes overflow placeholder ids', () => {
     expect(isOverflowId('overflow:node-1')).toBe(true);
     expect(isOverflowId('node-1')).toBe(false);
+  });
+});
+
+describe('cached pathway previews', () => {
+  test('resolves content-addressed preview assets against the fixture root', () => {
+    const cacheKey = 'a'.repeat(64);
+    expect(resolvePreviewAssetUrl(
+      `pathway-cache/${cacheKey}.svg`,
+      'https://pank-s3-to-share.s3.us-east-1.amazonaws.com/t1d-gps-v5/',
+    )).toBe(`https://pank-s3-to-share.s3.us-east-1.amazonaws.com/t1d-gps-v5/pathway-cache/${cacheKey}.svg`);
+    expect(resolvePreviewAssetUrl(`pathway-cache/${cacheKey}.svg`, '/t1d-gps-v5'))
+      .toBe(`/t1d-gps-v5/pathway-cache/${cacheKey}.svg`);
+  });
+
+  test('rejects graph-controlled external or malformed preview references', () => {
+    expect(resolvePreviewAssetUrl('https://example.org/preview.svg', '/t1d-gps-v5')).toBe('');
+    expect(resolvePreviewAssetUrl('data:image/svg+xml,<svg/>', '/t1d-gps-v5')).toBe('');
+    expect(resolvePreviewAssetUrl('pathway-cache/abc.svg', '/t1d-gps-v5')).toBe('');
+  });
+
+  test('opens a preview before navigation when both contracts are present', () => {
+    const cacheKey = 'b'.repeat(64);
+    expect(getNodePrimaryAction({
+      preview_image_path: `pathway-cache/${cacheKey}.svg`,
+      graph_link: '/T1D_GPS/v5/details/example',
+    })).toBe('preview');
+    expect(getNodePrimaryAction({
+      preview_image_path: 'https://example.org/untrusted.svg',
+      graph_link: '/T1D_GPS/v5/details/example',
+    })).toBe('navigate');
+    expect(getNodePrimaryAction({ graph_link: '/T1D_GPS/v5/details/example' }))
+      .toBe('navigate');
+    expect(getNodePrimaryAction({ id: 'node-with-menu' })).toBe('menu');
+  });
+
+  test('places trusted cached previews in Process and Pathway node bodies only when enabled', () => {
+    const cacheKey = 'c'.repeat(64);
+    const properties = { preview_image_path: `pathway-cache/${cacheKey}.svg` };
+    const config = {
+      enabled: true,
+      fit: 'contain',
+      background_color: '#FAF4EB',
+      border_color: '#A96B64',
+      border_width: 4,
+    };
+    expect(getNodeBodyPreviewData('Process', properties, '/t1d-gps-v5', config)).toEqual({
+      previewNodeImageUrl: `/t1d-gps-v5/pathway-cache/${cacheKey}.svg`,
+      previewNodeImageFit: 'contain',
+      previewNodeImageBackground: '#FAF4EB',
+      previewNodeImageBorderColor: '#A96B64',
+      previewNodeImageBorderWidth: 4,
+    });
+    expect(getNodeBodyPreviewData('Pathway', properties, '/t1d-gps-v5', config))
+      .toHaveProperty('previewNodeImageUrl');
+    expect(getNodeBodyPreviewData('Gene', properties, '/t1d-gps-v5', config)).toEqual({});
+    expect(getNodeBodyPreviewData('Anatomy', properties, '/t1d-gps-v5', config)).toEqual({});
+  });
+
+  test('does not create a node-body image from disabled, malformed, or external preview data', () => {
+    const enabled = { enabled: true };
+    expect(getNodeBodyPreviewData('Process', {
+      preview_image_path: 'https://example.org/untrusted.svg',
+    }, '/t1d-gps-v5', enabled)).toEqual({});
+    expect(getNodeBodyPreviewData('Process', {
+      preview_image_path: 'pathway-cache/not-a-hash.svg',
+    }, '/t1d-gps-v5', enabled)).toEqual({});
+    expect(getNodeBodyPreviewData('Process', {
+      preview_image_path: `pathway-cache/${'d'.repeat(64)}.svg`,
+    }, '/t1d-gps-v5', { enabled: false })).toEqual({});
   });
 });
 

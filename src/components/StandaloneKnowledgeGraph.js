@@ -32,6 +32,10 @@ import {
   Alert,
   Box,
   Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Link,
   Typography,
 } from '@mui/material';
@@ -130,6 +134,71 @@ const openLinkedGraph = (node) => {
   }
   window.location.assign(graphLink);
   return true;
+};
+
+const PREVIEW_ASSET_PATTERN = /^pathway-cache\/[0-9a-f]{64}\.svg$/;
+
+const previewReferenceFor = (data) => {
+  const value = data?.preview_image_path;
+  const reference = typeof value === 'string' ? value.trim() : '';
+  return PREVIEW_ASSET_PATTERN.test(reference) ? reference : '';
+};
+
+export const resolvePreviewAssetUrl = (value, assetBaseUrl = '') => {
+  const reference = typeof value === 'string' ? value.trim() : '';
+  if (!PREVIEW_ASSET_PATTERN.test(reference)) {
+    return '';
+  }
+  const base = typeof assetBaseUrl === 'string' ? assetBaseUrl.trim().replace(/\/+$/, '') : '';
+  return base ? `${base}/${reference}` : reference;
+};
+
+const PREVIEW_NODE_TYPES = new Set(['Process', 'Pathway']);
+const HEX_COLOR_PATTERN = /^#[0-9a-f]{6}$/i;
+
+const safePreviewColor = (value, fallback) => (
+  typeof value === 'string' && HEX_COLOR_PATTERN.test(value.trim())
+    ? value.trim()
+    : fallback
+);
+
+export const getNodeBodyPreviewData = (
+  nodeType,
+  properties,
+  assetBaseUrl = '',
+  config = null,
+) => {
+  if (config?.enabled !== true || !PREVIEW_NODE_TYPES.has(nodeType)) {
+    return {};
+  }
+  const previewNodeImageUrl = resolvePreviewAssetUrl(
+    properties?.preview_image_path,
+    assetBaseUrl,
+  );
+  if (!previewNodeImageUrl) {
+    return {};
+  }
+  const borderWidth = Number(config?.border_width);
+  return {
+    previewNodeImageUrl,
+    previewNodeImageFit: config?.fit === 'cover' ? 'cover' : 'contain',
+    previewNodeImageBackground: safePreviewColor(config?.background_color, '#FFF9F0'),
+    previewNodeImageBorderColor: safePreviewColor(config?.border_color, '#A96B64'),
+    previewNodeImageBorderWidth: Number.isFinite(borderWidth)
+      ? Math.min(10, Math.max(0, borderWidth))
+      : 3,
+  };
+};
+
+export const getNodePrimaryAction = (data) => {
+  if (previewReferenceFor(data)) {
+    return 'preview';
+  }
+  const graphLink = data?.graph_link;
+  if (typeof graphLink === 'string' && graphLink.startsWith('/')) {
+    return 'navigate';
+  }
+  return 'menu';
 };
 
 const contextMenuItemSx = {
@@ -815,6 +884,7 @@ const InfocardMenu = ({ hoveredData }) => {
   ]);
   const additionalRows = Object.entries(hoveredData || {})
     .filter(([key, value]) => !configuredKeys.has(key)
+      && !key.startsWith('preview_')
       && !['label', 'type', 'Level', 'source', 'target', 'source_name', 'target_name', 'renderWidth', 'renderHeight', 'labelMaxWidth'].includes(key)
       && hasInfocardValue(value))
     .sort(([left], [right]) => left.localeCompare(right));
@@ -1024,6 +1094,7 @@ export default function StandaloneKnowledgeGraph({
   metadata = null,
   queryRequest = null,
   queryExamples = [],
+  assetBaseUrl = '',
   containerHeight = '600px',
   defaultLegendVisible = true,
   sx = {},
@@ -1065,6 +1136,8 @@ export default function StandaloneKnowledgeGraph({
   const [focusMenuOpen, setFocusMenuOpen] = useState(false);
   const [activeFocusLabel, setActiveFocusLabel] = useState('Overview');
   const [queryDialogOpen, setQueryDialogOpen] = useState(false);
+  const [pathwayPreview, setPathwayPreview] = useState(null);
+  const [pathwayPreviewLoadError, setPathwayPreviewLoadError] = useState(false);
   const [queryResult, setQueryResult] = useState(null);
   const [viewMode, setViewMode] = useState(metadata?.layout?.mode || 'kg_only');
   const [layoutEngine, setLayoutEngine] = useState(metadata?.layout?.engine || queryRequest?.layout_engine || 'legacy');
@@ -1594,6 +1667,18 @@ export default function StandaloneKnowledgeGraph({
     setActionMessage({ text: 'Graph reset to the original query.', severity: 'info' });
   };
 
+  const closePathwayPreview = () => {
+    setPathwayPreview(null);
+    setPathwayPreviewLoadError(false);
+  };
+
+  const openPathwayPreviewDetail = () => {
+    const graphLink = pathwayPreview?.graph_link;
+    if (typeof graphLink === 'string' && graphLink.startsWith('/')) {
+      window.location.assign(graphLink);
+    }
+  };
+
   const handleDownload = () => {
     if (!cyRef.current) {
       return;
@@ -1819,19 +1904,27 @@ export default function StandaloneKnowledgeGraph({
       const renderPosition = getRenderPosition(posData) || getRenderPosition(fallbackPosData);
       const renderWidth = getRenderWidth(posData);
       const renderHeight = getRenderHeight(posData);
+      const nodeType = getNodeType(node);
+      const previewNodeData = getNodeBodyPreviewData(
+        nodeType,
+        node['~properties'],
+        assetBaseUrl,
+        effectiveMetadata?.layout?.pathway_preview_node_body,
+      );
 
       return {
         data: {
           id: node['~id'],
           ...node['~properties'],
           label: getNodeLabel(node),
-          type: getNodeType(node),
+          type: nodeType,
           Level: posData.Level || 'Core',
           renderFontSize: Number(effectiveMetadata?.layout?.node_font_size) || 6,
           renderWidth,
           renderHeight,
           labelMaxWidth: getLabelMaxWidth(renderWidth),
           labelWrap: effectiveMetadata?.layout?.node_text_wrap === 'wrap' ? 'wrap' : 'ellipsis',
+          ...previewNodeData,
         },
         position: renderPosition,
       };
@@ -1967,6 +2060,26 @@ export default function StandaloneKnowledgeGraph({
             'background-color': '#FFFFFF',
             'border-color': 'data(image_border_color)',
             'border-width': 'data(image_border_width)',
+            'text-valign': 'bottom',
+            'text-margin-y': '10px',
+            'text-background-color': '#FFFFFF',
+            'text-background-opacity': 0.94,
+            'text-background-padding': '5px',
+            'text-background-shape': 'roundrectangle',
+          },
+        },
+        {
+          selector: 'node[previewNodeImageUrl]',
+          style: {
+            shape: 'round-rectangle',
+            'background-image': 'data(previewNodeImageUrl)',
+            'background-fit': 'data(previewNodeImageFit)',
+            'background-image-crossorigin': 'anonymous',
+            'background-image-opacity': 1,
+            'background-opacity': 1,
+            'background-color': 'data(previewNodeImageBackground)',
+            'border-color': 'data(previewNodeImageBorderColor)',
+            'border-width': 'data(previewNodeImageBorderWidth)',
             'text-valign': 'bottom',
             'text-margin-y': '10px',
             'text-background-color': '#FFFFFF',
@@ -2226,7 +2339,14 @@ export default function StandaloneKnowledgeGraph({
       ) {
         return;
       }
-      if (openLinkedGraph(node)) {
+      const nodeAction = getNodePrimaryAction(node.data());
+      if (nodeAction === 'preview') {
+        setContextMenu(null);
+        setPathwayPreviewLoadError(false);
+        setPathwayPreview(node.data());
+        return;
+      }
+      if (nodeAction === 'navigate' && openLinkedGraph(node)) {
         return;
       }
       if (!clickMenuEnabledRef.current) {
@@ -2298,7 +2418,7 @@ export default function StandaloneKnowledgeGraph({
       cyRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [displayCoordData, displayEdgeRoutes, genomeRegion, cellRegions, mechanismRegions, canvasImage, viewerNodeColors, viewerNodeTextColors, displayGraphData, queryResultPage, interactionHistory?.present.deletedIds]);
+  }, [displayCoordData, displayEdgeRoutes, genomeRegion, cellRegions, mechanismRegions, canvasImage, viewerNodeColors, viewerNodeTextColors, displayGraphData, queryResultPage, interactionHistory?.present.deletedIds, assetBaseUrl, effectiveMetadata?.layout?.pathway_preview_node_body]);
 
   useEffect(() => {
     const cy = cyRef.current;
@@ -2781,6 +2901,75 @@ export default function StandaloneKnowledgeGraph({
           setActionMessage(null);
         }}
       />
+      <Dialog
+        open={Boolean(pathwayPreview)}
+        onClose={closePathwayPreview}
+        maxWidth="lg"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: '18px',
+            overflow: 'hidden',
+            background: '#FFFDF9',
+          },
+        }}
+      >
+        <DialogTitle sx={{ padding: '22px 28px 10px', fontFamily: 'Inter, sans-serif', fontWeight: 700, color: '#24493F' }}>
+          {pathwayPreview?.preview_title || 'Underlying KG pathway preview'}
+        </DialogTitle>
+        <DialogContent sx={{ padding: '12px 28px 18px' }}>
+          <Typography sx={{ marginBottom: '12px', fontFamily: 'Inter, sans-serif', fontSize: '13px', color: '#66756F' }}>
+            Build-time DFS traversal of the linked graph. Solid edges form the traversal tree; dashed edges preserve additional biological connections.
+          </Typography>
+          {pathwayPreview?.preview_not_canonical_pathway_diagram && (
+            <Alert severity="info" sx={{ marginBottom: '12px' }}>
+              KG-derived mechanism preview; this is not a canonical Reactome pathway diagram.
+            </Alert>
+          )}
+          <Box
+            sx={{
+              height: { xs: '300px', md: '55vh' },
+              minHeight: { xs: '260px', md: '340px' },
+              maxHeight: '560px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              border: '1px solid #E4DCCF',
+              borderRadius: '14px',
+              overflow: 'hidden',
+              background: '#FAF4EB',
+            }}
+          >
+            {pathwayPreviewLoadError ? (
+              <Alert severity="error">The cached pathway figure could not be loaded.</Alert>
+            ) : pathwayPreview ? (
+              <img
+                src={resolvePreviewAssetUrl(previewReferenceFor(pathwayPreview), assetBaseUrl)}
+                alt={pathwayPreview.preview_alt || `KG-derived pathway preview for ${pathwayPreview.name || pathwayPreview.label || 'selected node'}`}
+                onError={() => setPathwayPreviewLoadError(true)}
+                referrerPolicy="no-referrer"
+                style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
+              />
+            ) : null}
+          </Box>
+          {pathwayPreview && (
+            <Typography sx={{ marginTop: '10px', fontFamily: 'Inter, sans-serif', fontSize: '12px', color: '#66756F' }}>
+              {`${pathwayPreview.preview_node_count || 0} nodes · ${pathwayPreview.preview_edge_count || 0} edges · DFS depth ${pathwayPreview.preview_depth || 0}${pathwayPreview.preview_truncated ? ' · truncated to preview budget' : ''}`}
+            </Typography>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ padding: '0 28px 22px', gap: '8px' }}>
+          <Button onClick={closePathwayPreview} sx={{ textTransform: 'none', color: '#5F6F69' }}>Close</Button>
+          <Button
+            variant="contained"
+            disabled={!pathwayPreview?.graph_link}
+            onClick={openPathwayPreviewDetail}
+            sx={{ textTransform: 'none', backgroundColor: '#24493F', '&:hover': { backgroundColor: '#19362F' } }}
+          >
+            Open interactive detail
+          </Button>
+        </DialogActions>
+      </Dialog>
       </div>
     </>
   );
