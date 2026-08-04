@@ -28,3 +28,8 @@ temp/*
 # Generated locally from the T1D mechanism specification plus bounded,
 # read-only GKB 07-18 annotations. Never commit the enriched export/audit.
 /public/mechanismgraph/*.json
+
+# Generated, report-only static fixtures for the accepted T1D Immune GPS v4
+# release.  The builder writes the complete fixture bundle and retained
+# local review snapshots here locally.
+/public/t1d-gps-v4*/

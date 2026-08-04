@@ -2,7 +2,7 @@
   "$comment": "GKB_07_18 presentation contract. Node keys and relationship keys match live Neo4j labels/types exactly.",
   "schema_version": "GKB_07_18",
   "canonical_node_label_priority": [
-    "Gene", "Transcript", "Protein", "Cell", "CellType", "Cytokine", "Chemokine", "Peptide", "Antibody", "Process", "Anatomy", "Pathology", "ExternalFactor", "Chemical", "Outcome",
+    "GeneratedFallback", "Gene", "Transcript", "Protein", "Cell", "CellType", "Cytokine", "Chemokine", "Peptide", "Antibody", "Process", "Pathway", "Anatomy", "Pathology", "ExternalFactor", "Chemical", "Outcome", "ClinicalStage", "Intervention", "HLA_allele", "HLA_allele_group",
     "Exon", "CDS_segments", "TSS_segment", "UTR_segments",
     "SNP", "SNV", "Deletion", "Insertion", "Structural_variant", "Sequence_variant",
     "Loop", "LoopAnchor", "AB_compartment", "FIRE_region", "Replication_timing",
@@ -93,7 +93,13 @@
     "Pathology": {"node_color": "#FCA5A5", "text_color": "#0F172A"},
     "ExternalFactor": {"node_color": "#86EFAC", "text_color": "#0F172A"},
     "Chemical": {"node_color": "#67E8F9", "text_color": "#0F172A"},
-    "Outcome": {"node_color": "#FB7185", "text_color": "#0F172A"}
+    "Outcome": {"node_color": "#FB7185", "text_color": "#0F172A"},
+    "Pathway": {"node_color": "#DFAA70", "text_color": "#4B321C"},
+    "ClinicalStage": {"node_color": "#BE6875", "text_color": "#FFF9F0"},
+    "Intervention": {"node_color": "#74A8A1", "text_color": "#173F3A"},
+    "HLA_allele": {"node_color": "#FFB16C", "text_color": "#4B321C"},
+    "HLA_allele_group": {"node_color": "#FFB16C", "text_color": "#4B321C"},
+    "GeneratedFallback": {"node_color": "#B7B7B7", "text_color": "#334155"}
   },
   "edges": {
     "ASSOCIATED_WITH_GO": {"text_color": "#000000", "edge_label": "associated with GO", "inverted": "FALSE"},

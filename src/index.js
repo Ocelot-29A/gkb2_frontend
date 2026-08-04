@@ -103,6 +103,26 @@ root.render(
           <Route path="/T1D_GPS" element={<SampleGraphPage fixtureName="layeredgraph/overview" />} />
           <Route path="/T1D_GPS/thymus" element={<SampleGraphPage fixtureName="layeredgraph/thymus" />} />
           <Route path="/T1D_GPS/islet" element={<SampleGraphPage fixtureName="layeredgraph/islet" />} />
+          <Route path="/T1D_GPS/v4" element={<SampleGraphPage fixtureName="t1d-gps-v4/overview" />} />
+          <Route path="/T1D_GPS/v4/overview" element={<SampleGraphPage fixtureName="t1d-gps-v4/overview" />} />
+          <Route path="/T1D_GPS/v4/pathways/central-tolerance" element={<SampleGraphPage fixtureName="t1d-gps-v4/pathways/central-tolerance" />} />
+          <Route path="/T1D_GPS/v4/pathways/beta-cell-stress-and-neoantigen-generation" element={<SampleGraphPage fixtureName="t1d-gps-v4/pathways/beta-cell-stress-and-neoantigen-generation" />} />
+          <Route path="/T1D_GPS/v4/pathways/antigen-drainage-and-priming" element={<SampleGraphPage fixtureName="t1d-gps-v4/pathways/antigen-drainage-and-priming" />} />
+          <Route path="/T1D_GPS/v4/pathways/b-cell-help-and-autoantibody-production" element={<SampleGraphPage fixtureName="t1d-gps-v4/pathways/b-cell-help-and-autoantibody-production" />} />
+          <Route path="/T1D_GPS/v4/pathways/effector-homing-and-insulitis" element={<SampleGraphPage fixtureName="t1d-gps-v4/pathways/effector-homing-and-insulitis" />} />
+          <Route path="/T1D_GPS/v4/pathways/beta-cell-destruction" element={<SampleGraphPage fixtureName="t1d-gps-v4/pathways/beta-cell-destruction" />} />
+          <Route path="/T1D_GPS/v4/pathways/amplification" element={<SampleGraphPage fixtureName="t1d-gps-v4/pathways/amplification" />} />
+          <Route path="/T1D_GPS/v4/details/thymus-self-antigen" element={<SampleGraphPage fixtureName="t1d-gps-v4/details/thymus-self-antigen" />} />
+          <Route path="/T1D_GPS/v4/details/thymus-selection" element={<SampleGraphPage fixtureName="t1d-gps-v4/details/thymus-selection" />} />
+          <Route path="/T1D_GPS/v4/details/islet-innate-stress" element={<SampleGraphPage fixtureName="t1d-gps-v4/details/islet-innate-stress" />} />
+          <Route path="/T1D_GPS/v4/details/islet-neoantigen" element={<SampleGraphPage fixtureName="t1d-gps-v4/details/islet-neoantigen" />} />
+          <Route path="/T1D_GPS/v4/details/islet-cytotoxicity" element={<SampleGraphPage fixtureName="t1d-gps-v4/details/islet-cytotoxicity" />} />
+          <Route path="/T1D_GPS/v4/details/islet-inflammatory-injury" element={<SampleGraphPage fixtureName="t1d-gps-v4/details/islet-inflammatory-injury" />} />
+          <Route path="/T1D_GPS/v4/details/pln-antigen-presentation" element={<SampleGraphPage fixtureName="t1d-gps-v4/details/pln-antigen-presentation" />} />
+          <Route path="/T1D_GPS/v4/details/pln-costimulation" element={<SampleGraphPage fixtureName="t1d-gps-v4/details/pln-costimulation" />} />
+          <Route path="/T1D_GPS/v4/details/pln-effector-regulation" element={<SampleGraphPage fixtureName="t1d-gps-v4/details/pln-effector-regulation" />} />
+          <Route path="/T1D_GPS/v4/details/pln-bcell-germinal-centre" element={<SampleGraphPage fixtureName="t1d-gps-v4/details/pln-bcell-germinal-centre" />} />
+          <Route path="/T1D_GPS/v4/details/blood-biomarkers-outcome" element={<SampleGraphPage fixtureName="t1d-gps-v4/details/blood-biomarkers-outcome" />} />
           <Route path="/graphquery" element={<QueryPage />} />
           <Route path="/graphresult" element={<GraphQueryResultPage />} />
         </Routes>

@@ -91,10 +91,11 @@ describe('GKB 07-18 viewer schema', () => {
   test('covers every live Neo4j and curated T1D node label and relationship type', () => {
     expect(Object.keys(graphViewerSchema.nodes).sort()).toEqual([
       'AB_compartment', 'Anatomy', 'Antibody', 'CDS_segments', 'Cell', 'CellType',
-      'Cell_or_tissue', 'Chemical', 'Chemokine', 'ChromHMM_state', 'Coding_element', 'Cytokine',
+      'Cell_or_tissue', 'Chemical', 'Chemokine', 'ChromHMM_state', 'ClinicalStage', 'Coding_element', 'Cytokine',
       'Deletion', 'ENCODE_feature', 'Enhancer', 'Epigenomic_feature', 'Exon', 'ExternalFactor',
-      'FIRE_region', 'GO_term', 'Gene', 'Genomic_feature', 'Insertion', 'Loop', 'LoopAnchor',
-      'Non_coding_RNA', 'Non_coding_element', 'Ontology', 'Ontology_term', 'Outcome', 'Pathology',
+      'FIRE_region', 'GO_term', 'Gene', 'GeneratedFallback', 'Genomic_feature', 'HLA_allele',
+      'HLA_allele_group', 'Insertion', 'Intervention', 'Loop', 'LoopAnchor', 'Non_coding_RNA',
+      'Non_coding_element', 'Ontology', 'Ontology_term', 'Outcome', 'Pathology', 'Pathway',
       'Peptide', 'Process', 'Promoter', 'Protein', 'Replication_timing', 'SNP', 'SNV',
       'Sequence_variant', 'Structural_variant', 'Super_enhancer', 'TF_binding_motif', 'TSS_segment',
       'ThreeD_structure', 'Transcript', 'UTR_segments', 'Variant', 'cCRE',

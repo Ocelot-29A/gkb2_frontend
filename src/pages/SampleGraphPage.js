@@ -12,6 +12,21 @@ import StandaloneKnowledgeGraph from '../components/StandaloneKnowledgeGraph';
 
 const SAMPLEGRAPH_API_URL = process.env.REACT_APP_SAMPLEGRAPH_API_URL;
 const MECHANISMGRAPH_API_URL = process.env.REACT_APP_MECHANISMGRAPH_API_URL;
+const T1D_GPS_V4_S3_BASE_URL = 'https://pank-s3-to-share.s3.us-east-1.amazonaws.com/t1d-gps-v4';
+const T1D_GPS_V4_FIXTURE_BASE_URL = process.env.REACT_APP_T1D_GPS_V4_FIXTURE_BASE_URL;
+
+export const fixtureBaseUrlFor = (fixtureName, hostname = window.location.hostname) => {
+  const publicBaseUrl = process.env.PUBLIC_URL || '';
+  if (!fixtureName.startsWith('t1d-gps-v4/')) {
+    return `${publicBaseUrl}/${fixtureName}`;
+  }
+
+  const viewPath = fixtureName.slice('t1d-gps-v4/'.length);
+  const isLocalViewer = ['127.0.0.1', 'localhost'].includes(hostname);
+  const fixtureRoot = T1D_GPS_V4_FIXTURE_BASE_URL
+    || (isLocalViewer ? `${publicBaseUrl}/t1d-gps-v4` : T1D_GPS_V4_S3_BASE_URL);
+  return `${fixtureRoot.replace(/\/$/, '')}/${viewPath}`;
+};
 
 const loadJson = async (baseUrl, path) => {
   const response = await fetch(`${baseUrl}/${path}`);
@@ -24,7 +39,7 @@ const loadJson = async (baseUrl, path) => {
 export default function SampleGraphPage({ fixtureName = 'samplegraph' }) {
   const [demo, setDemo] = useState(null);
   const [error, setError] = useState('');
-  const isLayeredT1DDemo = fixtureName.startsWith('layeredgraph');
+  const isLayeredT1DDemo = fixtureName.startsWith('layeredgraph') || fixtureName.startsWith('t1d-gps-v4');
 
   useEffect(() => {
     let active = true;
@@ -32,7 +47,7 @@ export default function SampleGraphPage({ fixtureName = 'samplegraph' }) {
     const load = async () => {
       try {
         setError('');
-        const fixtureBaseUrl = `${process.env.PUBLIC_URL || ''}/${fixtureName}`;
+        const fixtureBaseUrl = fixtureBaseUrlFor(fixtureName);
         const apiUrl = fixtureName === 'mechanismgraph' ? MECHANISMGRAPH_API_URL : SAMPLEGRAPH_API_URL;
         const loadedDemo = apiUrl && ['samplegraph', 'mechanismgraph'].includes(fixtureName)
           ? await (async () => {

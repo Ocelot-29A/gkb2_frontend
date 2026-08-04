@@ -779,6 +779,7 @@ const buildCanvasImageNode = (image) => {
       canvasImageUrl: image.url,
       canvasImageOpacity: Number.isFinite(image.opacity) ? image.opacity : 0.72,
       canvasImageFit: image.fit || 'contain',
+      canvasImageBackground: image.background_color || '#FCFAF6',
       renderWidth: scaleX(image.width),
       renderHeight: scaleHeight(image.height),
     },
@@ -1830,6 +1831,7 @@ export default function StandaloneKnowledgeGraph({
           renderWidth,
           renderHeight,
           labelMaxWidth: getLabelMaxWidth(renderWidth),
+          labelWrap: effectiveMetadata?.layout?.node_text_wrap === 'wrap' ? 'wrap' : 'ellipsis',
         },
         position: renderPosition,
       };
@@ -1982,7 +1984,7 @@ export default function StandaloneKnowledgeGraph({
         {
           selector: 'node[labelMaxWidth][trackBackground != "true"][cellBackground != "true"][mechanismBackground != "true"]',
           style: {
-            'text-wrap': 'ellipsis',
+            'text-wrap': 'data(labelWrap)',
             'text-max-width': 'data(labelMaxWidth)',
           },
         },
@@ -2009,7 +2011,7 @@ export default function StandaloneKnowledgeGraph({
             'background-image': 'data(canvasImageUrl)',
             'background-fit': 'data(canvasImageFit)',
             'background-opacity': 'data(canvasImageOpacity)',
-            'background-color': '#FCFAF6',
+            'background-color': 'data(canvasImageBackground)',
             'border-width': 0,
             'z-index-compare': 'manual',
             'z-index': -2,
