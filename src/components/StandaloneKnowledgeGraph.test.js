@@ -91,6 +91,18 @@ describe('getCanonicalNodeLabel', () => {
 });
 
 describe('GKB 07-18 viewer schema', () => {
+  test('uses biology-focused panels for T1D concepts and suppresses rendering internals', () => {
+    expect(graphViewerSchema.node_panel_by_label.Process).toBe('t1d_biology');
+    expect(graphViewerSchema.node_panel_by_label.Pathway).toBe('t1d_biology');
+    expect(graphViewerSchema.node_panel_by_label.Cell).toBe('t1d_biology');
+    expect(graphViewerSchema.hidden_info_properties).toEqual(expect.arrayContaining([
+      'gkb_matches',
+      'gene_set_annotations_json',
+      'preview_cache_key',
+      'cell_container_id',
+    ]));
+  });
+
   test('covers every live Neo4j and curated T1D node label and relationship type', () => {
     expect(Object.keys(graphViewerSchema.nodes).sort()).toEqual([
       'AB_compartment', 'Anatomy', 'Antibody', 'CDS_segments', 'Cell', 'CellType',

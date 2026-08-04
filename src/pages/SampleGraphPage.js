@@ -164,7 +164,6 @@ export default function SampleGraphPage({ fixtureName = 'samplegraph' }) {
             assetBaseUrl={demo.assetBaseUrl}
             queryExamples={[{ label: fixtureName === 'mechanismgraph' ? 'Full static T1D mechanism' : 'Synthetic T1D immune network', request: demo.queryRequest }]}
             containerHeight="calc(100vh - 315px)"
-            defaultLegendVisible={true}
           />
         ) : (
           <Box

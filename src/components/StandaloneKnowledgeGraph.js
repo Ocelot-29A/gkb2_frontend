@@ -8,6 +8,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
+import { createPortal } from 'react-dom';
 
 import cytoscape from 'cytoscape';
 import { useSelector } from 'react-redux';
@@ -53,6 +54,7 @@ import {
 } from './style.js';
 
 const CY_LAYOUT_SCALE = 0.5;
+const INFOCARD_Z_INDEX = 2147483000;
 const CY_Y_POSITION_MULTIPLIER = 2;
 
 const scaleX = (value) => value * CY_LAYOUT_SCALE;
@@ -492,6 +494,7 @@ const CANONICAL_NODE_LABEL_PRIORITY = graphInfocard.canonical_node_label_priorit
 const GENERIC_NODE_LABELS = new Set(
   (graphInfocard.generic_node_labels || []).map((label) => label.toLowerCase()),
 );
+const HIDDEN_INFO_PROPERTIES = new Set(graphInfocard.hidden_info_properties || []);
 
 const normalizeNodeType = (label) => label;
 
@@ -884,6 +887,7 @@ const InfocardMenu = ({ hoveredData }) => {
   ]);
   const additionalRows = Object.entries(hoveredData || {})
     .filter(([key, value]) => !configuredKeys.has(key)
+      && !HIDDEN_INFO_PROPERTIES.has(key)
       && !key.startsWith('preview_')
       && !['label', 'type', 'Level', 'source', 'target', 'source_name', 'target_name', 'renderWidth', 'renderHeight', 'labelMaxWidth'].includes(key)
       && hasInfocardValue(value))
@@ -1096,7 +1100,7 @@ export default function StandaloneKnowledgeGraph({
   queryExamples = [],
   assetBaseUrl = '',
   containerHeight = '600px',
-  defaultLegendVisible = true,
+  defaultLegendVisible = false,
   sx = {},
 }) {
   const cyRef = useRef(null);
@@ -1808,7 +1812,7 @@ export default function StandaloneKnowledgeGraph({
       return;
     }
 
-    const { width: containerWidth, top: containerTop, left: containerLeft } = container.getBoundingClientRect();
+    const { top: containerTop, left: containerLeft } = container.getBoundingClientRect();
     const ele = activeNode;
 
     if (!ele || !cyRef.current || !infocardEnabled) {
@@ -1835,16 +1839,19 @@ export default function StandaloneKnowledgeGraph({
     infocard.style.display = 'block';
     const { width: infocardWidth, height: infocardHeight } = infocard.getBoundingClientRect();
 
-    let top = y - infocardHeight - nodeHeight / 2 - 2;
-    let left = x + nodeWidth / 2 + 2;
+    let top = containerTop + y - infocardHeight - nodeHeight / 2 - 2;
+    let left = containerLeft + x + nodeWidth / 2 + 2;
 
-    if (left + infocardWidth > containerWidth && containerLeft + x - infocardWidth - nodeWidth / 2 > 10) {
-      left = x - infocardWidth - nodeWidth / 2 - 2;
+    if (left + infocardWidth > window.innerWidth - 10) {
+      left = containerLeft + x - infocardWidth - nodeWidth / 2 - 2;
     }
 
-    if (top + containerTop < 90) {
-      top = y + nodeHeight / 2 + 2;
+    if (top < 10) {
+      top = containerTop + y + nodeHeight / 2 + 2;
     }
+
+    left = Math.max(10, Math.min(left, window.innerWidth - infocardWidth - 10));
+    top = Math.max(10, Math.min(top, window.innerHeight - infocardHeight - 10));
 
     setInfocardPosition({ x: left, y: top });
   }, [activeNode, hoveredId, nodeHovered, infocardEnabled]);
@@ -2644,7 +2651,10 @@ export default function StandaloneKnowledgeGraph({
             inset: 0,
             pointerEvents: 'none',
             zIndex: 2,
-            overflow: 'hidden',
+            maxHeight: '80vh',
+            overflowX: 'hidden',
+            overflowY: 'auto',
+            overscrollBehavior: 'contain',
           }}
         >
           {trackOverlay.laneLabels.map((lane) => (
@@ -2673,34 +2683,37 @@ export default function StandaloneKnowledgeGraph({
           ))}
         </div>
       )}
-      <div
-        ref={infocardRef}
-        onMouseEnter={() => setInfocardHovered(true)}
-        onMouseLeave={() => setInfocardHovered(false)}
-        style={{
-          fontFamily: 'Open Sans',
-          fontWeight: 400,
-          position: 'absolute',
-          left: infocardPosition.x,
-          top: infocardPosition.y,
-          background: '#fff',
-          borderRadius: '8px',
-          overflow: 'hidden',
-          color: '#333',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-          zIndex: 1000,
-          width: '280px',
-          pointerEvents: infocardVisible ? 'auto' : 'none',
-          opacity: infocardVisible ? 1 : 0,
-          display: 'block',
-          transform: 'translateY(0px)',
-          transition: 'opacity 0.15s, left 0.15s, top 0.15s',
-          willChange: 'transform, opacity',
-          wordWrap: 'break-word',
-        }}
-      >
-        <InfocardMenu hoveredData={activeNode?.data()} />
-      </div>
+      {typeof document !== 'undefined' && createPortal(
+        <div
+          ref={infocardRef}
+          onMouseEnter={() => setInfocardHovered(true)}
+          onMouseLeave={() => setInfocardHovered(false)}
+          style={{
+            fontFamily: 'Open Sans',
+            fontWeight: 400,
+            position: 'fixed',
+            left: infocardPosition.x,
+            top: infocardPosition.y,
+            background: '#fff',
+            borderRadius: '8px',
+            overflow: 'hidden',
+            color: '#333',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+            zIndex: INFOCARD_Z_INDEX,
+            width: '280px',
+            pointerEvents: infocardVisible ? 'auto' : 'none',
+            opacity: infocardVisible ? 1 : 0,
+            display: 'block',
+            transform: 'translateY(0px)',
+            transition: 'opacity 0.15s, left 0.15s, top 0.15s',
+            willChange: 'transform, opacity',
+            wordWrap: 'break-word',
+          }}
+        >
+          <InfocardMenu hoveredData={activeNode?.data()} />
+        </div>,
+        document.body,
+      )}
       {contextMenu && (
         <Box
           ref={contextMenuRef}

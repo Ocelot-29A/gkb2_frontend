@@ -12,6 +12,16 @@
   "generic_node_labels": [
     "Coding_element", "Epigenomic_feature", "Genomic_feature", "Non_coding_element", "Ontology", "ThreeD_structure", "Variant"
   ],
+  "hidden_info_properties": [
+    "display_instance", "demo_requirement", "demo_kind", "table_section", "table_row_key",
+    "genreated", "annotation_source", "gkb_match_method", "gkb_matches",
+    "gene_set_annotations_json", "preview_image_path", "preview_cache_key", "preview_renderer",
+    "preview_input_sha256", "preview_source_node_sha256", "preview_target_graph_sha256",
+    "preview_selection_method", "preview_anchor_ids", "graph_link", "not_evidence",
+    "cell_container_id", "cell_region", "display_compartment", "membrane_tolerance",
+    "canonical_source_id", "canonical_target_id", "canonical_start_id", "canonical_end_id",
+    "render_width", "render_height", "label_max_width"
+  ],
   "default_node_info_panel": [
     ["Title", "name"],
     ["Identity", [["ID", "id"], ["Synonyms", "synonyms", "list"], ["Alternate IDs", "alt_ids", "list"]]],
@@ -22,7 +32,8 @@
   "default_edge_info_panel": [
     ["Title", "type"],
     ["Relationship", [["From", "source_name"], ["To", "target_name"], ["ID", "id"]]],
-    ["Footer", [["Data Source", "data_source"], ["Version", "data_version"], ["Source Record", "data_source_url", "link"]]]
+    ["Evidence", [["Strength", "evidence_strength"], ["Generated demo", "generated"], ["Why generated", "generated_reason"], ["Based on", "generated_from"]]],
+    ["Footer", [["Data Source", "data_source"], ["Version", "data_version"], ["Source Record", "source_record_id"], ["Source URL", "data_source_url", "link"]]]
   ],
   "node_panels": {
     "ensembl_gene": [["Title", "name"], ["Gene identity", [["Ensembl ID", "id"], ["HGNC symbol", "hgnc_symbol"], ["HGNC ID", "hgnc_id"], ["Synonyms", "synonyms", "list"], ["Entrez ID", "alt_id_entrez"]]], ["Annotation", [["Gene type", "gene_type"], ["Ensembl version", "ensembl_gene_version"], ["Canonical", "ensembl_canonical"], ["Chromosome band", "karyotype_band"], ["GC content", "gc_content", "float(2)"]]], ["Genomic location", [["Chromosome", "chr", "label_chr(#0FB47D)"], ["Start", "start_loc", "int"], ["End", "end_loc", "int"], ["Strand", "strand"]]], ["Description", "description"], ["Footer", [["Data Source", "data_source"], ["Version", "data_version"], ["Source Record", "data_source_url", "link"]]]],
@@ -35,14 +46,25 @@
     "regulatory_feature": [["Title", "name"], ["Feature identity", [["ID", "id"], ["Accession", "accession"], ["Feature type", "feature_type"], ["cCRE type", "ccre_type"], ["State", "state"], ["Tissue", "tissue_name"], ["Tissue ID", "tissue_id"], ["Assay", "assay_name"]]], ["Signal and evidence", [["Score", "score", "float(3)"], ["Signal value", "signal_value", "float(3)"], ["P value", "p_value", "float(3)"], ["Q value", "q_value", "float(3)"]]], ["Genomic location", [["Chromosome", "chr", "label_chr(#0FB47D)"], ["Start", "start_loc", "int"], ["End", "end_loc", "int"], ["Strand", "strand"]]], ["Footer", [["Data Source", "data_source"], ["Version", "data_version"], ["Source Record", "data_source_url", "link"]]]],
     "ontology": [["Title", "name"], ["Ontology identity", [["ID", "id"], ["Domain", "go_domain"], ["Synonyms", "synonyms", "list"], ["Alternate IDs", "alt_ids", "list"]]], ["Description", "description"], ["Footer", [["Data Source", "data_source"], ["Version", "data_version"], ["Source Record", "data_source_url", "link"]]]],
     "nc_rna": [["Title", "name"], ["RNA identity", [["ID", "id"], ["RNA type", "rna_type"], ["Rfam ID", "alt_id_rfam"], ["Rfam function", "rfam_function"]]], ["Genomic location", [["Chromosome", "chr", "label_chr(#0FB47D)"], ["Start", "start_loc", "int"], ["End", "end_loc", "int"]]], ["Footer", [["Data Source", "data_source"], ["Version", "data_version"], ["Source Record", "data_source_url", "link"]]]],
-    "three_d_feature": [["Title", "name"], ["Feature identity", [["ID", "id"], ["Compartment", "compartment"], ["Tissue", "tissue_name"], ["Accession", "accession"], ["Early or late", "early_or_late"]]], ["Genomic location", [["Chromosome", "chr", "label_chr(#0FB47D)"], ["Start", "start_loc", "int"], ["End", "end_loc", "int"]]], ["Footer", [["Data Source", "data_source"], ["Version", "data_version"], ["Source Record", "data_source_url", "link"]]]]
+    "three_d_feature": [["Title", "name"], ["Feature identity", [["ID", "id"], ["Compartment", "compartment"], ["Tissue", "tissue_name"], ["Accession", "accession"], ["Early or late", "early_or_late"]]], ["Genomic location", [["Chromosome", "chr", "label_chr(#0FB47D)"], ["Start", "start_loc", "int"], ["End", "end_loc", "int"]]], ["Footer", [["Data Source", "data_source"], ["Version", "data_version"], ["Source Record", "data_source_url", "link"]]]],
+    "t1d_biology": [
+      ["Title", "name"],
+      ["Biological identity", [["Canonical ID", "canonical_id"], ["Specification IDs", "specification_ids", "list"], ["Organism", "organism"]]],
+      ["Biological role", "description", "string"],
+      ["Context", [["Organ / compartment", "compartment"], ["Organ", "organ"], ["State", "state"], ["States", "states", "list"], ["Subtypes", "subtypes", "list"]]],
+      ["Evidence status", [["Strength", "evidence_strength"], ["Generated demo", "generated"], ["Why generated", "generated_reason"], ["Based on", "generated_from"]]],
+      ["Gene-set context (non-causal)", [["Coverage", "gene_set_coverage_status"], ["Summary", "gene_set_summary"], ["Sources", "gene_set_sources", "list"], ["Stable IDs", "gene_set_ids", "list"], ["Member counts", "gene_set_member_counts", "list"], ["Top members", "gene_set_top_members", "list"]]],
+      ["Navigation", [["Clickable", "clickable"], ["Action", "navigation_action"]]],
+      ["Footer", [["Data Source", "data_source"], ["Version", "data_version"], ["Source Record", "source_record_id"], ["Source URL", "data_source_url", "link"], ["Release", "release_id"]]]
+    ]
   },
   "node_panel_by_label": {
     "Gene": "ensembl_gene", "Transcript": "transcript", "Exon": "genomic_segment", "CDS_segments": "genomic_segment", "TSS_segment": "genomic_segment", "UTR_segments": "genomic_segment", "Protein": "protein",
     "SNP": "variant", "SNV": "variant", "Sequence_variant": "variant", "Deletion": "variant", "Insertion": "variant", "Structural_variant": "structural_variant",
     "Loop": "loop", "LoopAnchor": "genomic_segment", "AB_compartment": "three_d_feature", "FIRE_region": "three_d_feature", "Replication_timing": "three_d_feature",
     "ENCODE_feature": "regulatory_feature", "cCRE": "regulatory_feature", "ChromHMM_state": "regulatory_feature", "TF_binding_motif": "regulatory_feature", "Enhancer": "regulatory_feature", "Promoter": "regulatory_feature", "Super_enhancer": "regulatory_feature",
-    "Ontology_term": "ontology", "GO_term": "ontology", "Cell_or_tissue": "ontology", "Non_coding_RNA": "nc_rna"
+    "Ontology_term": "ontology", "GO_term": "ontology", "Cell_or_tissue": "ontology", "Non_coding_RNA": "nc_rna",
+    "Cell": "t1d_biology", "CellType": "t1d_biology", "Cytokine": "t1d_biology", "Chemokine": "t1d_biology", "Peptide": "t1d_biology", "Antibody": "t1d_biology", "Process": "t1d_biology", "Pathway": "t1d_biology", "Anatomy": "t1d_biology", "Pathology": "t1d_biology", "ExternalFactor": "t1d_biology", "Chemical": "t1d_biology", "Outcome": "t1d_biology", "ClinicalStage": "t1d_biology", "Intervention": "t1d_biology", "HLA_allele": "t1d_biology", "HLA_allele_group": "t1d_biology", "GeneratedFallback": "t1d_biology"
   },
   "nodes": {
     "Gene": {"node_color": "#A4D0F6", "text_color": "#000000"},

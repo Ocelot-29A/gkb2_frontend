@@ -440,7 +440,6 @@ export default function GraphViewerDebugPanel() {
               edgeRoutes={graphPayload.edgeRoutes}
               metadata={graphPayload.metadata}
               containerHeight='720px'
-              defaultLegendVisible={true}
             />
           </Box>
         )}
