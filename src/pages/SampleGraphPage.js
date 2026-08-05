@@ -1,5 +1,6 @@
 import React, {
   useEffect,
+  useMemo,
   useState,
 } from 'react';
 
@@ -9,6 +10,7 @@ import {
 } from '@mui/material';
 
 import StandaloneKnowledgeGraph from '../components/StandaloneKnowledgeGraph';
+import { createT1dGpsAuthoringAdapter } from './t1dGpsAuthoringAdapter';
 
 const SAMPLEGRAPH_API_URL = process.env.REACT_APP_SAMPLEGRAPH_API_URL;
 const MECHANISMGRAPH_API_URL = process.env.REACT_APP_MECHANISMGRAPH_API_URL;
@@ -65,6 +67,16 @@ export default function SampleGraphPage({ fixtureName = 'samplegraph' }) {
   const [demo, setDemo] = useState(null);
   const [error, setError] = useState('');
   const isLayeredT1DDemo = fixtureName.startsWith('layeredgraph') || fixtureName.startsWith('t1d-gps-v4') || fixtureName.startsWith('t1d-gps-v5');
+  const isT1dGpsDeveloperView = fixtureName.startsWith('t1d-gps-v5/');
+  const developerMode = useMemo(() => {
+    if (!isT1dGpsDeveloperView) return null;
+    const local = ['127.0.0.1', 'localhost'].includes(window.location.hostname);
+    return {
+      enabled: true,
+      adapter: createT1dGpsAuthoringAdapter({ local, release: 'v5' }),
+      permissions: { editData: true, editInfoPanel: true, saveLayout: true },
+    };
+  }, [isT1dGpsDeveloperView]);
 
   useEffect(() => {
     let active = true;
@@ -112,6 +124,19 @@ export default function SampleGraphPage({ fixtureName = 'samplegraph' }) {
           return;
         }
 
+        if (isT1dGpsDeveloperView) {
+          const viewId = fixtureName.slice('t1d-gps-v5/'.length);
+          loadedDemo.metadata = {
+            ...loadedDemo.metadata,
+            viewer: { ...(loadedDemo.metadata?.viewer || {}), developer_mode: true },
+            authoring: {
+              ...(loadedDemo.metadata?.authoring || {}),
+              release: 'v5',
+              view_id: viewId,
+              source_checksum: loadedDemo.metadata?.source_checksum || '',
+            },
+          };
+        }
         setDemo(loadedDemo);
       } catch (err) {
         if (active) {
@@ -125,7 +150,7 @@ export default function SampleGraphPage({ fixtureName = 'samplegraph' }) {
     return () => {
       active = false;
     };
-  }, [fixtureName]);
+  }, [fixtureName, isT1dGpsDeveloperView]);
 
   return (
     <Box
@@ -164,6 +189,7 @@ export default function SampleGraphPage({ fixtureName = 'samplegraph' }) {
             assetBaseUrl={demo.assetBaseUrl}
             queryExamples={[{ label: fixtureName === 'mechanismgraph' ? 'Full static T1D mechanism' : 'Synthetic T1D immune network', request: demo.queryRequest }]}
             containerHeight="calc(100vh - 315px)"
+            developerMode={developerMode}
           />
         ) : (
           <Box

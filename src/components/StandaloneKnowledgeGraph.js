@@ -3,8 +3,11 @@
 import './styles.css';
 
 import React, {
+  lazy,
+  Suspense,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from 'react';
@@ -16,6 +19,7 @@ import { useSelector } from 'react-redux';
 import AdsClickIcon from '@mui/icons-material/AdsClick';
 import CenterFocusStrongIcon from '@mui/icons-material/CenterFocusStrong';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import DataObjectIcon from '@mui/icons-material/DataObject';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import GridViewIcon from '@mui/icons-material/GridView';
 import HubIcon from '@mui/icons-material/Hub';
@@ -45,6 +49,7 @@ import IconButton from '@mui/material/IconButton';
 import graphInfocard from '../schema/graph_viewer_schema.json';
 import { addWhitespace } from '../utils/textProcessing';
 import GraphViewerQueryDialog, { requestGraphViewer } from './GraphViewerQueryDialog';
+import { inverseLayoutPosition, navigationLabel } from './graphViewerDeveloperMode';
 import {
   edgeIsInverted,
   edgeLabels,
@@ -56,6 +61,7 @@ import {
 const CY_LAYOUT_SCALE = 0.5;
 const INFOCARD_Z_INDEX = 2147483000;
 const CY_Y_POSITION_MULTIPLIER = 2;
+const GraphViewerDeveloperDialog = lazy(() => import('./GraphViewerDeveloperDialog'));
 
 const scaleX = (value) => value * CY_LAYOUT_SCALE;
 const scaleYPosition = (value) => value * CY_LAYOUT_SCALE * CY_Y_POSITION_MULTIPLIER;
@@ -533,7 +539,10 @@ const getNodeLabel = (node) => {
   return String(baseName).replace(/_/g, ' ');
 };
 
-const getInfoPanel = (isEdge, type) => {
+const getInfoPanel = (isEdge, type, infoPanelOverrides = {}) => {
+  const kind = isEdge ? 'edge' : 'node';
+  const runtimePanel = infoPanelOverrides?.[kind]?.[type];
+  if (Array.isArray(runtimePanel)) return runtimePanel;
   const configuredPanel = (isEdge ? graphInfocard.edges : graphInfocard.nodes)?.[type]?.info_panel;
   if (Array.isArray(configuredPanel)) return configuredPanel;
   const profileName = isEdge
@@ -872,9 +881,9 @@ const viewModeLabel = (viewMode) => ({
   kg_only: 'KG mode',
 }[viewMode] || 'KG mode');
 
-const InfocardMenu = ({ hoveredData }) => {
+const InfocardMenu = ({ hoveredData, infoPanelOverrides }) => {
   const isEdge = hoveredData?.source && hoveredData?.target;
-  const schema = getInfoPanel(isEdge, hoveredData?.type);
+  const schema = getInfoPanel(isEdge, hoveredData?.type, infoPanelOverrides);
   const titleColumn = schema?.find(([label]) => label === 'Title');
   const footerInfo = (schema?.find(([label]) => label === 'Footer')?.[1] || [])
     .filter(([, key]) => hasInfocardValue(hoveredData?.[key]));
@@ -1101,6 +1110,7 @@ export default function StandaloneKnowledgeGraph({
   assetBaseUrl = '',
   containerHeight = '600px',
   defaultLegendVisible = false,
+  developerMode = null,
   sx = {},
 }) {
   const cyRef = useRef(null);
@@ -1114,6 +1124,8 @@ export default function StandaloneKnowledgeGraph({
   const toolbarZoomGroupMeasureRef = useRef(null);
   const toolbarSecondaryGroupRef = useRef(null);
   const clickMenuEnabledRef = useRef(true);
+  const developerDirtyRef = useRef(false);
+  const developerDialogRef = useRef(null);
   const contextMenuRef = useRef(null);
   const modeMenuRef = useRef(null);
   const focusMenuRef = useRef(null);
@@ -1166,6 +1178,14 @@ export default function StandaloneKnowledgeGraph({
   const [actionMessage, setActionMessage] = useState(null);
   const [contextMenu, setContextMenu] = useState(null);
   const [highlightedIds, setHighlightedIds] = useState(() => new Set());
+  const [developerSelection, setDeveloperSelection] = useState(null);
+  const [pendingDeveloperNavigation, setPendingDeveloperNavigation] = useState(null);
+  const [developerEditorDirty, setDeveloperEditorDirty] = useState(false);
+  const [developerRecordOverrides, setDeveloperRecordOverrides] = useState({});
+  const [infoPanelOverrides, setInfoPanelOverrides] = useState({ node: {}, edge: {} });
+  const [layoutChanges, setLayoutChanges] = useState({});
+  const [layoutHistory, setLayoutHistory] = useState({ past: [], future: [] });
+  const developerEnabled = Boolean(developerMode?.enabled && metadata?.viewer?.developer_mode);
 
   useEffect(() => {
     clickMenuEnabledRef.current = clickMenuEnabled;
@@ -1175,8 +1195,26 @@ export default function StandaloneKnowledgeGraph({
     interactionAbortRef.current?.abort();
   }, []);
 
-  const displayGraphData = interactionGraph?.graphData ?? queryResult?.graphData ?? graphData;
+  const baseDisplayGraphData = interactionGraph?.graphData ?? queryResult?.graphData ?? graphData;
+  const displayGraphData = useMemo(() => {
+    if (!baseDisplayGraphData || !Object.keys(developerRecordOverrides).length) return baseDisplayGraphData;
+    return {
+      ...baseDisplayGraphData,
+      nodes: (baseDisplayGraphData.nodes || []).map((record) => developerRecordOverrides[record['~id']] || record),
+      edges: (baseDisplayGraphData.edges || []).map((record) => developerRecordOverrides[record['~id']] || record),
+    };
+  }, [baseDisplayGraphData, developerRecordOverrides]);
   const displayCoordData = interactionGraph?.coordData ?? queryResult?.coordData ?? coordData;
+  const changedLayoutPositions = useMemo(() => Object.fromEntries(
+    Object.entries(layoutChanges).filter(([id, position]) => {
+      const original = displayCoordData?.[id] || {};
+      return position.x !== original.x || position.y !== original.y;
+    }),
+  ), [layoutChanges, displayCoordData]);
+  const layoutDirty = Object.keys(changedLayoutPositions).length > 0;
+  useEffect(() => {
+    developerDirtyRef.current = layoutDirty || developerEditorDirty;
+  }, [layoutDirty, developerEditorDirty]);
   const displayEdgeRoutes = interactionGraph?.edgeRoutes ?? queryResult?.edgeRoutes ?? edgeRoutes;
   const displayMetadata = interactionGraph?.metadata ?? queryResult?.metadata ?? metadata;
   const effectiveMetadata = displayMetadata
@@ -1201,8 +1239,8 @@ export default function StandaloneKnowledgeGraph({
   const displayQueryRequest = queryResult?.request || queryRequest;
   const activeCypherList = interactionHistory?.present.cypher || displayQueryRequest?.cypher || [];
   const activeDeletedIds = new Set(interactionHistory?.present.deletedIds || []);
-  const canUndo = Boolean(interactionHistory?.past.length);
-  const canRedo = Boolean(interactionHistory?.future.length);
+  const canUndo = developerEnabled ? Boolean(layoutHistory.past.length) : Boolean(interactionHistory?.past.length);
+  const canRedo = developerEnabled ? Boolean(layoutHistory.future.length) : Boolean(interactionHistory?.future.length);
   const exportNodeLimit = Number(displayMetadata?.layout?.static_export_limit) || MAX_VISIBLE_NODES;
   const activeLegend = Array.isArray(displayMetadata?.legend) ? displayMetadata.legend : legendSchema;
 
@@ -1233,6 +1271,79 @@ export default function StandaloneKnowledgeGraph({
   };
 
   const closeContextMenu = () => setContextMenu(null);
+
+  const findRawRecord = (kind, id) => (
+    kind === 'edge'
+      ? (displayGraphData?.edges || []).find((record) => record['~id'] === id)
+      : (displayGraphData?.nodes || []).find((record) => record['~id'] === id)
+  );
+
+  const openDeveloperRecord = (kind, id) => {
+    const record = findRawRecord(kind, id);
+    const element = cyRef.current?.getElementById(id);
+    if (!record || !element?.nonempty()) return;
+    const data = element.data();
+    setContextMenu(null);
+    setDeveloperSelection({
+      kind,
+      id,
+      type: kind === 'edge' ? record['~type'] : data.type,
+      name: data.name || data.label || id,
+      record,
+      graphLink: data.graph_link,
+      preview: getNodePrimaryAction(data) === 'preview' ? data : null,
+      derivedData: data,
+      source: record?.['~properties']?.source_file || record?.['~properties']?.data_source_url || 'graph.json',
+    });
+  };
+
+  const developerNavigate = (graphLink) => {
+    if (!graphLink || typeof graphLink !== 'string' || !graphLink.startsWith('/')) return;
+    const dirty = developerDirtyRef.current;
+    if (dirty) {
+      setPendingDeveloperNavigation(graphLink);
+      return;
+    }
+    window.location.assign(graphLink);
+  };
+
+  const applyLayoutSnapshot = (snapshot) => {
+    const cy = cyRef.current;
+    if (!cy) return;
+    Object.entries(snapshot).forEach(([id, position]) => {
+      const element = cy.getElementById(id);
+      if (element?.nonempty()) element.position({ x: position.x * 0.5, y: position.y });
+    });
+    updateThumbnail();
+  };
+
+  const handleSaveLayout = async () => {
+    if (!developerMode?.adapter || !layoutDirty) return true;
+    try {
+      await developerMode.adapter.saveLayout({
+        viewId: displayMetadata?.authoring?.view_id || displayMetadata?.view_id,
+        positions: changedLayoutPositions,
+      });
+      setLayoutChanges({});
+      setLayoutHistory({ past: [], future: [] });
+      setActionMessage({ text: developerMode.adapter.mode === 'export' ? 'Validated layout patch downloaded.' : 'Layout saved.', severity: 'success' });
+      return true;
+    } catch (error) {
+      setActionMessage({ text: error.message || 'Failed to save layout.', severity: 'error' });
+      return false;
+    }
+  };
+
+  const saveAndContinueDeveloperNavigation = async () => {
+    if (developerEditorDirty) {
+      const saved = await developerDialogRef.current?.save?.();
+      if (!saved) return;
+    }
+    if (layoutDirty && !(await handleSaveLayout())) return;
+    const destination = pendingDeveloperNavigation;
+    setPendingDeveloperNavigation(null);
+    if (destination) window.location.assign(destination);
+  };
 
   useEffect(() => {
     if (queryResult?.metadata?.layout?.mode) {
@@ -1640,6 +1751,17 @@ export default function StandaloneKnowledgeGraph({
 
   const handleUndo = () => {
     closeContextMenu();
+    if (developerEnabled) {
+      setLayoutHistory((current) => {
+        if (!current.past.length) return current;
+        const previous = current.past[current.past.length - 1];
+        setLayoutChanges(previous);
+        applyLayoutSnapshot(previous);
+        return { past: current.past.slice(0, -1), future: [layoutChanges, ...current.future] };
+      });
+      setActionMessage({ text: 'Undid last layout change.', severity: 'info' });
+      return;
+    }
     setInteractionHistory((current) => {
       if (!current || current.past.length === 0) {
         return current;
@@ -1652,6 +1774,17 @@ export default function StandaloneKnowledgeGraph({
 
   const handleRedo = () => {
     closeContextMenu();
+    if (developerEnabled) {
+      setLayoutHistory((current) => {
+        if (!current.future.length) return current;
+        const next = current.future[0];
+        setLayoutChanges(next);
+        applyLayoutSnapshot(next);
+        return { past: [...current.past, layoutChanges], future: current.future.slice(1) };
+      });
+      setActionMessage({ text: 'Redid layout change.', severity: 'info' });
+      return;
+    }
     setInteractionHistory((current) => {
       if (!current || current.future.length === 0) {
         return current;
@@ -2346,6 +2479,14 @@ export default function StandaloneKnowledgeGraph({
       ) {
         return;
       }
+      if (developerEnabled) {
+        if (clickMenuEnabledRef.current) {
+          setContextMenu({ type: 'node', id: node.id(), x: evt.renderedPosition.x, y: evt.renderedPosition.y });
+        } else if (node.data('graph_link')) {
+          developerNavigate(node.data('graph_link'));
+        }
+        return;
+      }
       const nodeAction = getNodePrimaryAction(node.data());
       if (nodeAction === 'preview') {
         setContextMenu(null);
@@ -2363,6 +2504,13 @@ export default function StandaloneKnowledgeGraph({
     };
 
     const handleEdgeTap = (evt) => {
+      if (developerEnabled) {
+        if (clickMenuEnabledRef.current) {
+          const edge = evt.target;
+          setContextMenu({ type: 'edge', id: edge.id(), x: evt.renderedPosition.x, y: evt.renderedPosition.y });
+        }
+        return;
+      }
       if (!clickMenuEnabledRef.current) {
         return;
       }
@@ -2374,6 +2522,23 @@ export default function StandaloneKnowledgeGraph({
       if (evt.target === cy) {
         setContextMenu(null);
       }
+    };
+
+    const handleDeveloperDrag = (evt) => {
+      if (!developerEnabled) return;
+      const node = evt.target;
+      if (!node?.isNode?.() || node.data('trackBackground') === 'true'
+        || node.data('cellBackground') === 'true'
+        || node.data('mechanismBackground') === 'true'
+        || node.data('canvasImage') === 'true') return;
+      const originalPosition = displayCoordData?.[node.id()] || {};
+      const nextPosition = inverseLayoutPosition(node.position(), originalPosition);
+      setLayoutChanges((current) => {
+        const previous = current[node.id()] ? current : { ...current, [node.id()]: originalPosition };
+        setLayoutHistory((history) => ({ past: [...history.past, previous], future: [] }));
+        return { ...current, [node.id()]: nextPosition };
+      });
+      setActionMessage({ text: 'Layout changed. Use Save Layout to persist it.', severity: 'info' });
     };
 
     if (effectiveMetadata?.layout?.initial_view === 'fit') {
@@ -2394,6 +2559,7 @@ export default function StandaloneKnowledgeGraph({
     cy.on('tap', 'node', handleNodeTap);
     cy.on('tap', 'edge', handleEdge(handleEdgeTap));
     cy.on('tap', handleBackgroundTap);
+    cy.on('dragfree', 'node', handleDeveloperDrag);
     cy.on('pan', () => {
       syncViewportState();
       setContextMenu(null);
@@ -2425,7 +2591,7 @@ export default function StandaloneKnowledgeGraph({
       cyRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [displayCoordData, displayEdgeRoutes, genomeRegion, cellRegions, mechanismRegions, canvasImage, viewerNodeColors, viewerNodeTextColors, displayGraphData, queryResultPage, interactionHistory?.present.deletedIds, assetBaseUrl, effectiveMetadata?.layout?.pathway_preview_node_body]);
+  }, [displayCoordData, displayEdgeRoutes, genomeRegion, cellRegions, mechanismRegions, canvasImage, viewerNodeColors, viewerNodeTextColors, displayGraphData, queryResultPage, interactionHistory?.present.deletedIds, assetBaseUrl, effectiveMetadata?.layout?.pathway_preview_node_body, developerEnabled]);
 
   useEffect(() => {
     const cy = cyRef.current;
@@ -2710,7 +2876,7 @@ export default function StandaloneKnowledgeGraph({
             wordWrap: 'break-word',
           }}
         >
-          <InfocardMenu hoveredData={activeNode?.data()} />
+          <InfocardMenu hoveredData={activeNode?.data()} infoPanelOverrides={infoPanelOverrides} />
         </div>,
         document.body,
       )}
@@ -2730,7 +2896,32 @@ export default function StandaloneKnowledgeGraph({
             zIndex: 30,
           }}
         >
-          {contextMenu.type === 'node' ? (
+          {developerEnabled ? (
+            <>
+              {contextMenu.type === 'node' && cyRef.current?.getElementById(contextMenu.id)?.data('graph_link') && (
+                <Button
+                  fullWidth
+                  onClick={() => {
+                    const data = cyRef.current.getElementById(contextMenu.id).data();
+                    setContextMenu(null);
+                    developerNavigate(data.graph_link);
+                  }}
+                  startIcon={<HubIcon sx={{ fontSize: '16px' }} />}
+                  sx={contextMenuItemSx}
+                >
+                  {navigationLabel(cyRef.current.getElementById(contextMenu.id).data())}
+                </Button>
+              )}
+              <Button
+                fullWidth
+                onClick={() => openDeveloperRecord(contextMenu.type, contextMenu.id)}
+                startIcon={<DataObjectIcon sx={{ fontSize: '16px' }} />}
+                sx={contextMenuItemSx}
+              >
+                Show all data
+              </Button>
+            </>
+          ) : contextMenu.type === 'node' ? (
             <>
               <Button
                 fullWidth
@@ -2883,7 +3074,8 @@ export default function StandaloneKnowledgeGraph({
           </Box>
         </Box>
         <Button
-          onClick={() => setQueryDialogOpen(true)}
+          onClick={developerEnabled ? handleSaveLayout : () => setQueryDialogOpen(true)}
+          disabled={developerEnabled && (!developerMode?.permissions?.saveLayout || !layoutDirty)}
           sx={{
             height: '44px',
             minWidth: '175px',
@@ -2899,21 +3091,73 @@ export default function StandaloneKnowledgeGraph({
             '&:hover': { backgroundColor: viewerPalette.controlHover, boxShadow: 'none' },
           }}
         >
-          Query Graph
+          {developerEnabled ? 'Save Layout' : 'Query Graph'}
         </Button>
       </Box>
-      <GraphViewerQueryDialog
-        open={queryDialogOpen}
-        examples={queryExamples}
-        initialRequest={displayQueryRequest}
-        onClose={() => setQueryDialogOpen(false)}
-        onResult={(payload) => {
-          setQueryResult(payload);
-          setViewMode(payload.metadata?.layout?.mode || 'kg_only');
-          setLayoutEngine(payload.metadata?.layout?.engine || payload.request?.layout_engine || 'legacy');
-          setActionMessage(null);
-        }}
-      />
+      {!developerEnabled && (
+        <GraphViewerQueryDialog
+          open={queryDialogOpen}
+          examples={queryExamples}
+          initialRequest={displayQueryRequest}
+          onClose={() => setQueryDialogOpen(false)}
+          onResult={(payload) => {
+            setQueryResult(payload);
+            setViewMode(payload.metadata?.layout?.mode || 'kg_only');
+            setLayoutEngine(payload.metadata?.layout?.engine || payload.request?.layout_engine || 'legacy');
+            setActionMessage(null);
+          }}
+        />
+      )}
+      {developerEnabled && (
+        <Suspense fallback={null}>
+          <GraphViewerDeveloperDialog
+            ref={developerDialogRef}
+            open={Boolean(developerSelection)}
+            selection={developerSelection}
+            adapter={developerMode.adapter}
+            viewId={displayMetadata?.authoring?.view_id || displayMetadata?.view_id}
+            permissions={developerMode.permissions || {}}
+            infoPanelOverrides={infoPanelOverrides}
+            onInfoPanelOverride={(kind, type, panel) => setInfoPanelOverrides((current) => ({
+              ...current,
+              [kind]: panel
+                ? { ...current[kind], [type]: panel }
+                : Object.fromEntries(Object.entries(current[kind] || {}).filter(([key]) => key !== type)),
+            }))}
+            onRecordSaved={(record) => {
+              setDeveloperRecordOverrides((current) => ({ ...current, [record['~id']]: record }));
+              setDeveloperSelection((current) => (current ? { ...current, record } : current));
+            }}
+            onClose={() => setDeveloperSelection(null)}
+            onNavigate={() => developerNavigate(developerSelection?.graphLink)}
+            onPreview={() => {
+              if (developerSelection?.preview) {
+                setDeveloperSelection(null);
+                setPathwayPreviewLoadError(false);
+                setPathwayPreview(developerSelection.preview);
+              }
+            }}
+            onDirtyChange={setDeveloperEditorDirty}
+          />
+        </Suspense>
+      )}
+      <Dialog open={Boolean(pendingDeveloperNavigation)} onClose={() => setPendingDeveloperNavigation(null)}>
+        <DialogTitle>Unsaved Developer Mode changes</DialogTitle>
+        <DialogContent>
+          <Typography>Save or export the current data, schema, and layout edits before opening the linked graph.</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPendingDeveloperNavigation(null)}>Cancel</Button>
+          <Button onClick={() => {
+            const destination = pendingDeveloperNavigation;
+            setPendingDeveloperNavigation(null);
+            if (destination) window.location.assign(destination);
+          }}>Discard and Continue</Button>
+          <Button variant="contained" onClick={saveAndContinueDeveloperNavigation}>
+            {developerMode?.adapter?.mode === 'export' ? 'Export and Continue' : 'Save and Continue'}
+          </Button>
+        </DialogActions>
+      </Dialog>
       <Dialog
         open={Boolean(pathwayPreview)}
         onClose={closePathwayPreview}
