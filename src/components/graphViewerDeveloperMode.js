@@ -121,7 +121,10 @@ export const inverseLayoutPosition = (position, original) => ({
 
 export const navigationLabel = (data = {}) => {
   const action = String(data.navigation_action || '').toLowerCase();
+  const graphLink = String(data.graph_link || '').toLowerCase();
   if (action.includes('detail')) return 'Open detail';
+  if (graphLink.includes('/details/')) return 'Open detail';
+  if (graphLink.includes('/pathways/')) return 'Open pathway';
   if (data.type === 'Process' || data.type === 'Pathway') return 'Open pathway';
   return 'Open linked graph';
 };

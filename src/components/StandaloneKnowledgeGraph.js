@@ -49,7 +49,9 @@ import IconButton from '@mui/material/IconButton';
 import graphInfocard from '../schema/graph_viewer_schema.json';
 import { addWhitespace } from '../utils/textProcessing';
 import GraphViewerQueryDialog, { requestGraphViewer } from './GraphViewerQueryDialog';
+import GraphViewerDataExportDialog, { buildVisibleGraphExport } from './GraphViewerDataExportDialog';
 import { inverseLayoutPosition, navigationLabel } from './graphViewerDeveloperMode';
+import { formatInfocardValue, getInfocardHref } from './graphViewerInfocardValue';
 import {
   edgeIsInverted,
   edgeLabels,
@@ -117,6 +119,7 @@ const metaValueSx = { fontFamily: 'Inter, sans-serif', fontSize: '12px', fontWei
 const MAX_VISIBLE_NODES = 30;
 const NEIGHBOR_QUERY_LIMIT = 10;
 const HIGHLIGHT_DURATION_MS = 2200;
+const EMPTY_DELETED_ID_LIST = Object.freeze([]);
 const EMPTY_GRAPH_REGIONS = Object.freeze([]);
 const EMPTY_VIEWER_COLORS = Object.freeze({});
 const DEFAULT_VIEWER_PALETTE = Object.freeze({
@@ -144,7 +147,7 @@ const openLinkedGraph = (node) => {
   return true;
 };
 
-const PREVIEW_ASSET_PATTERN = /^pathway-cache\/[0-9a-f]{64}\.svg$/;
+const PREVIEW_ASSET_PATTERN = /^pathway-cache\/[0-9a-f]{64}\.(?:svg|png)$/;
 
 const previewReferenceFor = (data) => {
   const value = data?.preview_image_path;
@@ -169,6 +172,54 @@ const safePreviewColor = (value, fallback) => (
     ? value.trim()
     : fallback
 );
+
+const clampOpacity = (value, fallback) => {
+  if (value === null || value === undefined || value === '') {
+    return fallback;
+  }
+  const numericValue = Number(value);
+  return Number.isFinite(numericValue)
+    ? Math.min(1, Math.max(0, numericValue))
+    : fallback;
+};
+
+export const getNodeTextBackplateData = (layout = null) => ({
+  nodeTextBackgroundColor: safePreviewColor(
+    layout?.node_text_background_color,
+    '#FFFFFF',
+  ),
+  nodeTextBackgroundOpacity: clampOpacity(
+    layout?.node_text_background_opacity,
+    0.94,
+  ),
+});
+
+export const getEdgeTextBackplateData = (layout = null) => ({
+  edgeTextBackgroundColor: safePreviewColor(
+    layout?.edge_text_background_color,
+    '#F9FAFB',
+  ),
+  edgeTextBackgroundOpacity: clampOpacity(
+    layout?.edge_text_background_opacity,
+    1,
+  ),
+});
+
+export const getImageNodeBackgroundData = (properties = null, layout = null) => ({
+  imageNodeBackgroundColor: safePreviewColor(
+    properties?.image_background_color,
+    safePreviewColor(layout?.image_background_color, '#FFFFFF'),
+  ),
+});
+
+export const getImageNodeOpacityData = (properties = null) => ({
+  imageNodeImageOpacity: clampOpacity(properties?.image_opacity, 1),
+});
+
+export const getRasterImageOpacityStyle = (imageOpacity) => ({
+  'background-image-opacity': imageOpacity,
+  'background-opacity': 1,
+});
 
 export const getNodeBodyPreviewData = (
   nodeType,
@@ -207,6 +258,66 @@ export const getNodePrimaryAction = (data) => {
     return 'navigate';
   }
   return 'menu';
+};
+
+export const isExactLinkedViewPreview = (data) => (
+  data?.preview_representation === 'exact_linked_view'
+);
+
+const EDGE_LINE_STYLES = new Set(['solid', 'dashed', 'dotted']);
+
+export const normalizeEdgeLineStyle = (value) => (
+  EDGE_LINE_STYLES.has(value) ? value : 'solid'
+);
+
+const isGraphBackgroundNode = (node) => (
+  node.data('trackBackground') === 'true'
+  || node.data('cellBackground') === 'true'
+  || node.data('mechanismBackground') === 'true'
+  || node.data('canvasImage') === 'true'
+);
+
+export const createExactGraphCapture = (
+  cy,
+  {
+    background = '#FFFFFF',
+    maxWidth = 1600,
+    maxHeight = 900,
+  } = {},
+) => {
+  if (!cy || cy.destroyed?.()) {
+    throw new Error('The graph renderer is not available for capture.');
+  }
+  const biologicalNodes = cy.nodes().filter((node) => !isGraphBackgroundNode(node));
+  const nodeIds = biologicalNodes.map((node) => node.id()).sort();
+  const edgeIds = cy.edges().map((edge) => edge.id()).sort();
+  const positions = Object.fromEntries(
+    biologicalNodes
+      .map((node) => [node.id(), { x: node.position('x'), y: node.position('y') }])
+      .sort(([left], [right]) => left.localeCompare(right)),
+  );
+  return {
+    status: 'candidate',
+    representation: 'exact_linked_view',
+    png_data_url: cy.png({
+      full: true,
+      maxWidth,
+      maxHeight,
+      bg: background,
+    }),
+    node_ids: nodeIds,
+    edge_ids: edgeIds,
+    positions,
+    node_count: nodeIds.length,
+    edge_count: edgeIds.length,
+    render_contract: {
+      exporter: 'cytoscape.png',
+      full: true,
+      max_width: maxWidth,
+      max_height: maxHeight,
+      background,
+    },
+  };
 };
 
 const contextMenuItemSx = {
@@ -382,20 +493,25 @@ const SwitchToggle = ({ label, icon, enabled, onChange, palette = DEFAULT_VIEWER
   </Box>
 );
 
-const InfocardData = ({ value, config, dataKey }) => {
-  const setting = config?.match(/\(([^)]+)\)/)?.[1];
-  const type = setting ? config.split('(')[0] : config;
+export const InfocardData = ({ value, config, dataKey }) => {
+  const safeConfig = typeof config === 'string' ? config : '';
+  const setting = safeConfig.match(/\(([^)]+)\)/)?.[1];
+  const type = setting ? safeConfig.split('(')[0] : safeConfig;
+
+  if (typeof value === 'boolean') {
+    return <>{value ? 'Yes' : 'No'}</>;
+  }
 
   if (!type) {
-    return <>{value || 'No Data'}</>;
+    return <>{formatInfocardValue(value)}</>;
   }
 
   if (type === 'string') {
-    return <>{value || 'No Data'}</>;
+    return <>{formatInfocardValue(value)}</>;
   }
 
   if (type === 'list') {
-    return <>{Array.isArray(value) ? (value.join('; ') || 'No Data') : (value || 'No Data')}</>;
+    return <>{formatInfocardValue(value)}</>;
   }
 
   if (type === 'int') {
@@ -407,7 +523,7 @@ const InfocardData = ({ value, config, dataKey }) => {
   }
 
   if (["link", "link_static"].includes(type)) {
-    const href = type === 'link' ? value : dataKey;
+    const href = getInfocardHref(type === 'link' ? value : dataKey);
     return (
       <Link
         href={href || undefined}
@@ -447,7 +563,7 @@ const InfocardData = ({ value, config, dataKey }) => {
     );
   }
 
-  return <span>{value ?? 'No Data'}</span>;
+  return <span>{formatInfocardValue(value)}</span>;
 };
 
 const hasInfocardValue = (value) => {
@@ -800,6 +916,7 @@ const buildCellBackgroundNodes = (cellRegions) => (cellRegions || [])
       cellBackground: 'true',
       cellFill: region.fill || '#EFF6FF',
       cellBorder: region.border || '#3B82F6',
+      cellTitleFontSize: Number(region.title_font_size) || 20,
       renderWidth: scaleX(region.width),
       renderHeight: scaleYPosition(region.height),
     },
@@ -823,11 +940,21 @@ const buildMechanismBackgroundNodes = (mechanismRegions) => (mechanismRegions ||
     data: {
       id: `__mechanism_background__:${region.id}`,
       mechanismRegionId: region.id,
-      label: region.label || region.id,
+      label: region.display_label
+        || (Array.isArray(region.title_lines) ? region.title_lines.join('\n') : '')
+        || region.label
+        || region.id,
       mechanismBackground: 'true',
       mechanismFill: region.fill || '#F8FAFC',
       mechanismBorder: region.border || '#94A3B8',
       mechanismTitleFontSize: Number(region.title_font_size) || 26,
+      mechanismTitleMarginY: Number(region.title_margin_y) || 24,
+      mechanismTitleColor: region.title_text_color || region.border || '#334155',
+      mechanismTitleBackground: region.title_background_color || '#FFFFFF',
+      mechanismTitleBackgroundOpacity: Number.isFinite(Number(region.title_background_opacity))
+        ? Number(region.title_background_opacity)
+        : 0.96,
+      mechanismTitleMaxWidth: Math.max(120, scaleX(region.width) - 48),
       renderWidth: scaleX(region.width),
       renderHeight: scaleYPosition(region.height),
     },
@@ -858,7 +985,7 @@ const buildCanvasImageNode = (image) => {
       label: '',
       canvasImage: 'true',
       canvasImageUrl: image.url,
-      canvasImageOpacity: Number.isFinite(image.opacity) ? image.opacity : 0.72,
+      canvasImageOpacity: clampOpacity(image.opacity, 0.72),
       canvasImageFit: image.fit || 'contain',
       canvasImageBackground: image.background_color || '#FCFAF6',
       renderWidth: scaleX(image.width),
@@ -1016,7 +1143,10 @@ const InfocardMenu = ({ hoveredData, infoPanelOverrides }) => {
                     }}
                   >
                     {(() => {
-                      const processedData = config !== 'string' ? addWhitespace(hoveredData[visibleContent]) : hoveredData[visibleContent];
+                      const rawValue = hoveredData[visibleContent];
+                      const processedData = config !== 'string' && typeof rawValue === 'string'
+                        ? addWhitespace(rawValue)
+                        : rawValue;
                       const processedKey = config === 'string' ? addWhitespace(visibleContent) : visibleContent;
                       return <InfocardData value={processedData} dataKey={processedKey} config={config} />;
                     })()}
@@ -1084,8 +1214,8 @@ const InfocardMenu = ({ hoveredData, infoPanelOverrides }) => {
             key === 'link' || key === 'url' ? (
               <div key={key}>
                 <span style={{ fontWeight: 500 }}>{key}:</span>{' '}
-                <a href={value} target="_blank" rel="noopener noreferrer" style={{ color: '#007bff' }}>
-                  Open Link ↗
+                <a href={getInfocardHref(value) || undefined} target="_blank" rel="noopener noreferrer" style={{ color: '#007bff' }}>
+                  {getInfocardHref(value) ? 'Open Link ↗' : 'Not Available'}
                 </a>
               </div>
             ) : (
@@ -1111,6 +1241,7 @@ export default function StandaloneKnowledgeGraph({
   containerHeight = '600px',
   defaultLegendVisible = false,
   developerMode = null,
+  exactPreviewCapture = false,
   sx = {},
 }) {
   const cyRef = useRef(null);
@@ -1148,6 +1279,7 @@ export default function StandaloneKnowledgeGraph({
   const [infocardEnabled, setInfocardEnabled] = useState(true);
   const [clickMenuEnabled, setClickMenuEnabled] = useState(true);
   const [downloadMenuOpen, setDownloadMenuOpen] = useState(false);
+  const [jsonPreviewOpen, setJsonPreviewOpen] = useState(false);
   const [modeMenuOpen, setModeMenuOpen] = useState(false);
   const [focusMenuOpen, setFocusMenuOpen] = useState(false);
   const [activeFocusLabel, setActiveFocusLabel] = useState('Overview');
@@ -1238,7 +1370,12 @@ export default function StandaloneKnowledgeGraph({
   };
   const displayQueryRequest = queryResult?.request || queryRequest;
   const activeCypherList = interactionHistory?.present.cypher || displayQueryRequest?.cypher || [];
-  const activeDeletedIds = new Set(interactionHistory?.present.deletedIds || []);
+  const activeDeletedIdList = interactionHistory?.present.deletedIds || EMPTY_DELETED_ID_LIST;
+  const activeDeletedIds = useMemo(() => new Set(activeDeletedIdList), [activeDeletedIdList]);
+  const visibleGraphExport = useMemo(() => buildVisibleGraphExport(
+    displayGraphData || queryResultPage?.combined_query_result,
+    activeDeletedIds,
+  ), [displayGraphData, queryResultPage?.combined_query_result, activeDeletedIds]);
   const canUndo = developerEnabled ? Boolean(layoutHistory.past.length) : Boolean(interactionHistory?.past.length);
   const canRedo = developerEnabled ? Boolean(layoutHistory.future.length) : Boolean(interactionHistory?.future.length);
   const exportNodeLimit = Number(displayMetadata?.layout?.static_export_limit) || MAX_VISIBLE_NODES;
@@ -1834,30 +1971,22 @@ export default function StandaloneKnowledgeGraph({
     setDownloadMenuOpen(false);
   };
 
-  const handleDownloadJson = () => {
-    const result = displayGraphData || queryResultPage?.combined_query_result;
-    if (!result) {
-      return;
-    }
+  const openJsonPreview = () => {
+    if (!visibleGraphExport) return;
+    setDownloadMenuOpen(false);
+    setJsonPreviewOpen(true);
+  };
 
-    const visibleResult = {
-      ...result,
-      nodes: (result.nodes || []).filter((node) => !activeDeletedIds.has(node['~id'])),
-      edges: (result.edges || []).filter((edge) => (
-        !activeDeletedIds.has(edge['~id'])
-        && !activeDeletedIds.has(edge['~start'])
-        && !activeDeletedIds.has(edge['~end'])
-      )),
-    };
-
+  const handleDownloadJson = (payload = visibleGraphExport) => {
+    if (!payload) return;
     const link = document.createElement('a');
-    link.href = URL.createObjectURL(new Blob([JSON.stringify(visibleResult, null, 2)], { type: 'application/json' }));
+    link.href = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' }));
     link.download = 'knowledge_graph.json';
     document.body.appendChild(link);
     link.click();
     URL.revokeObjectURL(link.href);
     document.body.removeChild(link);
-    setDownloadMenuOpen(false);
+    setJsonPreviewOpen(false);
   };
 
   const handleFullscreen = () => {
@@ -2051,6 +2180,12 @@ export default function StandaloneKnowledgeGraph({
         assetBaseUrl,
         effectiveMetadata?.layout?.pathway_preview_node_body,
       );
+      const nodeTextBackplateData = getNodeTextBackplateData(effectiveMetadata?.layout);
+      const imageNodeBackgroundData = getImageNodeBackgroundData(
+        node['~properties'],
+        effectiveMetadata?.layout,
+      );
+      const imageNodeOpacityData = getImageNodeOpacityData(node['~properties']);
 
       return {
         data: {
@@ -2064,6 +2199,9 @@ export default function StandaloneKnowledgeGraph({
           renderHeight,
           labelMaxWidth: getLabelMaxWidth(renderWidth),
           labelWrap: effectiveMetadata?.layout?.node_text_wrap === 'wrap' ? 'wrap' : 'ellipsis',
+          ...nodeTextBackplateData,
+          ...imageNodeBackgroundData,
+          ...imageNodeOpacityData,
           ...previewNodeData,
         },
         position: renderPosition,
@@ -2102,6 +2240,7 @@ export default function StandaloneKnowledgeGraph({
       uniqueEdgesMap[edgeId] = edge;
     });
 
+    const edgeTextBackplateData = getEdgeTextBackplateData(effectiveMetadata?.layout);
     const edges = Object.values(uniqueEdgesMap).map((edge) => {
       const edgeId = edge['~id'];
       const source = edgeIsInverted[edge['~type']] ? edge['~end'] : edge['~start'];
@@ -2132,6 +2271,7 @@ export default function StandaloneKnowledgeGraph({
           renderEdgeOpacity: Number(effectiveMetadata?.layout?.edge_opacity) || 1,
           renderEdgeColor: effectiveMetadata?.layout?.edge_color || '#D3D3D3',
           renderArrowScale: Number(effectiveMetadata?.layout?.edge_arrow_scale) || 0.4,
+          renderTargetArrowShape: 'triangle',
           baseLabel: labelData.displayLabel,
           displayLabel: edgeLabelZoomThreshold ? '' : labelData.displayLabel,
           labelMarginX: labelData.labelMarginX,
@@ -2146,6 +2286,8 @@ export default function StandaloneKnowledgeGraph({
             curveWeight: routeData?.curveWeight || '0.5',
           }),
           ...edge['~properties'],
+          ...edgeTextBackplateData,
+          renderLineStyle: normalizeEdgeLineStyle(edge['~properties']?.renderLineStyle),
         },
       };
     });
@@ -2196,14 +2338,14 @@ export default function StandaloneKnowledgeGraph({
             shape: 'data(image_shape)',
             'background-image': 'data(image_url)',
             'background-fit': 'data(image_fit)',
-            'background-opacity': 'data(image_opacity)',
-            'background-color': '#FFFFFF',
+            ...getRasterImageOpacityStyle('data(imageNodeImageOpacity)'),
+            'background-color': 'data(imageNodeBackgroundColor)',
             'border-color': 'data(image_border_color)',
             'border-width': 'data(image_border_width)',
             'text-valign': 'bottom',
             'text-margin-y': '10px',
-            'text-background-color': '#FFFFFF',
-            'text-background-opacity': 0.94,
+            'text-background-color': 'data(nodeTextBackgroundColor)',
+            'text-background-opacity': 'data(nodeTextBackgroundOpacity)',
             'text-background-padding': '5px',
             'text-background-shape': 'roundrectangle',
           },
@@ -2215,15 +2357,14 @@ export default function StandaloneKnowledgeGraph({
             'background-image': 'data(previewNodeImageUrl)',
             'background-fit': 'data(previewNodeImageFit)',
             'background-image-crossorigin': 'anonymous',
-            'background-image-opacity': 1,
-            'background-opacity': 1,
+            ...getRasterImageOpacityStyle(1),
             'background-color': 'data(previewNodeImageBackground)',
             'border-color': 'data(previewNodeImageBorderColor)',
             'border-width': 'data(previewNodeImageBorderWidth)',
             'text-valign': 'bottom',
             'text-margin-y': '10px',
-            'text-background-color': '#FFFFFF',
-            'text-background-opacity': 0.94,
+            'text-background-color': 'data(nodeTextBackgroundColor)',
+            'text-background-opacity': 'data(nodeTextBackgroundOpacity)',
             'text-background-padding': '5px',
             'text-background-shape': 'roundrectangle',
           },
@@ -2263,7 +2404,7 @@ export default function StandaloneKnowledgeGraph({
             label: '',
             'background-image': 'data(canvasImageUrl)',
             'background-fit': 'data(canvasImageFit)',
-            'background-opacity': 'data(canvasImageOpacity)',
+            ...getRasterImageOpacityStyle('data(canvasImageOpacity)'),
             'background-color': 'data(canvasImageBackground)',
             'border-width': 0,
             'z-index-compare': 'manual',
@@ -2282,7 +2423,7 @@ export default function StandaloneKnowledgeGraph({
             'border-width': 5,
             'border-color': 'data(cellBorder)',
             color: 'data(cellBorder)',
-            'font-size': '16px',
+            'font-size': 'data(cellTitleFontSize)',
             'font-weight': 700,
             'text-valign': 'top',
             'text-margin-y': '-12px',
@@ -2302,16 +2443,18 @@ export default function StandaloneKnowledgeGraph({
             'border-width': 3,
             'border-style': 'dashed',
             'border-color': 'data(mechanismBorder)',
-            color: 'data(mechanismBorder)',
+            color: 'data(mechanismTitleColor)',
             'font-size': 'data(mechanismTitleFontSize)',
             'font-weight': 700,
+            'text-wrap': 'wrap',
+            'text-max-width': 'data(mechanismTitleMaxWidth)',
             'text-valign': 'top',
-            'text-halign': 'left',
-            'text-margin-x': '18px',
-            'text-margin-y': '18px',
-            'text-background-color': '#FFFFFF',
-            'text-background-opacity': 0.92,
-            'text-background-padding': '7px',
+            'text-halign': 'center',
+            'text-margin-x': '0px',
+            'text-margin-y': 'data(mechanismTitleMarginY)',
+            'text-background-color': 'data(mechanismTitleBackground)',
+            'text-background-opacity': 'data(mechanismTitleBackgroundOpacity)',
+            'text-background-padding': '10px',
             'text-background-shape': 'roundrectangle',
             'z-index-compare': 'manual',
             'z-index': -1,
@@ -2331,6 +2474,8 @@ export default function StandaloneKnowledgeGraph({
           style: {
             'curve-style': 'data(routeCurveStyle)',
             label: 'data(displayLabel)',
+            'text-background-color': 'data(edgeTextBackgroundColor)',
+            'text-background-opacity': 'data(edgeTextBackgroundOpacity)',
             'text-background-padding': '3px',
             'text-margin-x': 'data(labelMarginX)',
             'text-margin-y': 'data(labelMarginY)',
@@ -2352,7 +2497,9 @@ export default function StandaloneKnowledgeGraph({
             width: 'data(renderEdgeWidth)',
             opacity: 'data(renderEdgeOpacity)',
             'line-color': 'data(renderEdgeColor)',
+            'line-style': 'data(renderLineStyle)',
             'target-arrow-color': 'data(renderEdgeColor)',
+            'target-arrow-shape': 'data(renderTargetArrowShape)',
             'arrow-scale': 'data(renderArrowScale)',
           },
         },
@@ -2549,6 +2696,10 @@ export default function StandaloneKnowledgeGraph({
     }
     setZoomLevel(cy.zoom());
     setInitZoom(cy.zoom());
+    const initialFocusNodeId = effectiveMetadata?.layout?.initial_focus_node_id;
+    if (typeof initialFocusNodeId === 'string' && cy.getElementById(initialFocusNodeId)?.nonempty()) {
+      setHighlightedIds(new Set([initialFocusNodeId]));
+    }
     syncViewportState();
 
     cy.container().addEventListener('mouseleave', handleLeave);
@@ -2591,7 +2742,121 @@ export default function StandaloneKnowledgeGraph({
       cyRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [displayCoordData, displayEdgeRoutes, genomeRegion, cellRegions, mechanismRegions, canvasImage, viewerNodeColors, viewerNodeTextColors, displayGraphData, queryResultPage, interactionHistory?.present.deletedIds, assetBaseUrl, effectiveMetadata?.layout?.pathway_preview_node_body, developerEnabled]);
+  }, [displayCoordData, displayEdgeRoutes, genomeRegion, cellRegions, mechanismRegions, canvasImage, viewerNodeColors, viewerNodeTextColors, displayGraphData, queryResultPage, interactionHistory?.present.deletedIds, assetBaseUrl, effectiveMetadata?.layout?.pathway_preview_node_body, effectiveMetadata?.layout?.node_text_background_color, effectiveMetadata?.layout?.node_text_background_opacity, effectiveMetadata?.layout?.edge_text_background_color, effectiveMetadata?.layout?.edge_text_background_opacity, effectiveMetadata?.layout?.image_background_color, effectiveMetadata?.layout?.initial_focus_node_id, developerEnabled]);
+
+  useEffect(() => {
+    if (!exactPreviewCapture) {
+      return undefined;
+    }
+    const cy = cyRef.current;
+    if (!cy) {
+      return undefined;
+    }
+
+    let cancelled = false;
+    let timer = null;
+    const captureKey = String(
+      effectiveMetadata?.authoring?.view_id
+      || effectiveMetadata?.layout?.demo?.view_id
+      || effectiveMetadata?.view_id
+      || window.location.pathname,
+    );
+    window.__GKB_GRAPH_CAPTURE__ = {
+      status: 'waiting',
+      representation: 'exact_linked_view',
+      capture_key: captureKey,
+    };
+    document.documentElement.dataset.graphViewerCaptureStatus = 'waiting';
+
+    const wait = (milliseconds) => new Promise((resolve) => {
+      timer = window.setTimeout(resolve, milliseconds);
+    });
+    const nextFrames = () => new Promise((resolve) => {
+      window.requestAnimationFrame(() => window.requestAnimationFrame(resolve));
+    });
+    const preloadGraphImages = async () => {
+      const urls = new Set();
+      cy.nodes().forEach((node) => {
+        ['image_url', 'previewNodeImageUrl', 'canvasImageUrl'].forEach((key) => {
+          const url = node.data(key);
+          if (typeof url === 'string' && url.trim()) urls.add(url.trim());
+        });
+      });
+      await Promise.all(Array.from(urls).map((url) => new Promise((resolve) => {
+        const image = new Image();
+        const done = () => resolve();
+        image.crossOrigin = 'anonymous';
+        image.onload = done;
+        image.onerror = done;
+        image.src = url;
+        window.setTimeout(done, 5000);
+      })));
+    };
+
+    const run = async () => {
+      try {
+        await (document.fonts?.ready || Promise.resolve());
+        await preloadGraphImages();
+        await wait(300);
+        let previous = '';
+        let matchingCaptures = 0;
+        for (let attempt = 1; attempt <= 20 && !cancelled; attempt += 1) {
+          await nextFrames();
+          if (cancelled || cy.destroyed?.()) return;
+          const candidate = createExactGraphCapture(cy, {
+            background: viewerPalette.canvas,
+          });
+          matchingCaptures = candidate.png_data_url === previous
+            ? matchingCaptures + 1
+            : 0;
+          previous = candidate.png_data_url;
+          if (matchingCaptures >= 1) {
+            window.__GKB_GRAPH_CAPTURE__ = {
+              ...candidate,
+              status: 'ready',
+              capture_key: captureKey,
+              stabilization_attempts: attempt,
+            };
+            document.documentElement.dataset.graphViewerCaptureStatus = 'ready';
+            window.dispatchEvent(new CustomEvent('gkb-graph-capture-ready', {
+              detail: { capture_key: captureKey },
+            }));
+            return;
+          }
+          await wait(150);
+        }
+        if (!cancelled) throw new Error('The graph image did not stabilize before the capture deadline.');
+      } catch (error) {
+        if (!cancelled) {
+          window.__GKB_GRAPH_CAPTURE__ = {
+            status: 'error',
+            representation: 'exact_linked_view',
+            capture_key: captureKey,
+            error: error?.message || String(error),
+          };
+          document.documentElement.dataset.graphViewerCaptureStatus = 'error';
+        }
+      }
+    };
+    run();
+
+    return () => {
+      cancelled = true;
+      if (timer) window.clearTimeout(timer);
+      if (window.__GKB_GRAPH_CAPTURE__?.capture_key === captureKey) {
+        delete window.__GKB_GRAPH_CAPTURE__;
+        delete document.documentElement.dataset.graphViewerCaptureStatus;
+      }
+    };
+  }, [
+    exactPreviewCapture,
+    viewerPalette.canvas,
+    displayGraphData,
+    displayCoordData,
+    effectiveMetadata?.authoring?.view_id,
+    effectiveMetadata?.layout?.demo?.view_id,
+    effectiveMetadata?.view_id,
+  ]);
 
   useEffect(() => {
     const cy = cyRef.current;
@@ -2687,6 +2952,7 @@ export default function StandaloneKnowledgeGraph({
       <Button onClick={handleRecenter} variant="outlined" startIcon={<CenterFocusStrongIcon sx={{ fontSize: '16px' }} />} sx={viewerToolbarButtonSx}>Recenter</Button>
     </>
   );
+  const exactLinkedViewPreview = isExactLinkedViewPreview(pathwayPreview);
 
   return (
     <>
@@ -2723,19 +2989,14 @@ export default function StandaloneKnowledgeGraph({
                 <Box sx={{ position: 'absolute', top: '44px', left: 0, width: '174px', padding: '6px', background: viewerPalette.surface, border: `1px solid ${viewerPalette.border}`, borderRadius: '8px', boxShadow: `0 5px 15px ${viewerPalette.shadow}`, zIndex: 20 }}>
                   <Button onClick={handleDownload} fullWidth size="small" sx={{ justifyContent: 'flex-start', color: '#1C3C68', textTransform: 'none', fontFamily: 'Inter, sans-serif', fontSize: '12px' }}>Download PNG</Button>
                   <Button
-                    onClick={handleDownloadJson}
-                    disabled={getVisibleNodeIds().size > exportNodeLimit}
+                    onClick={openJsonPreview}
+                    aria-haspopup="dialog"
                     fullWidth
                     size="small"
-                    sx={{ justifyContent: 'flex-start', color: '#1C3C68', textTransform: 'none', fontFamily: 'Inter, sans-serif', fontSize: '12px', '&.Mui-disabled': { color: '#B7C4D6' } }}
+                    sx={{ justifyContent: 'flex-start', color: '#1C3C68', textTransform: 'none', fontFamily: 'Inter, sans-serif', fontSize: '12px' }}
                   >
-                    Download JSON
+                    Preview &amp; download JSON
                   </Button>
-                  {getVisibleNodeIds().size > exportNodeLimit && (
-                    <Typography sx={{ fontFamily: 'Inter, sans-serif', fontSize: '10px', color: '#94A3B8', padding: '2px 8px 0' }}>
-                      JSON export supports up to {exportNodeLimit} visible nodes.
-                    </Typography>
-                  )}
                 </Box>
               )}
             </Box>
@@ -3108,6 +3369,14 @@ export default function StandaloneKnowledgeGraph({
           }}
         />
       )}
+      <GraphViewerDataExportDialog
+        open={jsonPreviewOpen}
+        graphData={visibleGraphExport}
+        onClose={() => setJsonPreviewOpen(false)}
+        onDownload={handleDownloadJson}
+        downloadDisabled={(visibleGraphExport?.nodes?.length || 0) > exportNodeLimit}
+        downloadLimit={exportNodeLimit}
+      />
       {developerEnabled && (
         <Suspense fallback={null}>
           <GraphViewerDeveloperDialog
@@ -3176,7 +3445,9 @@ export default function StandaloneKnowledgeGraph({
         </DialogTitle>
         <DialogContent sx={{ padding: '12px 28px 18px' }}>
           <Typography sx={{ marginBottom: '12px', fontFamily: 'Inter, sans-serif', fontSize: '13px', color: '#66756F' }}>
-            Build-time DFS traversal of the linked graph. Solid edges form the traversal tree; dashed edges preserve additional biological connections.
+            {exactLinkedViewPreview
+              ? 'Exact cached rendering of the linked detail view, using the same nodes, edges, coordinates, routes, labels, and graph-viewer styles.'
+              : 'Build-time DFS traversal of the linked graph. Solid edges form the traversal tree; dashed edges preserve additional biological connections.'}
           </Typography>
           {pathwayPreview?.preview_not_canonical_pathway_diagram && (
             <Alert severity="info" sx={{ marginBottom: '12px' }}>
@@ -3211,7 +3482,9 @@ export default function StandaloneKnowledgeGraph({
           </Box>
           {pathwayPreview && (
             <Typography sx={{ marginTop: '10px', fontFamily: 'Inter, sans-serif', fontSize: '12px', color: '#66756F' }}>
-              {`${pathwayPreview.preview_node_count || 0} nodes · ${pathwayPreview.preview_edge_count || 0} edges · DFS depth ${pathwayPreview.preview_depth || 0}${pathwayPreview.preview_truncated ? ' · truncated to preview budget' : ''}`}
+              {exactLinkedViewPreview
+                ? `${pathwayPreview.preview_node_count || 0} nodes · ${pathwayPreview.preview_edge_count || 0} edges · complete linked detail view`
+                : `${pathwayPreview.preview_node_count || 0} nodes · ${pathwayPreview.preview_edge_count || 0} edges · DFS depth ${pathwayPreview.preview_depth || 0}${pathwayPreview.preview_truncated ? ' · truncated to preview budget' : ''}`}
             </Typography>
           )}
         </DialogContent>

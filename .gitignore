@@ -36,3 +36,6 @@ temp/*
 
 # Generated, report-only static fixtures for the T1D Immune GPS v5 demo.
 /public/t1d-gps-v5*/
+
+# Generated, report-only static fixtures for the T1D Immune GPS v6 demo.
+/public/t1d-gps-v6*/

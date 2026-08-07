@@ -121,6 +121,6 @@ export const generateEdgeLabel = (dataSource, conversionTable) => {
 
 //manually add whitespace after ":" and ";" if not already present
 export const addWhitespace = (text) => {
-  if (!text) return text;
+  if (!text || typeof text !== 'string') return text;
   return text.replace(/([:;.,&])(?=\S)/g, '$1 ');
 }

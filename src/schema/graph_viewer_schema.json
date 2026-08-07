@@ -14,21 +14,29 @@
   ],
   "hidden_info_properties": [
     "display_instance", "demo_requirement", "demo_kind", "table_section", "table_row_key",
-    "genreated", "annotation_source", "gkb_match_method", "gkb_matches",
+    "genreated", "annotation_source", "gkb_match_method", "gkb_matches", "accepted_kg_annotation",
     "gene_set_annotations_json", "preview_image_path", "preview_cache_key", "preview_renderer",
     "preview_input_sha256", "preview_source_node_sha256", "preview_target_graph_sha256",
-    "preview_selection_method", "preview_anchor_ids", "graph_link", "not_evidence",
+    "preview_target_xy_sha256", "preview_target_metadata_sha256", "preview_render_contract_sha256",
+    "preview_representation", "preview_full_graph", "preview_capture_viewport",
+    "preview_selection_method", "preview_anchor_ids", "preview_node_ids", "preview_edge_ids",
+    "preview_target_view", "preview_target_route", "preview_data_scope",
+    "graph_link", "graph_focus_node_id", "not_evidence",
     "cell_container_id", "cell_region", "display_compartment", "membrane_tolerance",
     "canonical_source_id", "canonical_target_id", "canonical_start_id", "canonical_end_id",
     "render_width", "render_height", "label_max_width",
     "renderFontSize", "renderWidth", "renderHeight", "labelMaxWidth", "labelWrap",
-    "renderEdgeWidth", "renderEdgeOpacity", "renderEdgeColor", "renderArrowScale",
+    "renderEdgeWidth", "renderEdgeOpacity", "renderEdgeColor", "renderArrowScale", "renderTargetArrowShape", "renderLineStyle",
     "baseLabel", "displayLabel", "labelMarginX", "labelMarginY",
     "routeCurveStyle", "segmentDistances", "segmentWeights", "segmentRadii",
     "curveDistance", "curveWeight",
     "previewNodeImageUrl", "previewNodeImageBackground", "previewNodeImageBorderColor",
     "previewNodeImageBorderWidth", "previewNodeImageFit", "previewNodeImagePadding",
-    "image_border_color", "image_border_width", "background_color", "border_color"
+    "image_border_color", "image_border_width", "image_background_color", "image_sha256",
+    "image_source_pixel_width", "image_source_pixel_height",
+    "nodeTextBackgroundColor", "nodeTextBackgroundOpacity", "edgeTextBackgroundColor",
+    "edgeTextBackgroundOpacity", "imageNodeBackgroundColor", "imageNodeImageOpacity",
+    "background_color", "border_color"
   ],
   "default_node_info_panel": [
     ["Title", "name"],
@@ -40,7 +48,8 @@
   "default_edge_info_panel": [
     ["Title", "type"],
     ["Relationship", [["From", "source_name"], ["To", "target_name"], ["ID", "id"]]],
-    ["Evidence", [["Strength", "evidence_strength"], ["Generated demo", "generated"], ["Why generated", "generated_reason"], ["Based on", "generated_from"]]],
+    ["Evidence", [["Level", "evidence_level"], ["Strength", "evidence_strength"], ["Assertion", "assertion_status"], ["Species", "species_scope"], ["Evidence IDs", "evidence_ids", "list"], ["Generated demo", "generated"], ["Why generated", "generated_reason"], ["Based on", "generated_from"]]],
+    ["Interpretation", "rationale"],
     ["Footer", [["Data Source", "data_source"], ["Version", "data_version"], ["Source Record", "source_record_id"], ["Source URL", "data_source_url", "link"]]]
   ],
   "node_panels": {
@@ -60,7 +69,9 @@
       ["Biological identity", [["Canonical ID", "canonical_id"], ["Specification IDs", "specification_ids", "list"], ["Organism", "organism"]]],
       ["Biological role", "description", "string"],
       ["Context", [["Organ / compartment", "compartment"], ["Organ", "organ"], ["State", "state"], ["States", "states", "list"], ["Subtypes", "subtypes", "list"]]],
-      ["Evidence status", [["Strength", "evidence_strength"], ["Generated demo", "generated"], ["Why generated", "generated_reason"], ["Based on", "generated_from"]]],
+      ["Evidence status", [["Level", "evidence_level"], ["Strength", "evidence_strength"], ["Assertion", "assertion_status"], ["Species", "species_scope"], ["Evidence IDs", "evidence_ids", "list"], ["Human translation", "human_translation_status"]]],
+      ["Experimental context", [["Stages", "stage_context", "list"], ["Systems / specimens", "systems", "list"]]],
+      ["Curation", [["Generated demo", "generated"], ["Why generated", "generated_reason"], ["Based on", "generated_from"]]],
       ["Gene-set context (non-causal)", [["Coverage", "gene_set_coverage_status"], ["Summary", "gene_set_summary"], ["Sources", "gene_set_sources", "list"], ["Stable IDs", "gene_set_ids", "list"], ["Member counts", "gene_set_member_counts", "list"], ["Top members", "gene_set_top_members", "list"]]],
       ["Navigation", [["Clickable", "clickable"], ["Action", "navigation_action"]]],
       ["Footer", [["Data Source", "data_source"], ["Version", "data_version"], ["Source Record", "source_record_id"], ["Source URL", "data_source_url", "link"], ["Release", "release_id"]]]

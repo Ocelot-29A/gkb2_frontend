@@ -18,6 +18,8 @@ const T1D_GPS_V4_S3_BASE_URL = 'https://pank-s3-to-share.s3.us-east-1.amazonaws.
 const T1D_GPS_V4_FIXTURE_BASE_URL = process.env.REACT_APP_T1D_GPS_V4_FIXTURE_BASE_URL;
 const T1D_GPS_V5_S3_BASE_URL = 'https://pank-s3-to-share.s3.us-east-1.amazonaws.com/t1d-gps-v5';
 const T1D_GPS_V5_FIXTURE_BASE_URL = process.env.REACT_APP_T1D_GPS_V5_FIXTURE_BASE_URL;
+const T1D_GPS_V6_S3_BASE_URL = 'https://pank-s3-to-share.s3.us-east-1.amazonaws.com/t1d-gps-v6';
+const T1D_GPS_V6_FIXTURE_BASE_URL = process.env.REACT_APP_T1D_GPS_V6_FIXTURE_BASE_URL;
 
 const versionedFixtureConfig = {
   't1d-gps-v4': {
@@ -27,6 +29,10 @@ const versionedFixtureConfig = {
   't1d-gps-v5': {
     overrideUrl: T1D_GPS_V5_FIXTURE_BASE_URL,
     deployedUrl: T1D_GPS_V5_S3_BASE_URL,
+  },
+  't1d-gps-v6': {
+    overrideUrl: T1D_GPS_V6_FIXTURE_BASE_URL,
+    deployedUrl: T1D_GPS_V6_S3_BASE_URL,
   },
 };
 
@@ -55,6 +61,33 @@ export const fixtureBaseUrlFor = (fixtureName, hostname = window.location.hostna
   return `${fixtureRoot.replace(/\/$/, '')}/${viewPath}`;
 };
 
+export const exactPreviewCaptureRequested = (search = window.location.search) => {
+  const parameters = new URLSearchParams(search || '');
+  return parameters.get('graph_preview_capture') === '1'
+    || parameters.get('capture') === 'preview';
+};
+
+export const graphFocusNodeIdRequested = (search = window.location.search) => {
+  const value = new URLSearchParams(search || '').get('focus') || '';
+  return /^[A-Za-z0-9_.:-]+$/.test(value) ? value : '';
+};
+
+export const t1dGpsDeveloperContextFor = (fixtureName) => {
+  const match = /^(t1d-gps-(v[56]))\/(.+)$/.exec(fixtureName || '');
+  return match ? { fixtureVersion: match[1], release: match[2], viewId: match[3] } : null;
+};
+
+export const withT1dGpsDeveloperMetadata = (metadata, context) => ({
+  ...(metadata || {}),
+  viewer: { ...(metadata?.viewer || {}), developer_mode: true },
+  authoring: {
+    ...(metadata?.authoring || {}),
+    release: context.release,
+    view_id: context.viewId,
+    source_checksum: metadata?.source_checksum || '',
+  },
+});
+
 const loadJson = async (baseUrl, path) => {
   const response = await fetch(`${baseUrl}/${path}`);
   if (!response.ok) {
@@ -66,17 +99,29 @@ const loadJson = async (baseUrl, path) => {
 export default function SampleGraphPage({ fixtureName = 'samplegraph' }) {
   const [demo, setDemo] = useState(null);
   const [error, setError] = useState('');
-  const isLayeredT1DDemo = fixtureName.startsWith('layeredgraph') || fixtureName.startsWith('t1d-gps-v4') || fixtureName.startsWith('t1d-gps-v5');
-  const isT1dGpsDeveloperView = fixtureName.startsWith('t1d-gps-v5/');
+  const isLayeredT1DDemo = fixtureName.startsWith('layeredgraph') || fixtureName.startsWith('t1d-gps-v4') || fixtureName.startsWith('t1d-gps-v5') || fixtureName.startsWith('t1d-gps-v6');
+  const developerContext = useMemo(() => t1dGpsDeveloperContextFor(fixtureName), [fixtureName]);
+  const exactPreviewCapture = exactPreviewCaptureRequested();
+  const requestedFocusNodeId = fixtureName.startsWith('t1d-gps-v6/')
+    ? graphFocusNodeIdRequested()
+    : '';
   const developerMode = useMemo(() => {
-    if (!isT1dGpsDeveloperView) return null;
+    if (!developerContext) return null;
     const local = ['127.0.0.1', 'localhost'].includes(window.location.hostname);
+    const v6ApiBase = process.env.REACT_APP_T1D_GPS_V6_DEV_API_URL;
+    const localWritesEnabled = local && (
+      developerContext.release === 'v5' || Boolean(v6ApiBase)
+    );
     return {
       enabled: true,
-      adapter: createT1dGpsAuthoringAdapter({ local, release: 'v5' }),
+      adapter: createT1dGpsAuthoringAdapter({
+        local: localWritesEnabled,
+        release: developerContext.release,
+        ...(v6ApiBase && developerContext.release === 'v6' ? { apiBase: v6ApiBase } : {}),
+      }),
       permissions: { editData: true, editInfoPanel: true, saveLayout: true },
     };
-  }, [isT1dGpsDeveloperView]);
+  }, [developerContext]);
 
   useEffect(() => {
     let active = true;
@@ -124,16 +169,15 @@ export default function SampleGraphPage({ fixtureName = 'samplegraph' }) {
           return;
         }
 
-        if (isT1dGpsDeveloperView) {
-          const viewId = fixtureName.slice('t1d-gps-v5/'.length);
+        if (developerContext) {
+          loadedDemo.metadata = withT1dGpsDeveloperMetadata(loadedDemo.metadata, developerContext);
+        }
+        if (requestedFocusNodeId) {
           loadedDemo.metadata = {
             ...loadedDemo.metadata,
-            viewer: { ...(loadedDemo.metadata?.viewer || {}), developer_mode: true },
-            authoring: {
-              ...(loadedDemo.metadata?.authoring || {}),
-              release: 'v5',
-              view_id: viewId,
-              source_checksum: loadedDemo.metadata?.source_checksum || '',
+            layout: {
+              ...(loadedDemo.metadata?.layout || {}),
+              initial_focus_node_id: requestedFocusNodeId,
             },
           };
         }
@@ -150,7 +194,7 @@ export default function SampleGraphPage({ fixtureName = 'samplegraph' }) {
     return () => {
       active = false;
     };
-  }, [fixtureName, isT1dGpsDeveloperView]);
+  }, [fixtureName, developerContext, requestedFocusNodeId]);
 
   return (
     <Box
@@ -190,6 +234,7 @@ export default function SampleGraphPage({ fixtureName = 'samplegraph' }) {
             queryExamples={[{ label: fixtureName === 'mechanismgraph' ? 'Full static T1D mechanism' : 'Synthetic T1D immune network', request: demo.queryRequest }]}
             containerHeight="calc(100vh - 315px)"
             developerMode={developerMode}
+            exactPreviewCapture={exactPreviewCapture}
           />
         ) : (
           <Box

@@ -47,6 +47,15 @@ describe('graph viewer developer mode contract', () => {
   test('uses a meaningful first navigation label', () => {
     expect(navigationLabel({ type: 'Process' })).toBe('Open pathway');
     expect(navigationLabel({ navigation_action: 'detail view' })).toBe('Open detail');
+    expect(navigationLabel({
+      type: 'Process',
+      navigation_action: 'Open linked graph',
+      graph_link: '/T1D_GPS/v6/details/cd8-stemlike-reservoir-continuous-seeding?focus=L3C03',
+    })).toBe('Open detail');
+    expect(navigationLabel({
+      type: 'Process',
+      graph_link: '/T1D_GPS/v6/pathways/islet-major-events',
+    })).toBe('Open pathway');
     expect(navigationLabel({ type: 'Anatomy' })).toBe('Open linked graph');
   });
 });

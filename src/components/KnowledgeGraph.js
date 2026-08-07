@@ -31,6 +31,7 @@ import recenterIcon from '../image/material-symbols--recenter-rounded.svg';
 import sampleResponse from '../schema/demo_query_result.json';
 import graphInfocard from '../schema/graph_viewer_schema.json';
 import { addWhitespace } from '../utils/textProcessing';
+import { formatInfocardValue, getInfocardHref } from './graphViewerInfocardValue';
 import {
   edgeIsInverted,
   edgeLabels,
@@ -112,11 +113,15 @@ export default function KnowledgeGraph() {
 
   const InfocardData = ({ value, config, dataKey }) => {
     // config can be either just a type or the form "type(setting)""
-    const setting = config?.match(/\(([^)]+)\)/)?.[1];
-    const type = setting ? config.split('(')[0] : config;
-    return !type ? (<>{value || "No Data"}</>) :
+    const safeConfig = typeof config === 'string' ? config : '';
+    const setting = safeConfig.match(/\(([^)]+)\)/)?.[1];
+    const type = setting ? safeConfig.split('(')[0] : safeConfig;
+    return !type ? (<>{formatInfocardValue(value)}</>) :
       type === "string" ? (
-        <>{dataKey || "No Data"}</>
+        <>{formatInfocardValue(value)}</>
+      ) :
+        type === "list" ? (
+          <>{formatInfocardValue(value)}</>
       ) :
         type === "int" ? (
           <>{value ? parseInt(value).toLocaleString() : "No Data"}</>
@@ -124,7 +129,7 @@ export default function KnowledgeGraph() {
           type === "float" ? (
             <>{value ? parseFloat(value).toFixed(setting || 1) : "No Data"}</>
           ) : ["link", "link_static"].includes(type) ? (
-            <Link href={type === "link" ? value : dataKey} target="_blank" rel="noopener noreferrer" sx={{
+            <Link href={getInfocardHref(type === "link" ? value : dataKey) || undefined} target="_blank" rel="noopener noreferrer" sx={{
               textDecoration: "none",
               "&:hover": {
                 textDecoration: "underline",
@@ -149,7 +154,7 @@ export default function KnowledgeGraph() {
               {value ? (type === "label_chr" ? `Chr${value}` : `${parseFloat(value).toFixed(1)}%`) : "No Data"}
             </div>
           ) : (
-            <span>{value}</span>
+            <span>{formatInfocardValue(value)}</span>
           );
   }
 
@@ -178,7 +183,13 @@ export default function KnowledgeGraph() {
                 fontSize: "20px",
                 lineHeight: "20px",
               }}>
-                <InfocardData value={hoveredData[titleColumn?.[1]]?.replace(/_/g, " ")} dataKey={titleColumn?.[1]} config={titleColumn?.[2]} />
+                <InfocardData
+                  value={typeof hoveredData[titleColumn?.[1]] === 'string'
+                    ? hoveredData[titleColumn?.[1]].replace(/_/g, ' ')
+                    : hoveredData[titleColumn?.[1]]}
+                  dataKey={titleColumn?.[1]}
+                  config={titleColumn?.[2]}
+                />
               </Typography>
             </Box>
             {
@@ -250,7 +261,10 @@ export default function KnowledgeGraph() {
                               }}
                             >
                               {(() => {
-                                const processedData = config !== "string" ? addWhitespace(hoveredData[content]) : hoveredData[content];
+                                const rawValue = hoveredData[content];
+                                const processedData = config !== "string" && typeof rawValue === 'string'
+                                  ? addWhitespace(rawValue)
+                                  : rawValue;
                                 const processedKey = config === "string" ? addWhitespace(content) : content;
                                 return <InfocardData value={processedData} dataKey={processedKey} config={config} />
                               })()}
@@ -304,17 +318,17 @@ export default function KnowledgeGraph() {
                 <div key={key}>
                   <span style={{ fontWeight: 500 }}>{key}:</span>{" "}
                   <a
-                    href={value}
+                    href={getInfocardHref(value) || undefined}
                     target="_blank"
                     rel="noopener noreferrer"
                     style={{ color: "#007bff" }}
                   >
-                    Open Link ↗
+                    {getInfocardHref(value) ? 'Open Link ↗' : 'Not Available'}
                   </a>
                 </div>
               ) : (
                 <div key={key}>
-                  <span style={{ fontWeight: 500 }}>{key}:</span> {value}
+                  <span style={{ fontWeight: 500 }}>{key}:</span> {formatInfocardValue(value)}
                 </div>
               ))
           )}
