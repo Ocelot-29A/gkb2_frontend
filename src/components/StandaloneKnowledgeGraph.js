@@ -399,6 +399,76 @@ const getEdgeCurveDistance = (edgeId) => {
   return curveDistances[Math.abs(hash) % curveDistances.length];
 };
 
+const toRenderedRoutePoint = (point) => ({
+  x: scaleX(Number(point?.[0])),
+  y: scaleYPosition(Number(point?.[1])),
+});
+
+const toRelativeControlPoint = (point, source, target) => {
+  const dx = target.x - source.x;
+  const dy = target.y - source.y;
+  const lengthSquared = dx * dx + dy * dy;
+  if (!Number.isFinite(lengthSquared) || lengthSquared <= 1e-9) {
+    return null;
+  }
+  const rendered = toRenderedRoutePoint(point);
+  if (!Number.isFinite(rendered.x) || !Number.isFinite(rendered.y)) {
+    return null;
+  }
+  const weight = ((rendered.x - source.x) * dx + (rendered.y - source.y) * dy) / lengthSquared;
+  const projected = {
+    x: source.x + weight * dx,
+    y: source.y + weight * dy,
+  };
+  const distance = ((rendered.x - projected.x) * -dy + (rendered.y - projected.y) * dx)
+    / Math.sqrt(lengthSquared);
+  return { distance, weight };
+};
+
+export const edgeRouteToCytoscapeData = (route, source, target) => {
+  if (!route || !source || !target) {
+    return null;
+  }
+  const routeType = route.route_type;
+  const points = routeType === 'bezier' ? route.control_points : route.waypoints;
+  if (!['bezier', 'polyline'].includes(routeType) || !Array.isArray(points)) {
+    return null;
+  }
+  const converted = points
+    .map((point) => toRelativeControlPoint(point, source, target))
+    .filter(Boolean);
+  if (!converted.length && points.length) {
+    return null;
+  }
+  const distances = converted.map(({ distance }) => String(Number(distance.toFixed(3)))).join(' ');
+  const weights = converted.map(({ weight }) => String(Number(weight.toFixed(6)))).join(' ');
+  if (routeType === 'polyline') {
+    return {
+      routeCurveStyle: 'segments',
+      segmentDistances: distances,
+      segmentWeights: weights,
+    };
+  }
+  return {
+    routeCurveStyle: 'unbundled-bezier',
+    curveDistance: distances || '0',
+    curveWeight: weights || '0.5',
+  };
+};
+
+export const buildPreviousLayout = (coordData, edgeRoutes, metadata) => {
+  const layout = metadata?.layout;
+  if (layout?.engine !== 'optimized_v1' || !layout?.config_fingerprint || !coordData) {
+    return null;
+  }
+  return {
+    version: layout.version || 1,
+    config_fingerprint: layout.config_fingerprint,
+    xy_json: coordData,
+    edge_routes: edgeRoutes || {},
+  };
+};
+
 const buildTrackBackgroundNode = (genomeRegion) => {
   if (!genomeRegion) {
     return null;
@@ -606,6 +676,7 @@ const InfocardMenu = ({ hoveredData }) => {
 export default function StandaloneKnowledgeGraph({
   graphData = null,
   coordData = null,
+  edgeRoutes = null,
   metadata = null,
   queryRequest = null,
   containerHeight = '600px',
@@ -650,6 +721,7 @@ export default function StandaloneKnowledgeGraph({
 
   const displayGraphData = queryResult?.graphData || graphData;
   const displayCoordData = queryResult?.coordData || coordData;
+  const displayEdgeRoutes = queryResult?.edgeRoutes ?? edgeRoutes;
   const displayMetadata = queryResult?.metadata || metadata;
   const effectiveMetadata = displayMetadata
     ? { ...displayMetadata, layout: { ...displayMetadata.layout, mode: viewMode } }
@@ -727,7 +799,16 @@ export default function StandaloneKnowledgeGraph({
 
     setModeLoading(true);
     try {
-      const request = { ...displayQueryRequest, layout_mode: nextMode };
+      const previousLayout = buildPreviousLayout(
+        displayCoordData,
+        displayEdgeRoutes,
+        displayMetadata,
+      );
+      const request = {
+        ...displayQueryRequest,
+        layout_mode: nextMode,
+        ...(previousLayout ? { previous_layout: previousLayout } : {}),
+      };
       const result = await requestGraphViewer(request);
       setQueryResult(result);
       setViewMode(result.metadata?.layout?.mode || nextMode);
@@ -961,26 +1042,41 @@ export default function StandaloneKnowledgeGraph({
       acc[node.data.id] = node.data.label;
       return acc;
     }, {});
+    const nodePositionMap = graphNodes.reduce((acc, node) => {
+      acc[node.data.id] = node.position;
+      return acc;
+    }, {});
 
     const uniqueEdgesMap = {};
     result.edges.forEach((edge, index) => {
       uniqueEdgesMap[edge['~id'] || index.toString()] = edge;
     });
 
-    const edges = Object.values(uniqueEdgesMap).map((edge) => ({
-      data: {
+    const edges = Object.values(uniqueEdgesMap).map((edge) => {
+      const source = edgeIsInverted[edge['~type']] ? edge['~end'] : edge['~start'];
+      const target = edgeIsInverted[edge['~type']] ? edge['~start'] : edge['~end'];
+      const routed = edgeRouteToCytoscapeData(
+        displayEdgeRoutes?.[edge['~id']],
+        nodePositionMap[source],
+        nodePositionMap[target],
+      );
+      return {
+        data: {
         id: edge['~id'],
-        source: edgeIsInverted[edge['~type']] ? edge['~end'] : edge['~start'],
+        source,
         source_name: nodeNameMap[edge['~start']],
-        target: edgeIsInverted[edge['~type']] ? edge['~start'] : edge['~end'],
+        target,
         target_name: nodeNameMap[edge['~end']],
         type: edge['~type'],
         label: edgeLabels[edge['~type']] || edge['~type'].replace(/_/g, ' '),
+        ...edge['~properties'],
         curveDistance: String(getEdgeCurveDistance(edge['~id'])),
         curveWeight: '0.5',
-        ...edge['~properties'],
+        routeCurveStyle: 'unbundled-bezier',
+        ...(routed || {}),
       },
-    }));
+      };
+    });
 
     if (cyRef.current) {
       cyRef.current.destroy();
@@ -1035,9 +1131,11 @@ export default function StandaloneKnowledgeGraph({
         {
           selector: 'edge',
           style: {
-            'curve-style': 'unbundled-bezier',
+            'curve-style': 'data(routeCurveStyle)',
             'control-point-distances': 'data(curveDistance)',
             'control-point-weights': 'data(curveWeight)',
+            'segment-distances': 'data(segmentDistances)',
+            'segment-weights': 'data(segmentWeights)',
             'z-index-compare': 'manual',
             'z-index': 5,
           },
@@ -1133,7 +1231,7 @@ export default function StandaloneKnowledgeGraph({
       cy.destroy();
       cyRef.current = null;
     };
-  }, [displayCoordData, genomeRegion, displayGraphData, queryResultPage]);
+  }, [displayCoordData, displayEdgeRoutes, genomeRegion, displayGraphData, queryResultPage]);
 
   return (
     <>

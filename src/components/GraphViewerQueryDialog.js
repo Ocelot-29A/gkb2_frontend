@@ -86,6 +86,7 @@ export const requestGraphViewer = async (request) => {
   return {
     graphData,
     coordData: payload.xy_json || payload.coords || null,
+    edgeRoutes: payload.edge_routes || null,
     metadata: payload.metadata || null,
     request,
   };
@@ -96,6 +97,7 @@ export default function GraphViewerQueryDialog({ open, onClose, onResult }) {
   const [coreNodes, setCoreNodes] = useState('ENSG00000001626');
   const [maxNodes, setMaxNodes] = useState('15');
   const [layoutMode, setLayoutMode] = useState('genome_mode');
+  const [layoutEngine, setLayoutEngine] = useState('legacy');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -121,6 +123,9 @@ export default function GraphViewerQueryDialog({ open, onClose, onResult }) {
           }
           if (parsed.layout_mode) {
             setLayoutMode(parsed.layout_mode);
+          }
+          if (parsed.layout_engine) {
+            setLayoutEngine(parsed.layout_engine);
           }
           return parsed.cypher.map(stringifyEntry);
         }
@@ -153,6 +158,7 @@ export default function GraphViewerQueryDialog({ open, onClose, onResult }) {
         core_nodes: coreNodes.split(/[\s,]+/).filter(Boolean),
         max_nodes: parsedMaxNodes,
         layout_mode: layoutMode,
+        layout_engine: layoutEngine,
       };
       onResult(await requestGraphViewer(request));
       onClose();
@@ -187,6 +193,10 @@ export default function GraphViewerQueryDialog({ open, onClose, onResult }) {
             <ToggleButtonGroup value={layoutMode} exclusive onChange={(event, nextMode) => nextMode && setLayoutMode(nextMode)} color="primary">
               <ToggleButton value="kg_only">KG only</ToggleButton>
               <ToggleButton value="genome_mode">Genome browser</ToggleButton>
+            </ToggleButtonGroup>
+            <ToggleButtonGroup value={layoutEngine} exclusive onChange={(event, nextEngine) => nextEngine && setLayoutEngine(nextEngine)} color="secondary">
+              <ToggleButton value="legacy">Legacy layout</ToggleButton>
+              <ToggleButton value="optimized_v1">Optimized v1</ToggleButton>
             </ToggleButtonGroup>
           </Stack>
           {error && <Alert severity="error">{error}</Alert>}

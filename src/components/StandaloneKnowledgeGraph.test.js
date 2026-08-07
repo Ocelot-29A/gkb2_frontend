@@ -1,4 +1,6 @@
 import {
+  buildPreviousLayout,
+  edgeRouteToCytoscapeData,
   getCanonicalNodeLabel,
   getGenomeLaneModelYs,
 } from './StandaloneKnowledgeGraph';
@@ -69,5 +71,52 @@ describe('getCanonicalNodeLabel', () => {
   test('preserves unknown domain labels when no canonical label exists', () => {
     expect(getCanonicalNodeLabel({ '~labels': ['Coding_element', 'Custom_feature'] }))
       .toBe('Custom_feature');
+  });
+});
+
+describe('optimized edge route adapter', () => {
+  test('converts model-space bezier points to Cytoscape distance and weight', () => {
+    expect(edgeRouteToCytoscapeData({
+      route_type: 'bezier',
+      source_port: [0, 0],
+      target_port: [200, 0],
+      control_points: [[100, 20]],
+    }, { x: 0, y: 0 }, { x: 100, y: 0 })).toEqual({
+      routeCurveStyle: 'unbundled-bezier',
+      curveDistance: '20',
+      curveWeight: '0.5',
+    });
+  });
+
+  test('converts polyline waypoints and rejects malformed routes', () => {
+    expect(edgeRouteToCytoscapeData({
+      route_type: 'polyline',
+      source_port: [0, 0],
+      target_port: [200, 0],
+      waypoints: [[100, 20]],
+    }, { x: 0, y: 0 }, { x: 100, y: 0 })).toEqual({
+      routeCurveStyle: 'segments',
+      segmentDistances: '20',
+      segmentWeights: '0.5',
+    });
+    expect(edgeRouteToCytoscapeData({ route_type: 'unknown' }, { x: 0, y: 0 }, { x: 1, y: 1 }))
+      .toBeNull();
+  });
+
+  test('packages compatible previous layout state only for optimized results', () => {
+    const coords = { node: { start_xy: [0, 22], end_xy: [120, -22] } };
+    expect(buildPreviousLayout(coords, {}, {
+      layout: {
+        engine: 'optimized_v1',
+        version: 1,
+        config_fingerprint: 'abc',
+      },
+    })).toEqual({
+      version: 1,
+      config_fingerprint: 'abc',
+      xy_json: coords,
+      edge_routes: {},
+    });
+    expect(buildPreviousLayout(coords, {}, { layout: { engine: 'legacy' } })).toBeNull();
   });
 });
