@@ -1241,6 +1241,7 @@ export default function StandaloneKnowledgeGraph({
   containerHeight = '600px',
   defaultLegendVisible = false,
   developerMode = null,
+  reviewMode = null,
   exactPreviewCapture = false,
   sx = {},
 }) {
@@ -1309,6 +1310,7 @@ export default function StandaloneKnowledgeGraph({
   const [interactionLoading, setInteractionLoading] = useState(false);
   const [actionMessage, setActionMessage] = useState(null);
   const [contextMenu, setContextMenu] = useState(null);
+  const [reviewSelectionGraph, setReviewSelectionGraph] = useState(null);
   const [highlightedIds, setHighlightedIds] = useState(() => new Set());
   const [developerSelection, setDeveloperSelection] = useState(null);
   const [pendingDeveloperNavigation, setPendingDeveloperNavigation] = useState(null);
@@ -1318,6 +1320,8 @@ export default function StandaloneKnowledgeGraph({
   const [layoutChanges, setLayoutChanges] = useState({});
   const [layoutHistory, setLayoutHistory] = useState({ past: [], future: [] });
   const developerEnabled = Boolean(developerMode?.enabled && metadata?.viewer?.developer_mode);
+  const reviewEnabled = Boolean(reviewMode?.enabled);
+  const reviewDownloadAllowed = reviewMode?.allowDownload === true;
 
   useEffect(() => {
     clickMenuEnabledRef.current = clickMenuEnabled;
@@ -2626,7 +2630,7 @@ export default function StandaloneKnowledgeGraph({
       ) {
         return;
       }
-      if (developerEnabled) {
+      if (developerEnabled || reviewEnabled) {
         if (clickMenuEnabledRef.current) {
           setContextMenu({ type: 'node', id: node.id(), x: evt.renderedPosition.x, y: evt.renderedPosition.y });
         } else if (node.data('graph_link')) {
@@ -2651,7 +2655,7 @@ export default function StandaloneKnowledgeGraph({
     };
 
     const handleEdgeTap = (evt) => {
-      if (developerEnabled) {
+      if (developerEnabled || reviewEnabled) {
         if (clickMenuEnabledRef.current) {
           const edge = evt.target;
           setContextMenu({ type: 'edge', id: edge.id(), x: evt.renderedPosition.x, y: evt.renderedPosition.y });
@@ -2701,6 +2705,9 @@ export default function StandaloneKnowledgeGraph({
       setHighlightedIds(new Set([initialFocusNodeId]));
     }
     syncViewportState();
+    if (reviewEnabled && reviewMode?.allowNodeDragging !== true) {
+      cy.nodes().ungrabify();
+    }
 
     cy.container().addEventListener('mouseleave', handleLeave);
     cy.on('mousemove', 'node', handleHover);
@@ -2918,7 +2925,7 @@ export default function StandaloneKnowledgeGraph({
       window.removeEventListener('keydown', handleKeyDown);
       document.removeEventListener('mousedown', handleDocumentPointerDown);
     };
-  }, [modeMenuOpen]);
+  }, [modeMenuOpen, reviewEnabled, reviewMode?.allowNodeDragging]);
 
   useEffect(() => {
     if (!focusMenuOpen) {
@@ -2983,7 +2990,7 @@ export default function StandaloneKnowledgeGraph({
             </>
           )}
           <Box ref={toolbarSecondaryGroupRef} sx={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Box sx={{ position: 'relative' }}>
+            {!reviewEnabled && <Box sx={{ position: 'relative' }}>
               <Button onClick={() => setDownloadMenuOpen((previous) => !previous)} variant="outlined" startIcon={<FileDownloadIcon sx={{ fontSize: '16px' }} />} sx={viewerToolbarButtonSx}>Download</Button>
               {downloadMenuOpen && (
                 <Box sx={{ position: 'absolute', top: '44px', left: 0, width: '174px', padding: '6px', background: viewerPalette.surface, border: `1px solid ${viewerPalette.border}`, borderRadius: '8px', boxShadow: `0 5px 15px ${viewerPalette.shadow}`, zIndex: 20 }}>
@@ -2999,7 +3006,20 @@ export default function StandaloneKnowledgeGraph({
                   </Button>
                 </Box>
               )}
-            </Box>
+            </Box>}
+            {reviewEnabled && (
+              <Button
+                onClick={() => {
+                  setReviewSelectionGraph(null);
+                  setJsonPreviewOpen(true);
+                }}
+                variant="outlined"
+                startIcon={<DataObjectIcon sx={{ fontSize: '16px' }} />}
+                sx={viewerToolbarButtonSx}
+              >
+                Graph content
+              </Button>
+            )}
             <SwitchToggle label="Hover info" icon={<VisibilityOutlinedIcon sx={{ fontSize: '16px', color: viewerPalette.control }} />} enabled={infocardEnabled} onChange={() => setInfocardEnabled((previous) => !previous)} palette={viewerPalette} />
             <SwitchToggle label="Click menu" icon={<AdsClickIcon sx={{ fontSize: '16px', color: viewerPalette.control }} />} enabled={clickMenuEnabled} onChange={() => setClickMenuEnabled((previous) => !previous)} palette={viewerPalette} />
             {mechanismRegions.length > 0 && (
@@ -3157,7 +3177,7 @@ export default function StandaloneKnowledgeGraph({
             zIndex: 30,
           }}
         >
-          {developerEnabled ? (
+          {developerEnabled || reviewEnabled ? (
             <>
               {contextMenu.type === 'node' && cyRef.current?.getElementById(contextMenu.id)?.data('graph_link') && (
                 <Button
@@ -3175,7 +3195,19 @@ export default function StandaloneKnowledgeGraph({
               )}
               <Button
                 fullWidth
-                onClick={() => openDeveloperRecord(contextMenu.type, contextMenu.id)}
+                onClick={() => {
+                  if (developerEnabled) {
+                    openDeveloperRecord(contextMenu.type, contextMenu.id);
+                    return;
+                  }
+                  const record = findRawRecord(contextMenu.type, contextMenu.id);
+                  if (!record) return;
+                  setReviewSelectionGraph(contextMenu.type === 'node'
+                    ? { nodes: [record], edges: [] }
+                    : { nodes: [], edges: [record] });
+                  setContextMenu(null);
+                  setJsonPreviewOpen(true);
+                }}
                 startIcon={<DataObjectIcon sx={{ fontSize: '16px' }} />}
                 sx={contextMenuItemSx}
               >
@@ -3334,7 +3366,7 @@ export default function StandaloneKnowledgeGraph({
             <Typography sx={{ fontFamily: 'Inter, sans-serif', fontSize: '12px', fontWeight: 400, color: '#0F172A' }}>{displayMetadata?.last_updated || '—'}</Typography>
           </Box>
         </Box>
-        <Button
+        {!reviewEnabled && <Button
           onClick={developerEnabled ? handleSaveLayout : () => setQueryDialogOpen(true)}
           disabled={developerEnabled && (!developerMode?.permissions?.saveLayout || !layoutDirty)}
           sx={{
@@ -3353,9 +3385,9 @@ export default function StandaloneKnowledgeGraph({
           }}
         >
           {developerEnabled ? 'Save Layout' : 'Query Graph'}
-        </Button>
+        </Button>}
       </Box>
-      {!developerEnabled && (
+      {!developerEnabled && !reviewEnabled && (
         <GraphViewerQueryDialog
           open={queryDialogOpen}
           examples={queryExamples}
@@ -3371,10 +3403,14 @@ export default function StandaloneKnowledgeGraph({
       )}
       <GraphViewerDataExportDialog
         open={jsonPreviewOpen}
-        graphData={visibleGraphExport}
-        onClose={() => setJsonPreviewOpen(false)}
+        onClose={() => {
+          setJsonPreviewOpen(false);
+          setReviewSelectionGraph(null);
+        }}
         onDownload={handleDownloadJson}
-        downloadDisabled={(visibleGraphExport?.nodes?.length || 0) > exportNodeLimit}
+        allowDownload={!reviewEnabled || reviewDownloadAllowed}
+        graphData={reviewSelectionGraph || visibleGraphExport}
+        downloadDisabled={((reviewSelectionGraph || visibleGraphExport)?.nodes?.length || 0) > exportNodeLimit}
         downloadLimit={exportNodeLimit}
       />
       {developerEnabled && (

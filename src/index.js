@@ -1,20 +1,22 @@
 import './index.css';
 
-import React from 'react';
+import React, { useState } from 'react';
 
 import ReactDOM from 'react-dom/client';
 import { Provider } from 'react-redux';
 import {
   BrowserRouter,
+  Navigate,
   Route,
   Routes,
   useLocation,
 } from 'react-router-dom';
 
-import { Box, Container, Typography } from '@mui/material';
+import { Box, Button, Container, Typography } from '@mui/material';
 
 import DebugPage from './components/Debug';
 import IntermediatePage from './components/IntermediatePage';
+import T1DReviewGuideDialog from './components/T1DReviewGuideDialog';
 import LandingPage from './components/LandingPage';
 import MatchPage from './components/MatchPage';
 import PkbFooter from './Footer/footer';
@@ -35,9 +37,12 @@ import UsecasesPage from './pages/UsecasePage';
 import { store } from './redux/store';
 import ResultPage from './SearchResult';
 
+const T1D_REVIEW_MODE = process.env.REACT_APP_T1D_REVIEW_MODE === 'true';
+
 function SiteHeader() {
   const { pathname } = useLocation();
-  const isT1DGps = pathname.startsWith('/layeredgraph') || pathname.startsWith('/T1D_GPS');
+  const [guideOpen, setGuideOpen] = useState(false);
+  const isT1DGps = T1D_REVIEW_MODE || pathname.startsWith('/layeredgraph') || pathname.startsWith('/T1D_GPS');
 
   if (isT1DGps || ['/samplegraph', '/samplegraph/', '/cellgraph', '/cellgraph/', '/mechanismgraph', '/mechanismgraph/'].includes(pathname)) {
     return (
@@ -48,6 +53,7 @@ function SiteHeader() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
+          position: 'relative',
           px: 3,
           background: isT1DGps ? 'linear-gradient(180deg, #F7F0E5 0%, #F4EDE2 100%)' : 'transparent',
         }}
@@ -65,11 +71,31 @@ function SiteHeader() {
         >
           T1D immune GPS
         </Typography>
+        {T1D_REVIEW_MODE && (
+          <>
+            <Button
+              onClick={() => setGuideOpen(true)}
+              variant="outlined"
+              sx={{ position: 'absolute', right: { xs: 16, md: 32 }, textTransform: 'none', color: '#365D57', borderColor: '#7B9A92' }}
+            >
+              About this review
+            </Button>
+            <T1DReviewGuideDialog open={guideOpen} onClose={() => setGuideOpen(false)} />
+          </>
+        )}
       </Box>
     );
   }
 
   return <NavBar />;
+}
+
+function ReviewRouteGuard({ children }) {
+  const { pathname } = useLocation();
+  if (T1D_REVIEW_MODE && pathname !== '/' && !pathname.startsWith('/T1D_GPS/v6')) {
+    return <Navigate to="/" replace />;
+  }
+  return children;
 }
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
@@ -82,6 +108,7 @@ root.render(
     }}>
       <BrowserRouter>
         <SiteHeader />
+        <ReviewRouteGuard>
         <Routes>
           <Route path="/pipeline" element={<Pipeline />} />
           <Route path="/qtldatasource" element={<QTLDataSource />} />
@@ -94,7 +121,7 @@ root.render(
           <Route path="/usecases" element={<UsecasesPage />} />
           <Route path="/docs/*" element={<DocPage />} />
           <Route path="/match" element={<MatchPage />} />
-          <Route path="/" element={<LandingPage />} />
+          <Route path="/" element={T1D_REVIEW_MODE ? <SampleGraphPage fixtureName="t1d-gps-v6/overview" /> : <LandingPage />} />
           <Route path="/debug" element={<DebugPage />} />
           <Route path="/samplegraph" element={<SampleGraphPage />} />
           <Route path="/cellgraph" element={<SampleGraphPage fixtureName="cellgraph" />} />
@@ -144,7 +171,8 @@ root.render(
           <Route path="/graphquery" element={<QueryPage />} />
           <Route path="/graphresult" element={<GraphQueryResultPage />} />
         </Routes>
-        <PkbFooter />
+        </ReviewRouteGuard>
+        {!T1D_REVIEW_MODE && <PkbFooter />}
       </BrowserRouter>
     </Container>
   </Provider>

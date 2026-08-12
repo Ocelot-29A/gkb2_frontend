@@ -139,4 +139,20 @@ describe('GraphViewerDataExportDialog', () => {
     expect(screen.getByRole('button', { name: 'Download JSON' }).disabled).toBe(true);
     expect(screen.getByText('Dendritic cell')).toBeTruthy();
   });
+
+  test('renders all preview tabs without any download control in review mode', () => {
+    render(
+      <GraphViewerDataExportDialog
+        open
+        graphData={graphData}
+        onClose={jest.fn()}
+        onDownload={jest.fn()}
+        allowDownload={false}
+      />,
+    );
+    expect(screen.getByText(/read-only content preview/)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Download JSON' })).toBeNull();
+    expect(screen.getByRole('tab', { name: 'Raw JSON' })).toBeTruthy();
+    expect(screen.getByText('Dendritic cell')).toBeTruthy();
+  });
 });

@@ -154,6 +154,7 @@ export default function GraphViewerDataExportDialog({
   graphData,
   onClose,
   onDownload,
+  allowDownload = true,
   downloadDisabled = false,
   downloadLimit,
 }) {
@@ -190,7 +191,7 @@ export default function GraphViewerDataExportDialog({
         Graph content
       </DialogTitle>
       <Typography id="graph-data-preview-summary" component="div" sx={{ padding: '4px 24px 12px', fontFamily: 'Inter, sans-serif', fontSize: '13px', color: '#66756F' }}>
-        {nodeCount} nodes · {edgeCount} directed relationships · preview the complete readable content before downloading
+        {nodeCount} nodes · {edgeCount} directed relationships · {allowDownload ? 'preview the complete readable content before downloading' : 'read-only content preview'}
       </Typography>
       <Tabs
         value={tab}
@@ -243,22 +244,24 @@ export default function GraphViewerDataExportDialog({
         )}
       </DialogContent>
       <DialogActions sx={{ padding: '10px 24px 20px', gap: '10px', borderTop: '1px solid #EEE9E1' }}>
-        {downloadDisabled && (
+        {allowDownload && downloadDisabled && (
           <Alert severity="info" sx={{ flex: 1, paddingY: 0 }}>
             Preview is available, but JSON download is limited to {downloadLimit} visible nodes in this graph mode.
           </Alert>
         )}
-        {!downloadDisabled && <Box sx={{ flex: 1 }} />}
+        {(!allowDownload || !downloadDisabled) && <Box sx={{ flex: 1 }} />}
         <Button onClick={onClose} sx={{ textTransform: 'none', color: '#5F6F69' }}>Close</Button>
-        <Button
-          variant="contained"
-          startIcon={<FileDownloadIcon />}
-          disabled={downloadDisabled}
-          onClick={() => onDownload?.(graphData)}
-          sx={{ minWidth: '160px', textTransform: 'none', backgroundColor: '#24493F', '&:hover': { backgroundColor: '#19362F' } }}
-        >
-          Download JSON
-        </Button>
+        {allowDownload && (
+          <Button
+            variant="contained"
+            startIcon={<FileDownloadIcon />}
+            disabled={downloadDisabled}
+            onClick={() => onDownload?.(graphData)}
+            sx={{ minWidth: '160px', textTransform: 'none', backgroundColor: '#24493F', '&:hover': { backgroundColor: '#19362F' } }}
+          >
+            Download JSON
+          </Button>
+        )}
       </DialogActions>
     </Dialog>
   );

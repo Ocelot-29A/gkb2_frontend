@@ -4,6 +4,7 @@ import {
   fixtureRootUrlFor,
   graphFocusNodeIdRequested,
   t1dGpsDeveloperContextFor,
+  t1dGpsReviewModeFor,
   withT1dGpsDeveloperMetadata,
 } from './SampleGraphPage';
 import { T1D_GPS_V5_VIEW_PATHS } from './t1dGpsV5Routes';
@@ -99,6 +100,16 @@ describe('T1D GPS v6 fixture hosting and exact capture', () => {
     });
     expect(t1dGpsDeveloperContextFor('t1d-gps-v4/overview')).toBeNull();
     expect(t1dGpsDeveloperContextFor('layeredgraph/overview')).toBeNull();
+  });
+
+  test('enables an immutable V6-only review surface only when explicitly requested', () => {
+    expect(t1dGpsReviewModeFor('t1d-gps-v6/overview', true)).toEqual({
+      enabled: true,
+      allowDownload: false,
+      allowNodeDragging: false,
+    });
+    expect(t1dGpsReviewModeFor('t1d-gps-v5/overview', true)).toBeNull();
+    expect(t1dGpsReviewModeFor('t1d-gps-v6/overview', false)).toBeNull();
   });
 
   test('adds authoring context without replacing visible V6 titles or viewer metadata', () => {
