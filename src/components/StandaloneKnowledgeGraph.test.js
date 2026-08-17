@@ -25,6 +25,7 @@ import {
   isOverflowId,
   mergeExploreNeighborsCypher,
   normalizeEdgeLineStyle,
+  resolveNodeImageUrl,
   resolvePreviewAssetUrl,
   restoreAdjacentDeletedIds,
 } from './StandaloneKnowledgeGraph';
@@ -41,6 +42,21 @@ const genomeRegion = {
 const genomeTracks = { min_y: 0, max_y: 468 };
 
 describe('layered presentation helpers', () => {
+  test('resolves versioned image assets against local and deployed fixture roots', () => {
+    expect(resolveNodeImageUrl(
+      '/t1d-gps-v8/assets/trialnet-25-logo.svg',
+      'https://pank-s3-to-share.s3.us-east-1.amazonaws.com/t1d-gps-v8',
+    )).toBe('https://pank-s3-to-share.s3.us-east-1.amazonaws.com/t1d-gps-v8/assets/trialnet-25-logo.svg');
+    expect(resolveNodeImageUrl(
+      '/t1d-gps-v8/assets/trialnet-25-logo.svg',
+      '/t1d-gps-v8',
+    )).toBe('/t1d-gps-v8/assets/trialnet-25-logo.svg');
+    expect(resolveNodeImageUrl(
+      '/layeredgraph/assets/thymus-node-v3.png',
+      'https://pank-s3-to-share.s3.us-east-1.amazonaws.com/t1d-gps-v8',
+    )).toBe('/layeredgraph/assets/thymus-node-v3.png');
+  });
+
   test('honors an explicit empty display label for logo-only nodes', () => {
     expect(getNodeLabel({
       '~id': 'EXT:TRIALNET',

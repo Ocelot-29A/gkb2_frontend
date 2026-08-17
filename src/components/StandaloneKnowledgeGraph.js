@@ -168,6 +168,25 @@ export const resolvePreviewAssetUrl = (value, assetBaseUrl = '') => {
   return base ? `${base}/${reference}` : reference;
 };
 
+export const resolveNodeImageUrl = (value, assetBaseUrl = '') => {
+  const reference = typeof value === 'string' ? value.trim() : '';
+  if (!reference || /^(?:https?:|data:|blob:)/i.test(reference)) {
+    return reference;
+  }
+  const base = typeof assetBaseUrl === 'string' ? assetBaseUrl.trim().replace(/\/+$/, '') : '';
+  if (!base) {
+    return reference;
+  }
+  const fixtureVersion = base.match(/\/(t1d-gps-v\d+)$/)?.[1];
+  if (reference.startsWith('/')) {
+    const fixturePrefix = fixtureVersion ? `/${fixtureVersion}/` : '';
+    return fixturePrefix && reference.startsWith(fixturePrefix)
+      ? `${base}/${reference.slice(fixturePrefix.length)}`
+      : reference;
+  }
+  return `${base}/${reference.replace(/^\.\//, '')}`;
+};
+
 const PREVIEW_NODE_TYPES = new Set(['Process', 'Pathway']);
 const HEX_COLOR_PATTERN = /^#[0-9a-f]{6}$/i;
 
@@ -2453,6 +2472,9 @@ export default function StandaloneKnowledgeGraph({
         effectiveMetadata?.layout,
       );
       const imageNodeOpacityData = getImageNodeOpacityData(node['~properties']);
+      const imageNodeUrlData = node['~properties']?.image_url
+        ? { image_url: resolveNodeImageUrl(node['~properties'].image_url, assetBaseUrl) }
+        : {};
 
       return {
         data: {
@@ -2469,6 +2491,7 @@ export default function StandaloneKnowledgeGraph({
           ...nodeTextBackplateData,
           ...imageNodeBackgroundData,
           ...imageNodeOpacityData,
+          ...imageNodeUrlData,
           ...previewNodeData,
         },
         position: renderPosition,
@@ -2599,6 +2622,7 @@ export default function StandaloneKnowledgeGraph({
           style: {
             shape: 'data(image_shape)',
             'background-image': 'data(image_url)',
+            'background-image-crossorigin': 'anonymous',
             'background-fit': 'data(image_fit)',
             ...getRasterImageOpacityStyle('data(imageNodeImageOpacity)'),
             'background-color': 'data(imageNodeBackgroundColor)',
