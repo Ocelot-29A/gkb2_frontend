@@ -1,21 +1,27 @@
 import { render } from '@testing-library/react';
 
 import {
+  buildViewNodeStyles,
+  buildMechanismTitleNodes,
   buildPreviousLayout,
   createExactGraphCapture,
   edgeLabelToCytoscapeData,
   edgeRouteToCytoscapeData,
   getCanonicalNodeLabel,
+  getNodeType,
+  getNodeLabel,
   getEdgeTextBackplateData,
   getGenomeLaneModelYs,
   getImageNodeBackgroundData,
   getImageNodeOpacityData,
   InfocardData,
+  InfocardMenu,
   getNodeBodyPreviewData,
   getNodePrimaryAction,
   getNodeTextBackplateData,
   getRasterImageOpacityStyle,
   isExactLinkedViewPreview,
+  isHiddenInfoProperty,
   isOverflowId,
   mergeExploreNeighborsCypher,
   normalizeEdgeLineStyle,
@@ -33,6 +39,38 @@ const genomeRegion = {
 };
 
 const genomeTracks = { min_y: 0, max_y: 468 };
+
+describe('layered presentation helpers', () => {
+  test('honors an explicit empty display label for logo-only nodes', () => {
+    expect(getNodeLabel({
+      '~id': 'EXT:TRIALNET',
+      '~properties': { name: 'TrialNet', display_label: '' },
+    })).toBe('');
+  });
+
+  test('creates a compact two-line region tab attached to a group border', () => {
+    const nodes = buildMechanismTitleNodes([{
+      id: 'cd8', x: 40, y: 200, width: 2000,
+      title_lines: ['CD8 DIFFERENTIATION', 'HUMAN T1D STATES'],
+      border: '#567F74',
+      label_node: {
+        mode: 'region_tab_v1', anchor: 'top_right',
+        x: 1540, y: 168, width: 840, height: 164,
+        shape: 'compact-tag', tip_fraction: 0.12,
+        fill: '#D4E1DC', border: '#567F74',
+        text_color: '#304B49', font_size: 34,
+        title_lines: ['CD8 DIFFERENTIATION', 'HUMAN T1D STATES'],
+      },
+    }], { mode: 'region_tab_v1', default_shape: 'compact-tag' });
+    expect(nodes).toHaveLength(1);
+    expect(nodes[0].data.label).toBe('CD8 DIFFERENTIATION\nHUMAN T1D STATES');
+    expect(nodes[0].data.mechanismTitle).toBe('true');
+    expect(nodes[0].data.mechanismTitleShape).toBe('polygon');
+    expect(nodes[0].data.mechanismTitleVariant).toBe('compact-tag');
+    expect(nodes[0].data.renderWidth).toBe(420);
+    expect(nodes[0].position).toEqual({ x: 770, y: 168 });
+  });
+});
 
 describe('getGenomeLaneModelYs', () => {
   test('uses backend lane coordinates without inferring axis direction from nodes', () => {
@@ -101,6 +139,48 @@ describe('getCanonicalNodeLabel', () => {
   });
 });
 
+describe('view-local semantic node types', () => {
+  test('uses an explicitly colored view-local subtype instead of a broad shared type', () => {
+    const node = { '~labels': ['Cell', 'CellState', 'T1DV8Entity'] };
+
+    expect(getNodeType(node)).toBe('Cell');
+    expect(getNodeType(node, { Cell: '#91B8C4', CellState: '#C894A3' })).toBe('CellState');
+    expect(getNodeType({ '~labels': ['MolecularState', 'T1DConcept'] }, {
+      MolecularState: '#B5A6D8',
+    })).toBe('MolecularState');
+  });
+
+  test('builds exact fill, border, and text styles from view metadata', () => {
+    const styles = buildViewNodeStyles(
+      { CellState: '#C894A3' },
+      { CellState: '#7D3F52' },
+      { CellState: '#341A24' },
+    );
+
+    expect(styles[0]).toEqual({
+      selector: 'node[type = "CellState"][Level = "Core"]',
+      style: {
+        shape: 'round-rectangle',
+        label: 'data(label)',
+        'border-width': 1,
+        'text-valign': 'center',
+        'text-halign': 'center',
+        'text-wrap': 'data(labelWrap)',
+        'text-max-width': 'data(labelMaxWidth)',
+        padding: '4px',
+        'background-color': '#C894A3',
+        'border-color': '#7D3F52',
+        color: '#341A24',
+      },
+    });
+    expect(styles[1].style).toEqual(expect.objectContaining({
+      shape: 'round-rectangle',
+      label: 'data(label)',
+      'text-wrap': 'data(labelWrap)',
+    }));
+  });
+});
+
 describe('GKB 07-18 viewer schema', () => {
   test('uses biology-focused panels for T1D concepts and suppresses rendering internals', () => {
     expect(graphViewerSchema.node_panel_by_label.Process).toBe('t1d_biology');
@@ -116,7 +196,19 @@ describe('GKB 07-18 viewer schema', () => {
       'renderFontSize',
       'renderEdgeColor',
       'previewNodeImageBorderColor',
+      'broaderColor',
+      'borderColor',
+      'clickable',
+      'navigation_action',
     ]));
+    expect(isHiddenInfoProperty('preview_render_contract_sha256')).toBe(true);
+    expect(isHiddenInfoProperty('source_checksum')).toBe(true);
+    expect(isHiddenInfoProperty('v8_overlay_release_id')).toBe(true);
+    [
+      'x', 'y', 'width', 'height', 'display_lane', 'event_order', 'default_visible',
+      'display_instance_id', 'primary_semantic_type', 'node_type', 'layer',
+    ].forEach((key) => expect(isHiddenInfoProperty(key)).toBe(true));
+    expect(isHiddenInfoProperty('evidence_limitation')).toBe(false);
   });
 
   test('covers every live Neo4j and curated T1D node label and relationship type', () => {
@@ -172,6 +264,52 @@ describe('hover infocard structured values', () => {
   test('renders an object array through the list formatter safely', () => {
     const rendered = render(<InfocardData value={[acceptedKgAnnotation]} config="list" />);
     expect(rendered.container.textContent).toContain('CL:0000451');
+    expect(rendered.container.textContent).not.toContain('[object Object]');
+  });
+
+  test('shows structured evidence limitations but hides rendering and navigation internals', () => {
+    const rendered = render(<InfocardMenu
+      hoveredData={{
+        id: 'T1DGPS:CS:000002',
+        name: 'TCF7-high stem-like autoreactive CD8 state',
+        type: 'CellState',
+        evidence_limitation: 'Continuous human pancreatic seeding has not been demonstrated.',
+        human_mechanism_status: 'not_established',
+        evidence_assessments: [{ species: 'NOD mouse', status: 'model_support_only' }],
+        broaderColor: '#EFE3C0',
+        navigation_action: 'Show all data',
+        preview_target_graph_sha256: 'abc123',
+        x: 12345.678,
+        y: 23456.789,
+        width: 34567.891,
+        height: 45678.912,
+        display_lane: 'immune-islet interface',
+        event_order: 7,
+        default_visible: true,
+        display_instance_id: 'T1DGPS:CS:000002@detail',
+        primary_semantic_type: 'CellState',
+        node_type: 'islet_event',
+        layer: 3,
+      }}
+    />);
+
+    expect(rendered.container.textContent).toContain('Evidence limitation');
+    expect(rendered.container.textContent).toContain('not_established');
+    expect(rendered.container.textContent).toContain('NOD mouse');
+    expect(rendered.container.textContent).not.toContain('Broader Color');
+    expect(rendered.container.textContent).not.toContain('Show all data');
+    expect(rendered.container.textContent).not.toContain('abc123');
+    expect(rendered.container.textContent).not.toContain('Display Lane');
+    expect(rendered.container.textContent).not.toContain('Event Order');
+    expect(rendered.container.textContent).not.toContain('Default Visible');
+    expect(rendered.container.textContent).not.toContain('Display Instance Id');
+    expect(rendered.container.textContent).not.toContain('Primary Semantic Type');
+    expect(rendered.container.textContent).not.toContain('Node Type');
+    expect(rendered.container.textContent).not.toContain('Layer');
+    expect(rendered.container.textContent).not.toContain('12345.678');
+    expect(rendered.container.textContent).not.toContain('23456.789');
+    expect(rendered.container.textContent).not.toContain('34567.891');
+    expect(rendered.container.textContent).not.toContain('45678.912');
     expect(rendered.container.textContent).not.toContain('[object Object]');
   });
 });

@@ -14,6 +14,7 @@ import {
   validateInfoPanel,
   validateRawGraphRecord,
 } from './graphViewerDeveloperMode';
+import GraphInfocard from './GraphInfocard';
 
 const pretty = (value) => JSON.stringify(value, null, 2);
 
@@ -223,17 +224,11 @@ const GraphViewerDeveloperDialog = forwardRef(function GraphViewerDeveloperDialo
               {resolvedPanel.profile && <Typography sx={{ fontSize: '12px', color: '#667085' }}>{`Shared profile: ${resolvedPanel.profile}. Saving creates a ${type}-only override.`}</Typography>}
               {resolvedPanel.relatedTypes?.length > 1 && <Typography sx={{ fontSize: '11px', color: '#667085', marginTop: '4px' }}>{`Also used by: ${resolvedPanel.relatedTypes.filter((value) => value !== type).join(', ')}`}</Typography>}
               <Typography sx={{ fontWeight: 700, fontSize: '12px', marginTop: '12px' }}>Live hover-card preview</Typography>
-              <Box sx={{ background: '#FFF', border: '1px solid #D0D5DD', borderRadius: '8px', padding: '10px', marginTop: '6px' }}>
-                {Array.isArray(previewPanel) && previewPanel.map((section) => {
-                  const content = section?.[1];
-                  if (typeof content === 'string') {
-                    return <Box key={section[0]} sx={{ marginBottom: '8px' }}><strong>{section[0]}:</strong> {String(previewProperties[content] ?? '—')}</Box>;
-                  }
-                  if (Array.isArray(content)) {
-                    return <Box key={section[0]} sx={{ marginBottom: '8px' }}><strong>{section[0]}</strong>{content.map((row) => <Box key={`${section[0]}-${row[0]}`} sx={{ fontSize: '11px' }}>{row[0]}: {String(previewProperties[row[1]] ?? '—')}</Box>)}</Box>;
-                  }
-                  return null;
-                })}
+              <Box sx={{ background: '#FFF', border: '1px solid #D0D5DD', borderRadius: '8px', marginTop: '6px', overflow: 'hidden' }}>
+                <GraphInfocard
+                  hoveredData={{ ...previewProperties, type, ...(kind === 'edge' ? { source: 'preview-source', target: 'preview-target' } : {}) }}
+                  infoPanelOverrides={{ [kind]: { [type]: previewPanel } }}
+                />
               </Box>
             </Box>
           )}

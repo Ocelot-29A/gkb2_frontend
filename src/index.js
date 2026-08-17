@@ -31,6 +31,8 @@ import QTLDataSource from './pages/QTL_data_source';
 import SampleGraphPage from './pages/SampleGraphPage';
 import { T1D_GPS_V5_VIEW_PATHS } from './pages/t1dGpsV5Routes';
 import { T1D_GPS_V6_VIEW_PATHS } from './pages/t1dGpsV6Routes';
+import { T1D_GPS_V7_VIEW_PATHS } from './pages/t1dGpsV7Routes';
+import { T1D_GPS_V8_VIEW_PATHS } from './pages/t1dGpsV8Routes';
 import StatPage from './pages/StatPage';
 import Tutorial from './pages/Tutorial';
 import UsecasesPage from './pages/UsecasePage';
@@ -166,6 +168,22 @@ root.render(
               key={`v6-${viewPath}`}
               path={`/T1D_GPS/v6/${viewPath}`}
               element={<SampleGraphPage fixtureName={`t1d-gps-v6/${viewPath}`} />}
+            />
+          ))}
+          <Route path="/T1D_GPS/v7" element={<SampleGraphPage fixtureName="t1d-gps-v7/overview" />} />
+          {T1D_GPS_V7_VIEW_PATHS.map((viewPath) => (
+            <Route
+              key={`v7-${viewPath}`}
+              path={`/T1D_GPS/v7/${viewPath}`}
+              element={<SampleGraphPage fixtureName={`t1d-gps-v7/${viewPath}`} />}
+            />
+          ))}
+          <Route path="/T1D_GPS/v8" element={<SampleGraphPage fixtureName="t1d-gps-v8/overview" />} />
+          {T1D_GPS_V8_VIEW_PATHS.map((viewPath) => (
+            <Route
+              key={`v8-${viewPath}`}
+              path={`/T1D_GPS/v8/${viewPath}`}
+              element={<SampleGraphPage fixtureName={`t1d-gps-v8/${viewPath}`} />}
             />
           ))}
           <Route path="/graphquery" element={<QueryPage />} />

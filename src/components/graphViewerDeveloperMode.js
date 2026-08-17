@@ -49,6 +49,8 @@ export const validateRawGraphRecord = (original, edited) => {
 const ALLOWED_FORMATS = new Set([
   undefined, 'string', 'list', 'int', 'link',
   'float', 'float(1)', 'float(2)', 'float(3)',
+  'scientific', 'signed_decimal', 'decimal', 'percentage', 'count', 'identifier',
+  'doi', 'pubmed',
 ]);
 
 const validFormat = (format) => ALLOWED_FORMATS.has(format)
@@ -56,7 +58,44 @@ const validFormat = (format) => ALLOWED_FORMATS.has(format)
 
 export const validateInfoPanel = (panel) => {
   const errors = [];
-  if (!Array.isArray(panel)) return ['Info panel must be a JSON array.'];
+  if (panel && typeof panel === 'object' && !Array.isArray(panel)) {
+    if (!String(panel.schema_version || '').startsWith('2.')) {
+      errors.push('V2 info panel schema_version must begin with 2.');
+    }
+    if (!Array.isArray(panel.title?.paths) || panel.title.paths.length === 0) {
+      errors.push('V2 info panel title.paths must contain at least one property path.');
+    }
+    if ((panel.key_statistics || []).length > 2) {
+      errors.push('V2 info panel may declare at most two key statistics.');
+    }
+    const pathPattern = /^[A-Za-z_][A-Za-z0-9_]*(?:(?:\.[A-Za-z_][A-Za-z0-9_]*)|(?:\[[0-9]+\]))*$/;
+    const unsafePathSegment = /(?:^|\.)(?:__proto__|prototype|constructor)(?:\.|$)/;
+    const validateDefinition = (definition, location) => {
+      const paths = definition?.paths || (definition?.path ? [definition.path] : []);
+      if (!Array.isArray(paths) || paths.length === 0) errors.push(`${location} must declare paths.`);
+      paths.forEach((path) => {
+        if (typeof path !== 'string' || !pathPattern.test(path) || unsafePathSegment.test(path)) {
+          errors.push(`${location} has invalid property path ${path}.`);
+        }
+      });
+      if (!validFormat(definition?.format)) errors.push(`${location} uses unsupported format ${definition?.format}.`);
+    };
+    validateDefinition(panel.title || {}, 'Title');
+    if (panel.annotation) validateDefinition(panel.annotation, 'Annotation');
+    ['evidence', 'key_statistics', 'provenance'].forEach((key) => {
+      if (panel[key] !== undefined && !Array.isArray(panel[key])) errors.push(`${key} must be an array.`);
+      (panel[key] || []).forEach((definition, index) => validateDefinition(definition, `${key} row ${index + 1}`));
+    });
+    if (panel.detail_sections !== undefined && !Array.isArray(panel.detail_sections)) {
+      errors.push('detail_sections must be an array.');
+    }
+    (panel.detail_sections || []).forEach((section, sectionIndex) => {
+      if (!section?.title || !Array.isArray(section?.rows)) errors.push(`Detail section ${sectionIndex + 1} requires title and rows.`);
+      (section?.rows || []).forEach((definition, rowIndex) => validateDefinition(definition, `Detail section ${sectionIndex + 1} row ${rowIndex + 1}`));
+    });
+    return errors;
+  }
+  if (!Array.isArray(panel)) return ['Info panel must be a JSON array or V2 object.'];
   const titles = panel.filter((entry) => Array.isArray(entry) && entry[0] === 'Title');
   const footers = panel.filter((entry) => Array.isArray(entry) && entry[0] === 'Footer');
   if (titles.length !== 1) errors.push('Info panel must contain exactly one Title section.');
@@ -90,7 +129,19 @@ export const validateInfoPanel = (panel) => {
 export const resolveInfoPanelDefinition = (kind, type, overrides = {}) => {
   const collection = kind === 'edge' ? graphViewerSchema.edges : graphViewerSchema.nodes;
   const override = overrides?.[kind]?.[type];
-  if (Array.isArray(override)) return { panel: override, source: 'type override', profile: null, relatedTypes: [] };
+  if (Array.isArray(override) || (override && typeof override === 'object')) return { panel: override, source: 'type override', profile: null, relatedTypes: [] };
+  const v2 = graphViewerSchema.info_panel_v2 || {};
+  const v2Mapping = v2[`${kind}_profile_by_type`] || {};
+  const v2Profiles = v2[`${kind}_profiles`] || {};
+  const v2Profile = v2Mapping[type];
+  if (v2Profile && v2Profiles[v2Profile]) {
+    return {
+      panel: v2Profiles[v2Profile],
+      source: 'V2 shared profile',
+      profile: v2Profile,
+      relatedTypes: Object.entries(v2Mapping).filter(([, value]) => value === v2Profile).map(([key]) => key),
+    };
+  }
   if (Array.isArray(collection?.[type]?.info_panel)) {
     return { panel: collection[type].info_panel, source: 'type override', profile: null, relatedTypes: [] };
   }

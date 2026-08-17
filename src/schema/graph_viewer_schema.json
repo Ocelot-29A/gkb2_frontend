@@ -21,7 +21,11 @@
     "preview_representation", "preview_full_graph", "preview_capture_viewport",
     "preview_selection_method", "preview_anchor_ids", "preview_node_ids", "preview_edge_ids",
     "preview_target_view", "preview_target_route", "preview_data_scope",
-    "graph_link", "graph_focus_node_id", "not_evidence",
+    "graph_link", "graph_focus_node_id", "clickable", "navigation_action", "not_evidence",
+    "broaderColor", "borderColor", "demo_release_id", "v8_overlay", "v8_overlay_release_id",
+    "x", "y", "width", "height", "display_lane", "event_order", "default_visible",
+    "display_instance_id", "primary_semantic_type", "node_type", "layer", "level", "Level",
+    "nih_summary_source",
     "cell_container_id", "cell_region", "display_compartment", "membrane_tolerance",
     "canonical_source_id", "canonical_target_id", "canonical_start_id", "canonical_end_id",
     "render_width", "render_height", "label_max_width",
@@ -38,6 +42,300 @@
     "edgeTextBackgroundOpacity", "imageNodeBackgroundColor", "imageNodeImageOpacity",
     "background_color", "border_color"
   ],
+  "info_panel_v2": {
+    "schema_version": "2.0.0",
+    "default_node_profile": "generic_node",
+    "default_edge_profile": "generic_edge",
+    "node_profile_by_type": {
+      "Gene": "gene",
+      "Transcript": "gene",
+      "Protein": "protein",
+      "Cytokine": "protein",
+      "Chemokine": "protein",
+      "Antibody": "protein",
+      "Variant": "variant",
+      "SNP": "variant",
+      "SNV": "variant",
+      "Deletion": "variant",
+      "Insertion": "variant",
+      "Sequence_variant": "variant",
+      "Structural_variant": "variant",
+      "HLA_allele": "variant",
+      "HLA_allele_group": "variant",
+      "Cell": "cell",
+      "CellType": "cell",
+      "CellState": "cell_state",
+      "Process": "process_pathway",
+      "Pathway": "process_pathway",
+      "Anatomy": "anatomy",
+      "Outcome": "readout",
+      "ClinicalStage": "readout",
+      "ClinicalReadout": "readout",
+      "PhysiologicalReadout": "readout",
+      "Pathology": "readout",
+      "GeneratedFallback": "generated_fallback",
+      "ENCODE_feature": "regulatory_feature",
+      "cCRE": "regulatory_feature",
+      "ChromHMM_state": "regulatory_feature",
+      "TF_binding_motif": "regulatory_feature",
+      "Enhancer": "regulatory_feature",
+      "Promoter": "regulatory_feature",
+      "Super_enhancer": "regulatory_feature",
+      "GO_term": "ontology",
+      "Ontology_term": "ontology",
+      "Cell_or_tissue": "ontology"
+    },
+    "edge_profile_by_type": {
+      "GENE_ENRICHED_IN": "expression_enriched",
+      "GENE_DETECTED_IN": "expression_detected",
+      "MARKER_GENE_OF": "expression_marker",
+      "GWAS_ASSOCIATION": "genetic_association",
+      "EQTL_OF": "genetic_association",
+      "CONFERS_RISK": "genetic_association",
+      "PHYSICAL_INTERACTION": "molecular_interaction",
+      "GENETIC_INTERACTION": "molecular_interaction",
+      "LIGAND_RECEPTOR_PAIR": "molecular_interaction",
+      "BINDS": "molecular_interaction",
+      "DEVELOPS_INTO": "lineage",
+      "DIFFERENTIATES_INTO": "lineage",
+      "MAY_DIFFERENTIATE_INTO": "lineage",
+      "STATE_OF": "lineage",
+      "HAS_SUBTYPE": "lineage"
+    },
+    "edge_profile_by_semantic_family": {
+      "cell_expression_annotation": "expression_generic",
+      "genetic_risk_annotation": "genetic_association",
+      "molecular_interaction": "molecular_interaction",
+      "cell_lineage": "lineage",
+      "cell_taxonomy": "lineage",
+      "cell_state_identity": "lineage",
+      "pathway_structure": "generic_edge",
+      "pathway_navigation": "generic_edge",
+      "biological_process_flow": "generic_edge",
+      "contextual_participation": "generic_edge",
+      "anatomical_context": "generic_edge",
+      "external_human_evidence": "generic_edge"
+    },
+    "node_profiles": {
+      "generic_node": {
+        "schema_version": "2.0",
+        "title": {"paths": ["preferred_name", "name", "hgnc_symbol", "id"]},
+        "annotation": {"label": "What this means", "paths": ["nih_summary", "description", "biological_role", "causal_status", "evidence_scope"]},
+        "evidence": [
+          {"label": "Evidence status", "paths": ["evidence_status", "assertion_status", "evidence_strength"]},
+          {"label": "Species", "paths": ["species_scope", "evidence_species", "species", "organism"]},
+          {"label": "Human translation", "paths": ["human_translation_status", "human_mechanism_status"]}
+        ],
+        "key_statistics": [],
+        "provenance": [
+          {"label": "Source", "paths": ["data_source", "annotation_source"]},
+          {"label": "Version", "paths": ["data_version", "source_release_id"]},
+          {"label": "Record", "paths": ["source_record_id", "id"], "format": "identifier"},
+          {"label": "Source link", "paths": ["data_source_url", "source_url"], "format": "link"}
+        ],
+        "detail_sections": [
+          {"title": "Identity and context", "rows": [
+            {"label": "Canonical ID", "paths": ["canonical_id", "id"], "format": "identifier"},
+            {"label": "Synonyms", "paths": ["synonyms", "ontology_synonyms", "search_aliases"], "format": "list"},
+            {"label": "Anatomy", "paths": ["anatomical_context", "organ", "compartment"], "format": "list"}
+          ]},
+          {"title": "Supporting evidence", "rows": [
+            {"label": "Evidence IDs", "paths": ["evidence_ids", "primary_claim_ids"], "format": "list"},
+            {"label": "Citations", "paths": ["primary_citations", "evidence_urls"], "format": "list"},
+            {"label": "Evidence assessments", "paths": ["evidence_assessments"]}
+          ]}
+        ]
+      },
+      "gene": {
+        "schema_version": "2.0",
+        "title": {"paths": ["hgnc_symbol", "preferred_name", "name", "id"]},
+        "annotation": {"label": "Biological annotation", "paths": ["nih_summary", "description", "biological_role", "gene_function", "evidence_scope"]},
+        "evidence": [
+          {"label": "Evidence", "paths": ["evidence_status", "evidence_strength"]},
+          {"label": "Species", "paths": ["species", "organism"]}
+        ],
+        "key_statistics": [],
+        "provenance": [
+          {"label": "Source", "paths": ["data_source", "annotation_source"]},
+          {"label": "Version", "paths": ["data_version"]},
+          {"label": "Record", "paths": ["source_record_id", "id"], "format": "identifier"},
+          {"label": "Source link", "paths": ["data_source_url"], "format": "link"}
+        ],
+        "detail_sections": [
+          {"title": "Gene identity", "rows": [
+            {"label": "Ensembl", "paths": ["ensembl_gene_id", "id"], "format": "identifier"},
+            {"label": "HGNC", "paths": ["hgnc_id", "hgnc_symbol"], "format": "identifier"},
+            {"label": "Synonyms", "paths": ["synonyms"], "format": "list"},
+            {"label": "Location", "paths": ["genomic_location", "chr"]}
+          ]}
+        ]
+      },
+      "protein": {
+        "schema_version": "2.0",
+        "title": {"paths": ["preferred_name", "name", "gene_symbol", "id"]},
+        "annotation": {"label": "Biological annotation", "paths": ["nih_summary", "description", "biological_role", "function", "evidence_scope"]},
+        "evidence": [{"label": "Evidence", "paths": ["evidence_status", "evidence_strength"]}, {"label": "Species", "paths": ["species", "organism"]}],
+        "key_statistics": [],
+        "provenance": [{"label": "Source", "paths": ["data_source"]}, {"label": "Version", "paths": ["data_version"]}, {"label": "Record", "paths": ["source_record_id", "id"], "format": "identifier"}, {"label": "Source link", "paths": ["data_source_url"], "format": "link"}],
+        "detail_sections": [{"title": "Protein identity", "rows": [{"label": "Ensembl protein", "paths": ["ensembl_protein_id", "id"], "format": "identifier"}, {"label": "UniProt", "paths": ["uniprot_id", "alt_id_uniprotkb"], "format": "identifier"}, {"label": "Synonyms", "paths": ["synonyms"], "format": "list"}]}]
+      },
+      "variant": {
+        "schema_version": "2.0",
+        "title": {"paths": ["preferred_name", "name", "rsid", "id"]},
+        "annotation": {"label": "Genetic annotation", "paths": ["nih_summary", "description", "biological_role", "evidence_scope"]},
+        "evidence": [{"label": "Evidence", "paths": ["evidence_status", "evidence_strength"]}, {"label": "Assembly", "paths": ["genome_assembly"]}],
+        "key_statistics": [{"label": "Posterior probability", "paths": ["posterior_inclusion_probability", "pip"], "format": "decimal"}, {"label": "P value", "paths": ["p_value", "pvalue"], "format": "scientific"}],
+        "provenance": [{"label": "Source", "paths": ["data_source"]}, {"label": "Version", "paths": ["data_version"]}, {"label": "Record", "paths": ["source_record_id", "id"], "format": "identifier"}, {"label": "Source link", "paths": ["data_source_url"], "format": "link"}],
+        "detail_sections": [{"title": "Variant identity", "rows": [{"label": "Canonical ID", "paths": ["canonical_id", "id"], "format": "identifier"}, {"label": "Alleles", "paths": ["alleles"]}, {"label": "Location", "paths": ["genomic_location", "chr"]}]}]
+      },
+      "cell": {
+        "schema_version": "2.0",
+        "title": {"paths": ["preferred_name", "name", "id"]},
+        "annotation": {"label": "Biological annotation", "paths": ["nih_summary", "description", "biological_role", "causal_status", "evidence_scope"]},
+        "evidence": [{"label": "Evidence", "paths": ["evidence_status", "evidence_strength", "ontology_status"]}, {"label": "Species", "paths": ["species", "organism"]}],
+        "key_statistics": [],
+        "provenance": [{"label": "Source", "paths": ["data_source", "annotation_source"]}, {"label": "Version", "paths": ["data_version"]}, {"label": "Record", "paths": ["source_record_id", "cell_ontology_id", "id"], "format": "identifier"}, {"label": "Source link", "paths": ["data_source_url"], "format": "link"}],
+        "detail_sections": [{"title": "Cell identity", "rows": [{"label": "Cell Ontology", "paths": ["cell_ontology_id", "ontology_id", "canonical_id"], "format": "identifier"}, {"label": "Synonyms", "paths": ["ontology_synonyms", "synonyms"], "format": "list"}, {"label": "Anatomy", "paths": ["anatomical_context", "organ", "compartment"], "format": "list"}]}]
+      },
+      "cell_state": {
+        "schema_version": "2.0",
+        "title": {"paths": ["preferred_name", "name", "id"]},
+        "annotation": {"label": "What this state represents", "paths": ["nih_summary", "description", "causal_status", "evidence_scope"]},
+        "evidence": [{"label": "Evidence status", "paths": ["evidence_status", "curation_status"]}, {"label": "Human scope", "paths": ["human_translation_status", "human_mechanism_status", "evidence_scope"]}, {"label": "Mapping confidence", "paths": ["mapping_confidence"]}],
+        "key_statistics": [],
+        "provenance": [{"label": "Source", "paths": ["data_source"]}, {"label": "Version", "paths": ["data_version"]}, {"label": "Primary claim", "paths": ["primary_claim_ids[0]", "source_record_id"], "format": "doi"}, {"label": "Source link", "paths": ["data_source_url"], "format": "link"}],
+        "detail_sections": [{"title": "Cell-state identity", "rows": [{"label": "Base cell", "paths": ["base_cell_label"]}, {"label": "Cell Ontology", "paths": ["base_cell_ontology_id"], "format": "identifier"}, {"label": "Markers", "paths": ["state_markers"], "format": "list"}, {"label": "Anatomy", "paths": ["anatomical_context"], "format": "list"}, {"label": "Antigen specificity", "paths": ["antigen_specificity"]}, {"label": "Equivalence", "paths": ["equivalence_status"]}]}, {"title": "Evidence details", "rows": [{"label": "Evidence assessments", "paths": ["evidence_assessments"]}, {"label": "Required human evidence", "paths": ["required_human_evidence"]}]}]
+      },
+      "process_pathway": {
+        "schema_version": "2.0",
+        "title": {"paths": ["preferred_name", "name", "id"]},
+        "annotation": {"label": "Mechanism annotation", "paths": ["nih_summary", "description", "biological_role", "gene_set_summary", "evidence_scope"]},
+        "evidence": [{"label": "Evidence", "paths": ["evidence_status", "evidence_strength"]}, {"label": "Species", "paths": ["species_scope", "species", "organism"]}, {"label": "Human translation", "paths": ["human_translation_status", "human_mechanism_status"]}],
+        "key_statistics": [{"label": "Mapped genes", "paths": ["gene_set_member_count"], "format": "count"}, {"label": "Supporting databases", "paths": ["gene_set_source_count"], "format": "count"}],
+        "provenance": [{"label": "Source", "paths": ["data_source"]}, {"label": "Version", "paths": ["data_version"]}, {"label": "Record", "paths": ["source_record_id", "canonical_id"], "format": "identifier"}, {"label": "Source link", "paths": ["data_source_url"], "format": "link"}],
+        "detail_sections": [{"title": "Mechanism context", "rows": [{"label": "Organ", "paths": ["organ", "compartment"]}, {"label": "Gene-set sources", "paths": ["gene_set_sources"], "format": "list"}, {"label": "Gene-set IDs", "paths": ["gene_set_ids"], "format": "list"}, {"label": "Top members", "paths": ["gene_set_top_members"], "format": "list"}]}]
+      },
+      "anatomy": {
+        "schema_version": "2.0",
+        "title": {"paths": ["preferred_name", "name", "id"]},
+        "annotation": {"label": "Anatomical role", "paths": ["nih_summary", "description", "biological_role", "evidence_scope"]},
+        "evidence": [{"label": "Evidence", "paths": ["evidence_status", "evidence_strength"]}, {"label": "Species", "paths": ["species", "organism"]}],
+        "key_statistics": [],
+        "provenance": [{"label": "Source", "paths": ["data_source"]}, {"label": "Version", "paths": ["data_version"]}, {"label": "Record", "paths": ["source_record_id", "ontology_id", "id"], "format": "identifier"}, {"label": "Source link", "paths": ["data_source_url"], "format": "link"}],
+        "detail_sections": [{"title": "Anatomical identity", "rows": [{"label": "Ontology ID", "paths": ["ontology_id", "canonical_id"], "format": "identifier"}, {"label": "Compartment", "paths": ["compartment"]}]}]
+      },
+      "readout": {
+        "schema_version": "2.0",
+        "title": {"paths": ["preferred_name", "name", "id"]},
+        "annotation": {"label": "Clinical interpretation", "paths": ["nih_summary", "description", "biological_role", "evidence_scope"]},
+        "evidence": [{"label": "Evidence", "paths": ["evidence_status", "evidence_strength"]}, {"label": "Stage", "paths": ["clinical_stage", "stage_context"]}],
+        "key_statistics": [],
+        "provenance": [{"label": "Source", "paths": ["data_source"]}, {"label": "Version", "paths": ["data_version"]}, {"label": "Record", "paths": ["source_record_id", "id"], "format": "identifier"}, {"label": "Source link", "paths": ["data_source_url"], "format": "link"}],
+        "detail_sections": [{"title": "Readout context", "rows": [{"label": "System", "paths": ["systems", "organ"]}, {"label": "Measurement", "paths": ["measurement", "readout_type"]}]}]
+      },
+      "generated_fallback": {
+        "schema_version": "2.0",
+        "title": {"paths": ["preferred_name", "name", "id"]},
+        "annotation": {"label": "Demo annotation", "paths": ["nih_summary", "description", "generated_reason"]},
+        "evidence": [{"label": "Status", "paths": ["evidence_status", "generated_reason"]}, {"label": "Based on", "paths": ["generated_from"]}],
+        "key_statistics": [],
+        "provenance": [{"label": "Source", "paths": ["data_source"]}, {"label": "Version", "paths": ["data_version"]}, {"label": "Record", "paths": ["source_record_id", "id"], "format": "identifier"}, {"label": "Source link", "paths": ["data_source_url"], "format": "link"}],
+        "detail_sections": []
+      },
+      "regulatory_feature": {
+        "schema_version": "2.0",
+        "title": {"paths": ["name", "accession", "id"]},
+        "annotation": {"label": "Regulatory annotation", "paths": ["nih_summary", "description", "feature_type", "state"]},
+        "evidence": [{"label": "Assay", "paths": ["assay_name"]}, {"label": "Tissue", "paths": ["tissue_name", "cell_type"]}],
+        "key_statistics": [{"label": "Signal", "paths": ["signal_value", "score"], "format": "decimal"}, {"label": "Q value", "paths": ["q_value"], "format": "scientific"}],
+        "provenance": [{"label": "Source", "paths": ["data_source"]}, {"label": "Version", "paths": ["data_version"]}, {"label": "Record", "paths": ["source_record_id", "accession", "id"], "format": "identifier"}, {"label": "Source link", "paths": ["data_source_url"], "format": "link"}],
+        "detail_sections": [{"title": "Feature identity", "rows": [{"label": "Feature type", "paths": ["feature_type", "ccre_type"]}, {"label": "Location", "paths": ["genomic_location", "chr"]}]}]
+      },
+      "ontology": {
+        "schema_version": "2.0",
+        "title": {"paths": ["preferred_name", "name", "id"]},
+        "annotation": {"label": "Ontology annotation", "paths": ["nih_summary", "description", "definition"]},
+        "evidence": [],
+        "key_statistics": [],
+        "provenance": [{"label": "Source", "paths": ["data_source"]}, {"label": "Version", "paths": ["data_version", "ontology_release"]}, {"label": "Record", "paths": ["source_record_id", "id"], "format": "identifier"}, {"label": "Source link", "paths": ["data_source_url"], "format": "link"}],
+        "detail_sections": [{"title": "Ontology identity", "rows": [{"label": "ID", "paths": ["canonical_id", "id"], "format": "identifier"}, {"label": "Synonyms", "paths": ["synonyms", "ontology_synonyms"], "format": "list"}, {"label": "Domain", "paths": ["go_domain", "ontology_domain"]}]}]
+      }
+    },
+    "edge_profiles": {
+      "generic_edge": {
+        "schema_version": "2.0",
+        "title": {"paths": ["relation_label", "name", "type", "relation"]},
+        "annotation": {"label": "Relationship interpretation", "paths": ["nih_summary", "rationale", "description", "direction_semantics", "evidence_scope"]},
+        "evidence": [{"label": "Evidence", "paths": ["evidence_status", "assertion_status", "evidence_strength"]}, {"label": "Species", "paths": ["evidence_species", "species_scope", "species", "organism"]}, {"label": "Causal class", "paths": ["causal_class", "non_causal"]}],
+        "key_statistics": [],
+        "provenance": [{"label": "Source", "paths": ["data_source", "annotation_source"]}, {"label": "Version", "paths": ["data_version"]}, {"label": "Record", "paths": ["source_record_id", "id"], "format": "identifier"}, {"label": "Source link", "paths": ["data_source_url"], "format": "link"}],
+        "detail_sections": [{"title": "Relationship", "rows": [{"label": "From", "paths": ["source_name", "source_id"]}, {"label": "To", "paths": ["target_name", "target_id"]}, {"label": "Evidence IDs", "paths": ["evidence_ids", "primary_claim_ids"], "format": "list"}, {"label": "Experimental system", "paths": ["experimental_system"]}, {"label": "Assay", "paths": ["assay"]}]}]
+      },
+      "expression_enriched": {
+        "schema_version": "2.0",
+        "title": {"paths": ["relation_label", "name", "type"]},
+        "annotation": {"label": "Expression annotation", "paths": ["nih_summary", "direction_semantics", "description"]},
+        "evidence": [{"label": "Cell type", "paths": ["cell_type_label"]}, {"label": "Condition", "paths": ["condition"]}, {"label": "Interpretation", "paths": ["expression_evidence_status"]}],
+        "key_statistics": [{"label": "log₂ fold change", "paths": ["quantitative_fields.GENE_ENRICHED_IN[0].log2FoldChange", "log2FoldChange", "log2_fold_change"], "format": "signed_decimal"}, {"label": "Adjusted P", "paths": ["quantitative_fields.GENE_ENRICHED_IN[0].padj", "padj", "adjusted_p_value"], "format": "scientific"}],
+        "provenance": [{"label": "Source", "paths": ["data_source"]}, {"label": "Version", "paths": ["data_version"]}, {"label": "Record", "paths": ["source_record_id", "id"], "format": "identifier"}, {"label": "Source link", "paths": ["data_source_url"], "format": "link"}],
+        "detail_sections": [{"title": "Expression support", "rows": [{"label": "Median logCPM", "paths": ["quantitative_fields.GENE_DETECTED_IN[0].median_donor_logCPM"], "format": "decimal"}, {"label": "Cells expressing", "paths": ["quantitative_fields.GENE_DETECTED_IN[0].median_pct_cells_expressing"], "format": "percentage"}, {"label": "Total cells", "paths": ["quantitative_fields.GENE_ENRICHED_IN[0].total_cells"], "format": "count"}]}]
+      },
+      "expression_detected": {
+        "schema_version": "2.0",
+        "title": {"paths": ["relation_label", "name", "type"]},
+        "annotation": {"label": "Expression annotation", "paths": ["nih_summary", "direction_semantics", "description"]},
+        "evidence": [{"label": "Cell type", "paths": ["cell_type_label"]}, {"label": "Condition", "paths": ["condition"]}, {"label": "Interpretation", "paths": ["expression_evidence_status"]}],
+        "key_statistics": [{"label": "Median logCPM", "paths": ["quantitative_fields.GENE_DETECTED_IN[0].median_donor_logCPM", "median_donor_logCPM"], "format": "decimal"}, {"label": "Cells expressing", "paths": ["quantitative_fields.GENE_DETECTED_IN[0].median_pct_cells_expressing", "median_pct_cells_expressing"], "format": "percentage"}],
+        "provenance": [{"label": "Source", "paths": ["data_source"]}, {"label": "Version", "paths": ["data_version"]}, {"label": "Record", "paths": ["source_record_id", "id"], "format": "identifier"}, {"label": "Source link", "paths": ["data_source_url"], "format": "link"}],
+        "detail_sections": [{"title": "Expression support", "rows": [{"label": "Total cells", "paths": ["quantitative_fields.GENE_DETECTED_IN[0].total_cells"], "format": "count"}, {"label": "Supporting records", "paths": ["supporting_expression_records"]}]}]
+      },
+      "expression_marker": {
+        "schema_version": "2.0",
+        "title": {"paths": ["relation_label", "name", "type"]},
+        "annotation": {"label": "Marker annotation", "paths": ["nih_summary", "direction_semantics", "description"]},
+        "evidence": [{"label": "Cell type", "paths": ["cell_type_label"]}, {"label": "Interpretation", "paths": ["expression_evidence_status"]}],
+        "key_statistics": [{"label": "Cell-type rank", "paths": ["quantitative_fields.MARKER_GENE_OF[0].rank_in_cell_type", "rank_in_cell_type"], "format": "count"}, {"label": "Supporting sources", "paths": ["supporting_source_count"], "format": "count"}],
+        "provenance": [{"label": "Source", "paths": ["data_source"]}, {"label": "Version", "paths": ["data_version"]}, {"label": "Record", "paths": ["source_record_id", "id"], "format": "identifier"}, {"label": "Source link", "paths": ["data_source_url"], "format": "link"}],
+        "detail_sections": []
+      },
+      "expression_generic": {
+        "schema_version": "2.0",
+        "title": {"paths": ["relation_label", "name", "type"]},
+        "annotation": {"label": "Expression annotation", "paths": ["nih_summary", "direction_semantics", "description"]},
+        "evidence": [{"label": "Cell type", "paths": ["cell_type_label"]}, {"label": "Condition", "paths": ["condition"]}, {"label": "Interpretation", "paths": ["expression_evidence_status"]}],
+        "key_statistics": [],
+        "provenance": [{"label": "Source", "paths": ["data_source"]}, {"label": "Version", "paths": ["data_version"]}, {"label": "Record", "paths": ["source_record_id", "id"], "format": "identifier"}, {"label": "Source link", "paths": ["data_source_url"], "format": "link"}],
+        "detail_sections": []
+      },
+      "genetic_association": {
+        "schema_version": "2.0",
+        "title": {"paths": ["relation_label", "name", "type"]},
+        "annotation": {"label": "Association interpretation", "paths": ["nih_summary", "rationale", "description", "evidence_scope"]},
+        "evidence": [{"label": "Evidence", "paths": ["evidence_status", "evidence_strength"]}, {"label": "Population", "paths": ["population", "ancestry"]}],
+        "key_statistics": [{"label": "Posterior probability", "paths": ["posterior_inclusion_probability", "pip"], "format": "decimal"}, {"label": "P value", "paths": ["p_value", "pvalue"], "format": "scientific"}],
+        "provenance": [{"label": "Source", "paths": ["data_source"]}, {"label": "Version", "paths": ["data_version"]}, {"label": "Record", "paths": ["source_record_id", "id"], "format": "identifier"}, {"label": "Source link", "paths": ["data_source_url"], "format": "link"}],
+        "detail_sections": [{"title": "Association details", "rows": [{"label": "Effect size", "paths": ["effect_size", "beta", "odds_ratio"], "format": "decimal"}, {"label": "Evidence IDs", "paths": ["evidence_ids"], "format": "list"}]}]
+      },
+      "molecular_interaction": {
+        "schema_version": "2.0",
+        "title": {"paths": ["relation_label", "name", "type"]},
+        "annotation": {"label": "Interaction interpretation", "paths": ["nih_summary", "rationale", "description", "direction_semantics"]},
+        "evidence": [{"label": "Evidence", "paths": ["evidence_status", "evidence_strength"]}, {"label": "Direction", "paths": ["direction_semantics", "direction"]}, {"label": "Causal class", "paths": ["causal_class", "non_causal"]}],
+        "key_statistics": [{"label": "Confidence", "paths": ["confidence_score", "score"], "format": "decimal"}, {"label": "Evidence records", "paths": ["evidence_record_count"], "format": "count"}],
+        "provenance": [{"label": "Source", "paths": ["data_source"]}, {"label": "Version", "paths": ["data_version"]}, {"label": "Record", "paths": ["source_record_id", "id"], "format": "identifier"}, {"label": "Source link", "paths": ["data_source_url"], "format": "link"}],
+        "detail_sections": [{"title": "Interaction details", "rows": [{"label": "From", "paths": ["source_name", "source_id"]}, {"label": "To", "paths": ["target_name", "target_id"]}, {"label": "Evidence IDs", "paths": ["evidence_ids"], "format": "list"}]}]
+      },
+      "lineage": {
+        "schema_version": "2.0",
+        "title": {"paths": ["relation_label", "name", "type"]},
+        "annotation": {"label": "Lineage interpretation", "paths": ["nih_summary", "description", "rationale", "evidence_scope"]},
+        "evidence": [{"label": "Assertion", "paths": ["assertion_status", "evidence_status"]}, {"label": "System", "paths": ["experimental_system"]}, {"label": "Species", "paths": ["evidence_organism", "species", "organism"]}],
+        "key_statistics": [],
+        "provenance": [{"label": "Source", "paths": ["data_source"]}, {"label": "Version", "paths": ["data_version"]}, {"label": "Primary claim", "paths": ["primary_claim_ids[0]", "source_record_id"], "format": "identifier"}, {"label": "Source link", "paths": ["data_source_url"], "format": "link"}],
+        "detail_sections": [{"title": "Lineage evidence", "rows": [{"label": "From", "paths": ["source_phenotype", "source_name", "source_id"]}, {"label": "To", "paths": ["target_phenotype", "target_name", "target_id"]}, {"label": "Assay", "paths": ["assay"]}, {"label": "Condition", "paths": ["experimental_condition"]}, {"label": "Supporting span", "paths": ["supporting_span"]}, {"label": "Why generated", "paths": ["generated_reason"]}]}]
+      }
+    }
+  },
   "default_node_info_panel": [
     ["Title", "name"],
     ["Identity", [["ID", "id"], ["Synonyms", "synonyms", "list"], ["Alternate IDs", "alt_ids", "list"]]],

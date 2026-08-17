@@ -17,6 +17,7 @@ import cytoscape from 'cytoscape';
 import { useSelector } from 'react-redux';
 
 import AdsClickIcon from '@mui/icons-material/AdsClick';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CenterFocusStrongIcon from '@mui/icons-material/CenterFocusStrong';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import DataObjectIcon from '@mui/icons-material/DataObject';
@@ -27,6 +28,7 @@ import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import LinkIcon from '@mui/icons-material/Link';
 import RedoIcon from '@mui/icons-material/Redo';
+import SearchIcon from '@mui/icons-material/Search';
 import SyncIcon from '@mui/icons-material/Sync';
 import UndoIcon from '@mui/icons-material/Undo';
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
@@ -50,8 +52,10 @@ import graphInfocard from '../schema/graph_viewer_schema.json';
 import { addWhitespace } from '../utils/textProcessing';
 import GraphViewerQueryDialog, { requestGraphViewer } from './GraphViewerQueryDialog';
 import GraphViewerDataExportDialog, { buildVisibleGraphExport } from './GraphViewerDataExportDialog';
+import GraphViewerSearchDialog from './GraphViewerSearchDialog';
 import { inverseLayoutPosition, navigationLabel } from './graphViewerDeveloperMode';
 import { formatInfocardValue, getInfocardHref } from './graphViewerInfocardValue';
+import GraphInfocard from './GraphInfocard';
 import {
   edgeIsInverted,
   edgeLabels,
@@ -274,6 +278,7 @@ const isGraphBackgroundNode = (node) => (
   node.data('trackBackground') === 'true'
   || node.data('cellBackground') === 'true'
   || node.data('mechanismBackground') === 'true'
+  || node.data('mechanismTitle') === 'true'
   || node.data('canvasImage') === 'true'
 );
 
@@ -617,8 +622,31 @@ const GENERIC_NODE_LABELS = new Set(
   (graphInfocard.generic_node_labels || []).map((label) => label.toLowerCase()),
 );
 const HIDDEN_INFO_PROPERTIES = new Set(graphInfocard.hidden_info_properties || []);
+const EVIDENCE_LIMITATION_PROPERTIES = new Map([
+  ['human_mechanism_status', 'Human mechanism status'],
+  ['evidence_limitation', 'Limitation'],
+  ['model_support_scope', 'Model support'],
+  ['required_human_evidence', 'Required human evidence'],
+  ['evidence_gap_source_ids', 'Supporting source IDs'],
+  ['evidence_assessments', 'Evidence assessments'],
+]);
 
 const normalizeNodeType = (label) => label;
+
+export const isHiddenInfoProperty = (key) => {
+  const normalizedKey = String(key || '');
+  return HIDDEN_INFO_PROPERTIES.has(normalizedKey)
+    || /(?:^|_)checksum(?:$|_)/i.test(normalizedKey)
+    || /_sha256$/i.test(normalizedKey)
+    || /^render(?:_|[A-Z]|$)/.test(normalizedKey)
+    || /^layout(?:_|$)/i.test(normalizedKey)
+    || /^navigation(?:_|$)/i.test(normalizedKey)
+    || /(?:^|_)overlay(?:$|_)/i.test(normalizedKey);
+};
+
+const isStructuredInfocardValue = (value) => (
+  Boolean(value) && typeof value === 'object'
+);
 
 export const getCanonicalNodeLabel = (node) => {
   const labels = Array.isArray(node?.['~labels'])
@@ -635,17 +663,71 @@ export const getCanonicalNodeLabel = (node) => {
     || 'Coding_element';
 };
 
-const getNodeType = (node) => {
-  const labels = Array.isArray(node?.['~labels']) ? node['~labels'] : [];
+export const getNodeType = (node, viewNodeColors = EMPTY_VIEWER_COLORS) => {
+  const labels = (Array.isArray(node?.['~labels']) ? node['~labels'] : [])
+    .filter(Boolean)
+    .map(String);
+  const viewLocalLabels = labels.filter(
+    (label) => Object.prototype.hasOwnProperty.call(viewNodeColors, label),
+  );
+  const viewLocalOnlyLabel = viewLocalLabels.find(
+    (label) => !graphInfocard.nodes?.[label] && !nodeColors[label],
+  );
+  if (viewLocalOnlyLabel) return viewLocalOnlyLabel;
+
   const canonicalLabel = getCanonicalNodeLabel(node);
   const orderedLabels = [canonicalLabel, ...labels.filter((label) => label !== canonicalLabel)];
   return orderedLabels
     .map(normalizeNodeType)
-    .find((label) => graphInfocard.nodes?.[label]?.info_panel || nodeColors[label]) || 'Coding_element';
+    .find((label) => graphInfocard.nodes?.[label]?.info_panel
+      || nodeColors[label]
+      || Object.prototype.hasOwnProperty.call(viewNodeColors, label))
+    || 'Coding_element';
 };
 
-const getNodeLabel = (node) => {
+export const buildViewNodeStyles = (
+  viewNodeColors = EMPTY_VIEWER_COLORS,
+  viewNodeBorderColors = EMPTY_VIEWER_COLORS,
+  viewNodeTextColors = EMPTY_VIEWER_COLORS,
+) => Object.entries(viewNodeColors).flatMap(([type, color]) => ([
+  {
+    selector: `node[type = "${type}"][Level = "Core"]`,
+    style: {
+      shape: 'round-rectangle',
+      label: 'data(label)',
+      'border-width': 1,
+      'text-valign': 'center',
+      'text-halign': 'center',
+      'text-wrap': 'data(labelWrap)',
+      'text-max-width': 'data(labelMaxWidth)',
+      padding: '4px',
+      'background-color': color,
+      'border-color': viewNodeBorderColors[type] || color,
+      color: viewNodeTextColors[type] || '#193336',
+    },
+  },
+  {
+    selector: `node[type = "${type}"][Level = "Neighbor"]`,
+    style: {
+      shape: 'round-rectangle',
+      label: 'data(label)',
+      'border-width': 1,
+      'text-valign': 'center',
+      'text-halign': 'center',
+      'text-wrap': 'data(labelWrap)',
+      'text-max-width': 'data(labelMaxWidth)',
+      padding: '4px',
+      'border-color': viewNodeBorderColors[type] || color,
+      color: viewNodeTextColors[type] || '#333333',
+    },
+  },
+]));
+
+export const getNodeLabel = (node) => {
   const properties = node?.['~properties'] || {};
+  if (Object.prototype.hasOwnProperty.call(properties, 'display_label')) {
+    return String(properties.display_label ?? '').replace(/_/g, ' ');
+  }
   const baseName = properties.name || properties.id || node?.['~id'] || '';
 
   if (baseName && baseName.length <= 15) {
@@ -930,7 +1012,7 @@ const buildCellBackgroundNodes = (cellRegions) => (cellRegions || [])
     locked: true,
   }));
 
-const buildMechanismBackgroundNodes = (mechanismRegions) => (mechanismRegions || [])
+const buildMechanismBackgroundNodes = (mechanismRegions, titleMode) => (mechanismRegions || [])
   .filter((region) => region?.id
     && Number.isFinite(region.x)
     && Number.isFinite(region.y)
@@ -940,10 +1022,10 @@ const buildMechanismBackgroundNodes = (mechanismRegions) => (mechanismRegions ||
     data: {
       id: `__mechanism_background__:${region.id}`,
       mechanismRegionId: region.id,
-      label: region.display_label
+      label: ['header_band_v1', 'region_tab_v1'].includes(titleMode) ? '' : (region.display_label
         || (Array.isArray(region.title_lines) ? region.title_lines.join('\n') : '')
         || region.label
-        || region.id,
+        || region.id),
       mechanismBackground: 'true',
       mechanismFill: region.fill || '#F8FAFC',
       mechanismBorder: region.border || '#94A3B8',
@@ -967,6 +1049,71 @@ const buildMechanismBackgroundNodes = (mechanismRegions) => (mechanismRegions ||
     pannable: false,
     locked: true,
   }));
+
+export const buildMechanismTitleNodes = (mechanismRegions, titleStyle = {}) => (
+  ['header_band_v1', 'region_tab_v1'].includes(titleStyle?.mode) ? (mechanismRegions || []) : []
+).filter((region) => region?.id
+  && Number.isFinite(region.x)
+  && Number.isFinite(region.y)
+  && Number.isFinite(region.width))
+  .map((region) => {
+    if (titleStyle?.mode === 'region_tab_v1') {
+      const tab = region.label_node || {};
+      const compactTag = (tab.shape || titleStyle.default_shape) === 'compact-tag';
+      const lines = Array.isArray(tab.title_lines)
+        ? tab.title_lines.slice(0, 2)
+        : (Array.isArray(region.title_lines) ? region.title_lines.slice(0, 2) : [region.label || region.id]);
+      if (![tab.x, tab.y, tab.width, tab.height].every(Number.isFinite)) return null;
+      return {
+        data: {
+          id: `__mechanism_title__:${region.id}`,
+          label: lines.join('\n'),
+          mechanismTitle: 'true',
+          mechanismTitleMode: 'region_tab_v1',
+          mechanismTitleVariant: compactTag ? 'compact-tag' : 'standard',
+          mechanismTitleShape: compactTag ? 'polygon' : (tab.shape || titleStyle.default_shape || 'round-rectangle'),
+          mechanismTitleFill: tab.fill || region.fill || '#E8E1D8',
+          mechanismTitleBorder: tab.border || region.border || '#567F74',
+          mechanismTitleColor: tab.text_color || titleStyle.text_color || '#304B49',
+          mechanismTitleFontSize: Math.max(34, Math.min(46, Number(tab.font_size) || 40)),
+          mechanismTitleTextMaxWidth: scaleX(tab.width) * 0.94,
+          renderWidth: scaleX(tab.width),
+          renderHeight: scaleHeight(tab.height),
+        },
+        position: { x: scaleX(tab.x), y: scaleYPosition(tab.y) },
+        selectable: false,
+        grabbable: false,
+        pannable: false,
+        locked: true,
+      };
+    }
+    const bandHeight = Number(region.header_band_height || titleStyle.band_height) || 180;
+    const padding = Number(titleStyle.horizontal_padding) || 28;
+    const lines = Array.isArray(region.title_lines) ? region.title_lines.slice(0, 2) : [region.label || region.id];
+    return {
+      data: {
+        id: `__mechanism_title__:${region.id}`,
+        label: lines.join('\n'),
+        mechanismTitle: 'true',
+        mechanismTitleMode: 'header_band_v1',
+        mechanismTitleShape: 'round-rectangle',
+        mechanismTitleFill: region.title_background_color || titleStyle.surface || '#FFF9F0',
+        mechanismTitleBorder: region.border || '#567F74',
+        mechanismTitleColor: region.title_text_color || titleStyle.text_color || '#304B49',
+        mechanismTitleFontSize: Math.max(30, Math.min(42, Number(region.title_font_size) || 34)),
+        renderWidth: Math.max(120, scaleX(region.width) - padding * 2),
+        renderHeight: Math.max(54, scaleHeight(bandHeight) - 14),
+      },
+      position: {
+        x: scaleX(region.x + region.width / 2),
+        y: scaleYPosition(region.y + bandHeight / 2),
+      },
+      selectable: false,
+      grabbable: false,
+      pannable: false,
+      locked: true,
+    };
+  }).filter(Boolean);
 
 const buildCanvasImageNode = (image) => {
   if (
@@ -1008,22 +1155,27 @@ const viewModeLabel = (viewMode) => ({
   kg_only: 'KG mode',
 }[viewMode] || 'KG mode');
 
-const InfocardMenu = ({ hoveredData, infoPanelOverrides }) => {
+export const InfocardMenu = ({ hoveredData, infoPanelOverrides }) => {
   const isEdge = hoveredData?.source && hoveredData?.target;
   const schema = getInfoPanel(isEdge, hoveredData?.type, infoPanelOverrides);
   const titleColumn = schema?.find(([label]) => label === 'Title');
   const footerInfo = (schema?.find(([label]) => label === 'Footer')?.[1] || [])
-    .filter(([, key]) => hasInfocardValue(hoveredData?.[key]));
+    .filter(([, key]) => !isHiddenInfoProperty(key) && hasInfocardValue(hoveredData?.[key]));
+  const evidenceLimitationRows = isEdge
+    ? []
+    : Array.from(EVIDENCE_LIMITATION_PROPERTIES.entries())
+      .filter(([key]) => hasInfocardValue(hoveredData?.[key]));
   const configuredKeys = new Set([
     titleColumn?.[1],
     ...footerInfo.map(([, key]) => key),
+    ...EVIDENCE_LIMITATION_PROPERTIES.keys(),
     ...schema.flatMap(([, content]) => Array.isArray(content)
       ? content.map(([, key]) => key)
       : [content]),
   ]);
   const additionalRows = Object.entries(hoveredData || {})
     .filter(([key, value]) => !configuredKeys.has(key)
-      && !HIDDEN_INFO_PROPERTIES.has(key)
+      && !isHiddenInfoProperty(key)
       && !key.startsWith('preview_')
       && !['label', 'type', 'Level', 'source', 'target', 'source_name', 'target_name', 'renderWidth', 'renderHeight', 'labelMaxWidth'].includes(key)
       && hasInfocardValue(value))
@@ -1064,10 +1216,14 @@ const InfocardMenu = ({ hoveredData, infoPanelOverrides }) => {
         {schema.map(([title, content, config]) => {
           if (['Title', 'Footer'].includes(title)) return null;
           const visibleContent = Array.isArray(content)
-            ? content.filter(([, key]) => hasInfocardValue(hoveredData?.[key]))
+            ? content.filter(([, key]) => !isHiddenInfoProperty(key)
+              && !EVIDENCE_LIMITATION_PROPERTIES.has(key)
+              && hasInfocardValue(hoveredData?.[key]))
             : content;
           if ((Array.isArray(content) && !visibleContent.length)
-            || (!Array.isArray(content) && !hasInfocardValue(hoveredData?.[content]))) return null;
+            || (!Array.isArray(content) && (isHiddenInfoProperty(content)
+              || EVIDENCE_LIMITATION_PROPERTIES.has(content)
+              || !hasInfocardValue(hoveredData?.[content])))) return null;
           return (
             <Box
               key={title}
@@ -1114,7 +1270,7 @@ const InfocardMenu = ({ hoveredData, infoPanelOverrides }) => {
                     <Typography
                       component="span"
                       sx={{
-                        textAlign: 'right', minWidth: 0, overflowWrap: 'anywhere', wordBreak: 'break-word', whiteSpace: 'pre-wrap', maxHeight: '4.2em', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical',
+                        textAlign: isStructuredInfocardValue(hoveredData[key]) ? 'left' : 'right', minWidth: 0, overflowWrap: 'anywhere', wordBreak: 'break-word', whiteSpace: 'pre-wrap', maxHeight: isStructuredInfocardValue(hoveredData[key]) ? '14em' : '4.2em', overflow: isStructuredInfocardValue(hoveredData[key]) ? 'auto' : 'hidden', display: isStructuredInfocardValue(hoveredData[key]) ? 'block' : '-webkit-box', WebkitLineClamp: isStructuredInfocardValue(hoveredData[key]) ? 'unset' : 3, WebkitBoxOrient: 'vertical',
                         fontFamily: 'Open Sans',
                         fontWeight: '600',
                         fontSize: '12px',
@@ -1156,6 +1312,76 @@ const InfocardMenu = ({ hoveredData, infoPanelOverrides }) => {
             </Box>
           );
         })}
+        {evidenceLimitationRows.length > 0 && (
+          <Box
+            sx={{
+              width: 'calc(100% - 32px)',
+              display: 'flex',
+              flexDirection: 'column',
+              padding: '16px',
+              borderTop: '1px solid #E2B85B',
+              borderBottom: '1px solid #E2B85B',
+              backgroundColor: '#FFF4D6',
+              gap: '12px',
+            }}
+          >
+            <Typography
+              sx={{
+                alignSelf: 'center',
+                padding: '4px 9px',
+                borderRadius: '999px',
+                backgroundColor: '#E8B44E',
+                color: '#3B2A08',
+                fontFamily: 'Open Sans',
+                fontWeight: 700,
+                fontSize: '10px',
+                lineHeight: '12px',
+                letterSpacing: '0.04em',
+                textTransform: 'uppercase',
+              }}
+            >
+              Evidence limitation
+            </Typography>
+            {evidenceLimitationRows.map(([key, label]) => {
+              const value = hoveredData[key];
+              const structured = isStructuredInfocardValue(value);
+              return (
+                <Box
+                  key={key}
+                  sx={{
+                    display: 'grid',
+                    gridTemplateColumns: structured ? '1fr' : 'minmax(92px, 0.8fr) minmax(0, 1.2fr)',
+                    gap: '6px 10px',
+                    alignItems: 'start',
+                  }}
+                >
+                  <Typography sx={{ fontFamily: 'Open Sans', fontWeight: 600, fontSize: '12px', color: '#75520C', lineHeight: '16px' }}>
+                    {label}
+                  </Typography>
+                  <Typography
+                    component="span"
+                    sx={{
+                      minWidth: 0,
+                      maxHeight: structured ? '16em' : 'none',
+                      overflow: structured ? 'auto' : 'visible',
+                      textAlign: structured ? 'left' : 'right',
+                      overflowWrap: 'anywhere',
+                      wordBreak: 'break-word',
+                      whiteSpace: 'pre-wrap',
+                      fontFamily: structured ? 'ui-monospace, SFMono-Regular, Menlo, monospace' : 'Open Sans',
+                      fontWeight: structured ? 400 : 600,
+                      fontSize: structured ? '10px' : '12px',
+                      color: '#3B2A08',
+                      lineHeight: structured ? '14px' : '16px',
+                    }}
+                  >
+                    <InfocardData value={value} dataKey={key} config={structured ? 'string' : undefined} />
+                  </Typography>
+                </Box>
+              );
+            })}
+          </Box>
+        )}
         {additionalRows.length > 0 && <Box sx={{ width: 'calc(100% - 32px)', display: 'flex', flexDirection: 'column', padding: '16px', borderBottom: '1px solid #F0F0F0', gap: '12px' }}>
           <Typography sx={{ alignSelf: 'center', fontFamily: 'Open Sans', fontWeight: '600', fontSize: '10px', color: '#6B7880', lineHeight: '7px', textTransform: 'uppercase' }}>
             Additional properties
@@ -1163,7 +1389,7 @@ const InfocardMenu = ({ hoveredData, infoPanelOverrides }) => {
           {additionalRows.map(([key, value]) => (
             <Box key={key} sx={{ display: 'grid', gridTemplateColumns: 'minmax(92px, 0.8fr) minmax(0, 1.2fr)', columnGap: '10px', alignItems: 'start' }}>
               <Typography sx={{ fontFamily: 'Open Sans', fontWeight: '600', fontSize: '12px', color: '#6B7880', lineHeight: '14px', marginTop: '-5px' }}>{formatPropertyLabel(key)}</Typography>
-              <Typography component="span" sx={{ textAlign: 'right', minWidth: 0, overflowWrap: 'anywhere', wordBreak: 'break-word', whiteSpace: 'pre-wrap', maxHeight: '4.2em', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', fontFamily: 'Open Sans', fontWeight: '600', fontSize: '12px', color: '#263238', marginLeft: '8px', lineHeight: '14px', marginTop: '-5px' }}>
+              <Typography component="span" sx={{ textAlign: isStructuredInfocardValue(value) ? 'left' : 'right', minWidth: 0, overflowWrap: 'anywhere', wordBreak: 'break-word', whiteSpace: 'pre-wrap', maxHeight: isStructuredInfocardValue(value) ? '14em' : '4.2em', overflow: isStructuredInfocardValue(value) ? 'auto' : 'hidden', display: isStructuredInfocardValue(value) ? 'block' : '-webkit-box', WebkitLineClamp: isStructuredInfocardValue(value) ? 'unset' : 3, WebkitBoxOrient: 'vertical', fontFamily: isStructuredInfocardValue(value) ? 'ui-monospace, SFMono-Regular, Menlo, monospace' : 'Open Sans', fontWeight: isStructuredInfocardValue(value) ? '400' : '600', fontSize: isStructuredInfocardValue(value) ? '10px' : '12px', color: '#263238', marginLeft: '8px', lineHeight: '14px', marginTop: '-5px' }}>
                 <InfocardData value={value} dataKey={key} config={Array.isArray(value) ? 'list' : undefined} />
               </Typography>
             </Box>
@@ -1242,6 +1468,7 @@ export default function StandaloneKnowledgeGraph({
   defaultLegendVisible = false,
   developerMode = null,
   reviewMode = null,
+  searchConfig = null,
   exactPreviewCapture = false,
   sx = {},
 }) {
@@ -1281,6 +1508,7 @@ export default function StandaloneKnowledgeGraph({
   const [clickMenuEnabled, setClickMenuEnabled] = useState(true);
   const [downloadMenuOpen, setDownloadMenuOpen] = useState(false);
   const [jsonPreviewOpen, setJsonPreviewOpen] = useState(false);
+  const [searchDialogOpen, setSearchDialogOpen] = useState(false);
   const [modeMenuOpen, setModeMenuOpen] = useState(false);
   const [focusMenuOpen, setFocusMenuOpen] = useState(false);
   const [activeFocusLabel, setActiveFocusLabel] = useState('Overview');
@@ -1361,7 +1589,11 @@ export default function StandaloneKnowledgeGraph({
     ...(effectiveMetadata?.layout?.viewer_palette || {}),
   };
   const viewerNodeColors = effectiveMetadata?.layout?.node_colors || EMPTY_VIEWER_COLORS;
+  const viewerNodeBorderColors = effectiveMetadata?.layout?.node_border_colors || EMPTY_VIEWER_COLORS;
   const viewerNodeTextColors = effectiveMetadata?.layout?.node_text_colors || EMPTY_VIEWER_COLORS;
+  const layeredNavigationEnabled = Boolean(effectiveMetadata?.viewer?.layered_navigation);
+  const previousLayerRoute = effectiveMetadata?.navigation?.previous_layer_route;
+  const previousLayerLabel = effectiveMetadata?.navigation?.previous_layer_label || 'Back to previous layer';
   const viewerToolbarButtonSx = {
     ...toolbarButtonSx,
     border: `1px solid ${viewerPalette.border}`,
@@ -1446,6 +1678,37 @@ export default function StandaloneKnowledgeGraph({
       return;
     }
     window.location.assign(graphLink);
+  };
+
+  const focusSearchNode = (nodeId) => {
+    const cy = cyRef.current;
+    const node = cy?.getElementById(nodeId);
+    if (!node?.nonempty()) {
+      setActionMessage({ text: 'This search result is not present in the current graph view.', severity: 'warning' });
+      return false;
+    }
+    const configuredZoom = Number(effectiveMetadata?.layout?.search_focus_zoom) || 0.9;
+    const targetZoom = Math.min(maximumZoom, Math.max(cy.zoom(), configuredZoom));
+    cy.stop();
+    cy.animate({ center: { eles: node }, zoom: targetZoom }, { duration: 360 });
+    setHighlightedIds(new Set([nodeId]));
+    clearHighlightSoon();
+    return true;
+  };
+
+  const handleSearchResultOpen = (record, location) => {
+    if (!location?.route || !location?.node_id) return;
+    setSearchDialogOpen(false);
+    const currentViewId = displayMetadata?.view_id || displayMetadata?.authoring?.view_id;
+    if (location.view_id === currentViewId && focusSearchNode(location.node_id)) return;
+    const parameters = new URLSearchParams();
+    parameters.set('focus', location.node_id);
+    const target = `${String(location.route).split('?', 1)[0]}?${parameters.toString()}`;
+    if (searchConfig?.onOpenResult) {
+      searchConfig.onOpenResult({ record, location, target });
+      return;
+    }
+    developerNavigate(target);
   };
 
   const applyLayoutSnapshot = (snapshot) => {
@@ -2177,7 +2440,7 @@ export default function StandaloneKnowledgeGraph({
       const renderPosition = getRenderPosition(posData) || getRenderPosition(fallbackPosData);
       const renderWidth = getRenderWidth(posData);
       const renderHeight = getRenderHeight(posData);
-      const nodeType = getNodeType(node);
+      const nodeType = getNodeType(node, viewerNodeColors);
       const previewNodeData = getNodeBodyPreviewData(
         nodeType,
         node['~properties'],
@@ -2216,10 +2479,13 @@ export default function StandaloneKnowledgeGraph({
       const backgroundNode = buildTrackBackgroundNode(genomeRegion);
       const canvasImageNode = buildCanvasImageNode(canvasImage);
       const cellBackgroundNodes = buildCellBackgroundNodes(cellRegions);
-      const mechanismBackgroundNodes = buildMechanismBackgroundNodes(mechanismRegions);
+      const titleStyle = effectiveMetadata?.layout?.mechanism_region_title_style || {};
+      const mechanismBackgroundNodes = buildMechanismBackgroundNodes(mechanismRegions, titleStyle.mode);
+      const mechanismTitleNodes = buildMechanismTitleNodes(mechanismRegions, titleStyle);
       return [
         ...(canvasImageNode ? [canvasImageNode] : []),
         ...mechanismBackgroundNodes,
+        ...mechanismTitleNodes,
         ...(backgroundNode ? [backgroundNode] : []),
         ...cellBackgroundNodes,
         ...graphNodes,
@@ -2304,16 +2570,7 @@ export default function StandaloneKnowledgeGraph({
     cyRef.current = cytoscape({
       container: containerRef.current,
       elements: { nodes, edges },
-      style: nodeStyle.concat(
-        Object.entries(viewerNodeColors).map(([type, color]) => ({
-          selector: `node[type = "${type}"][Level = "Core"]`,
-          style: {
-            'background-color': color,
-            'border-color': color,
-            color: viewerNodeTextColors[type] || '#193336',
-          },
-        })),
-        [
+      style: nodeStyle.concat([
         {
           selector: 'node[renderWidth]',
           style: {
@@ -2336,6 +2593,7 @@ export default function StandaloneKnowledgeGraph({
             color: '#0F172A',
           },
         },
+        ...buildViewNodeStyles(viewerNodeColors, viewerNodeBorderColors, viewerNodeTextColors),
         {
           selector: 'node[image_url]',
           style: {
@@ -2467,7 +2725,46 @@ export default function StandaloneKnowledgeGraph({
           },
         },
         {
-          selector: 'node[trackBackground != "true"][cellBackground != "true"][mechanismBackground != "true"][canvasImage != "true"]',
+          selector: 'node[mechanismTitle = "true"]',
+          style: {
+            shape: 'data(mechanismTitleShape)',
+            label: 'data(label)',
+            'background-color': 'data(mechanismTitleFill)',
+            'background-opacity': 1,
+            'border-width': 3,
+            'border-color': 'data(mechanismTitleBorder)',
+            color: 'data(mechanismTitleColor)',
+            'font-size': 'data(mechanismTitleFontSize)',
+            'font-weight': 800,
+            'text-wrap': 'wrap',
+            'text-valign': 'center',
+            'text-halign': 'left',
+            'text-margin-x': '-12px',
+            'z-index-compare': 'manual',
+            'z-index': 20,
+            events: 'no',
+            'overlay-opacity': 0,
+          },
+        },
+        {
+          selector: 'node[mechanismTitleMode = "region_tab_v1"]',
+          style: {
+            'border-width': 4,
+            'text-halign': 'center',
+            'text-margin-x': '0px',
+            'text-max-width': 'data(mechanismTitleTextMaxWidth)',
+            'text-wrap': 'wrap',
+          },
+        },
+        {
+          selector: 'node[mechanismTitleVariant = "compact-tag"]',
+          style: {
+            shape: 'polygon',
+            'shape-polygon-points': '-1 -1 0.76 -1 1 0 0.76 1 -1 1',
+          },
+        },
+        {
+          selector: 'node[trackBackground != "true"][cellBackground != "true"][mechanismBackground != "true"][mechanismTitle != "true"][canvasImage != "true"]',
           style: {
             'z-index-compare': 'manual',
             'z-index': 10,
@@ -2702,7 +2999,17 @@ export default function StandaloneKnowledgeGraph({
     setInitZoom(cy.zoom());
     const initialFocusNodeId = effectiveMetadata?.layout?.initial_focus_node_id;
     if (typeof initialFocusNodeId === 'string' && cy.getElementById(initialFocusNodeId)?.nonempty()) {
+      const focusNode = cy.getElementById(initialFocusNodeId);
+      const configuredZoom = Number(effectiveMetadata?.layout?.search_focus_zoom) || 0.9;
+      const targetZoom = Math.min(maximumZoom, Math.max(cy.zoom(), configuredZoom));
+      cy.stop();
+      cy.animate({ center: { eles: focusNode }, zoom: targetZoom }, { duration: 360 });
       setHighlightedIds(new Set([initialFocusNodeId]));
+      clearTimeout(highlightTimeoutRef.current);
+      highlightTimeoutRef.current = setTimeout(
+        () => setHighlightedIds(new Set()),
+        HIGHLIGHT_DURATION_MS,
+      );
     }
     syncViewportState();
     if (reviewEnabled && reviewMode?.allowNodeDragging !== true) {
@@ -2990,6 +3297,16 @@ export default function StandaloneKnowledgeGraph({
             </>
           )}
           <Box ref={toolbarSecondaryGroupRef} sx={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {searchConfig?.index?.records?.length > 0 && (
+              <Button
+                onClick={() => setSearchDialogOpen(true)}
+                variant="outlined"
+                startIcon={<SearchIcon sx={{ fontSize: '16px' }} />}
+                sx={viewerToolbarButtonSx}
+              >
+                Search
+              </Button>
+            )}
             {!reviewEnabled && <Box sx={{ position: 'relative' }}>
               <Button onClick={() => setDownloadMenuOpen((previous) => !previous)} variant="outlined" startIcon={<FileDownloadIcon sx={{ fontSize: '16px' }} />} sx={viewerToolbarButtonSx}>Download</Button>
               {downloadMenuOpen && (
@@ -3141,13 +3458,17 @@ export default function StandaloneKnowledgeGraph({
             position: 'fixed',
             left: infocardPosition.x,
             top: infocardPosition.y,
-            background: '#fff',
+            background: layeredNavigationEnabled ? viewerPalette.surface : '#fff',
+            border: layeredNavigationEnabled ? `1px solid ${viewerPalette.border}` : 'none',
             borderRadius: '8px',
-            overflow: 'hidden',
+            maxHeight: '80vh',
+            overflowX: 'hidden',
+            overflowY: 'auto',
+            overscrollBehavior: 'contain',
             color: '#333',
             boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
             zIndex: INFOCARD_Z_INDEX,
-            width: '280px',
+            width: 'min(430px, calc(100vw - 24px))',
             pointerEvents: infocardVisible ? 'auto' : 'none',
             opacity: infocardVisible ? 1 : 0,
             display: 'block',
@@ -3157,7 +3478,21 @@ export default function StandaloneKnowledgeGraph({
             wordWrap: 'break-word',
           }}
         >
-          <InfocardMenu hoveredData={activeNode?.data()} infoPanelOverrides={infoPanelOverrides} />
+          <GraphInfocard
+            hoveredData={activeNode?.data()}
+            infoPanelOverrides={infoPanelOverrides}
+            theme={layeredNavigationEnabled ? {
+              surface: viewerPalette.surface,
+              softSurface: viewerPalette.softSurface,
+              border: viewerPalette.border,
+              ink: viewerPalette.ink,
+              mutedInk: viewerPalette.mutedInk,
+              link: viewerPalette.control,
+              accentFill: viewerNodeColors[activeNode?.data()?.type],
+              accentBorder: viewerNodeBorderColors[activeNode?.data()?.type],
+              accentText: viewerNodeTextColors[activeNode?.data()?.type],
+            } : undefined}
+          />
         </div>,
         document.body,
       )}
@@ -3255,12 +3590,26 @@ export default function StandaloneKnowledgeGraph({
           )}
         </Box>
       )}
+        {layeredNavigationEnabled && previousLayerRoute && (
+          <Button
+            onClick={() => developerNavigate(previousLayerRoute)}
+            startIcon={<ArrowBackIcon />}
+            sx={{
+              ...viewerToolbarButtonSx,
+              position: 'absolute', top: '24px', left: '32px', zIndex: 6,
+              height: '44px', padding: '0 14px', fontWeight: 700,
+              boxShadow: `0px 8px 12px ${viewerPalette.shadow}`,
+            }}
+          >
+            {previousLayerLabel}
+          </Button>
+        )}
         <div
           style={{
-            position: 'absolute',
-            top: '24px',
-            left: '32px',
-            display: 'flex',
+            position: layeredNavigationEnabled ? 'static' : 'absolute',
+            top: layeredNavigationEnabled ? undefined : '24px',
+            left: layeredNavigationEnabled ? undefined : '32px',
+            display: layeredNavigationEnabled ? 'contents' : 'flex',
             flexDirection: 'column',
             justifyContent: 'space-between',
             gap: '16px',
@@ -3269,7 +3618,7 @@ export default function StandaloneKnowledgeGraph({
             zIndex: 4,
           }}
         >
-          <div style={{ display: 'flex', flexDirection: 'column', flex: '0 1 auto', minHeight: 0, overflow: 'hidden', background: viewerPalette.surface, border: `0.75px solid ${viewerPalette.border}`, borderRadius: '16px', boxShadow: `0px 8px 12px ${viewerPalette.shadow}` }}>
+          <div style={{ display: 'flex', flexDirection: 'column', flex: '0 1 auto', minHeight: 0, overflow: 'hidden', maxHeight: layeredNavigationEnabled ? '40vh' : undefined, position: layeredNavigationEnabled ? 'absolute' : undefined, right: layeredNavigationEnabled ? '88px' : undefined, bottom: layeredNavigationEnabled ? '24px' : undefined, width: layeredNavigationEnabled ? '208px' : undefined, zIndex: layeredNavigationEnabled ? 6 : undefined, background: viewerPalette.surface, border: `0.75px solid ${viewerPalette.border}`, borderRadius: '16px', boxShadow: `0px 8px 12px ${viewerPalette.shadow}` }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px 12.75px', borderBottom: legendVisible ? '0.75px solid #F1F5F9' : 'none' }}>
               <Typography sx={{ fontFamily: 'Inter, sans-serif', fontSize: '16px', fontWeight: 600, lineHeight: '24px', color: viewerPalette.ink }}>
                 Legend
@@ -3279,7 +3628,7 @@ export default function StandaloneKnowledgeGraph({
               </IconButton>
             </div>
             {legendVisible && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', overflowY: 'auto', padding: '12px 20px 16px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', overflowY: 'auto', maxHeight: layeredNavigationEnabled ? 'calc(40vh - 62px)' : undefined, padding: '12px 20px 16px' }}>
                 <Typography sx={{ fontFamily: 'Inter, sans-serif', fontSize: '12px', fontWeight: 600, letterSpacing: '1.2px', textTransform: 'uppercase', color: viewerPalette.mutedInk, paddingBottom: '8px' }}>
                   Node types
                 </Typography>
@@ -3291,7 +3640,7 @@ export default function StandaloneKnowledgeGraph({
           </div>
           <Box
             onClick={handleThumbnailClick}
-            sx={{ display: 'flex', flexDirection: 'column', flex: '0 0 auto', gap: '12px', padding: '16px 20px', background: viewerPalette.surface, border: `0.75px solid ${viewerPalette.border}`, borderRadius: '16px', boxShadow: `0px 8px 12px ${viewerPalette.shadow}` }}
+            sx={{ display: 'flex', flexDirection: 'column', flex: '0 0 auto', gap: '12px', padding: '16px 20px', position: layeredNavigationEnabled ? 'absolute' : 'relative', left: layeredNavigationEnabled ? '32px' : undefined, bottom: layeredNavigationEnabled ? '24px' : undefined, width: layeredNavigationEnabled ? '208px' : undefined, zIndex: layeredNavigationEnabled ? 6 : undefined, background: viewerPalette.surface, border: `0.75px solid ${viewerPalette.border}`, borderRadius: '16px', boxShadow: `0px 8px 12px ${viewerPalette.shadow}` }}
           >
             <Typography sx={{ fontFamily: 'Inter, sans-serif', fontSize: '12px', fontWeight: 600, letterSpacing: '1.2px', textTransform: 'uppercase', color: viewerPalette.mutedInk }}>
               Overview
@@ -3413,6 +3762,17 @@ export default function StandaloneKnowledgeGraph({
         downloadDisabled={((reviewSelectionGraph || visibleGraphExport)?.nodes?.length || 0) > exportNodeLimit}
         downloadLimit={exportNodeLimit}
       />
+      {searchConfig?.index?.records?.length > 0 && (
+        <GraphViewerSearchDialog
+          open={searchDialogOpen}
+          index={searchConfig.index}
+          indexUrl={searchConfig.indexUrl}
+          currentViewId={displayMetadata?.view_id || displayMetadata?.authoring?.view_id || ''}
+          searchProvider={searchConfig.searchProvider}
+          onClose={() => setSearchDialogOpen(false)}
+          onOpenResult={handleSearchResultOpen}
+        />
+      )}
       {developerEnabled && (
         <Suspense fallback={null}>
           <GraphViewerDeveloperDialog

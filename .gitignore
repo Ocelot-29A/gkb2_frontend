@@ -39,3 +39,9 @@ temp/*
 
 # Generated, report-only static fixtures for the T1D Immune GPS v6 demo.
 /public/t1d-gps-v6*/
+
+# Generated, report-only static fixtures for the T1D Immune GPS v7 demo.
+/public/t1d-gps-v7*/
+
+# Generated, report-only static fixtures for the ontology-locked V8 demo.
+/public/t1d-gps-v8*/

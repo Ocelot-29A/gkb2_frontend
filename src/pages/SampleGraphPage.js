@@ -20,6 +20,10 @@ const T1D_GPS_V5_S3_BASE_URL = 'https://pank-s3-to-share.s3.us-east-1.amazonaws.
 const T1D_GPS_V5_FIXTURE_BASE_URL = process.env.REACT_APP_T1D_GPS_V5_FIXTURE_BASE_URL;
 const T1D_GPS_V6_S3_BASE_URL = 'https://pank-s3-to-share.s3.us-east-1.amazonaws.com/t1d-gps-v6';
 const T1D_GPS_V6_FIXTURE_BASE_URL = process.env.REACT_APP_T1D_GPS_V6_FIXTURE_BASE_URL;
+const T1D_GPS_V7_S3_BASE_URL = 'https://pank-s3-to-share.s3.us-east-1.amazonaws.com/t1d-gps-v7';
+const T1D_GPS_V7_FIXTURE_BASE_URL = process.env.REACT_APP_T1D_GPS_V7_FIXTURE_BASE_URL;
+const T1D_GPS_V8_S3_BASE_URL = 'https://pank-s3-to-share.s3.us-east-1.amazonaws.com/t1d-gps-v8';
+const T1D_GPS_V8_FIXTURE_BASE_URL = process.env.REACT_APP_T1D_GPS_V8_FIXTURE_BASE_URL;
 const T1D_REVIEW_MODE = process.env.REACT_APP_T1D_REVIEW_MODE === 'true';
 
 const versionedFixtureConfig = {
@@ -34,6 +38,14 @@ const versionedFixtureConfig = {
   't1d-gps-v6': {
     overrideUrl: T1D_GPS_V6_FIXTURE_BASE_URL,
     deployedUrl: T1D_GPS_V6_S3_BASE_URL,
+  },
+  't1d-gps-v7': {
+    overrideUrl: T1D_GPS_V7_FIXTURE_BASE_URL,
+    deployedUrl: T1D_GPS_V7_S3_BASE_URL,
+  },
+  't1d-gps-v8': {
+    overrideUrl: T1D_GPS_V8_FIXTURE_BASE_URL,
+    deployedUrl: T1D_GPS_V8_S3_BASE_URL,
   },
 };
 
@@ -70,11 +82,12 @@ export const exactPreviewCaptureRequested = (search = window.location.search) =>
 
 export const graphFocusNodeIdRequested = (search = window.location.search) => {
   const value = new URLSearchParams(search || '').get('focus') || '';
-  return /^[A-Za-z0-9_.:-]+$/.test(value) ? value : '';
+  if (!value || value.length > 256 || value.includes('..')) return '';
+  return /^[A-Za-z0-9_.:@#~-]+$/.test(value) ? value : '';
 };
 
 export const t1dGpsDeveloperContextFor = (fixtureName) => {
-  const match = /^(t1d-gps-(v[56]))\/(.+)$/.exec(fixtureName || '');
+  const match = /^(t1d-gps-(v[5678]))\/(.+)$/.exec(fixtureName || '');
   return match ? { fixtureVersion: match[1], release: match[2], viewId: match[3] } : null;
 };
 
@@ -106,26 +119,32 @@ const loadJson = async (baseUrl, path) => {
 export default function SampleGraphPage({ fixtureName = 'samplegraph' }) {
   const [demo, setDemo] = useState(null);
   const [error, setError] = useState('');
-  const isLayeredT1DDemo = fixtureName.startsWith('layeredgraph') || fixtureName.startsWith('t1d-gps-v4') || fixtureName.startsWith('t1d-gps-v5') || fixtureName.startsWith('t1d-gps-v6');
+  const isLayeredT1DDemo = fixtureName.startsWith('layeredgraph') || fixtureName.startsWith('t1d-gps-v4') || fixtureName.startsWith('t1d-gps-v5') || fixtureName.startsWith('t1d-gps-v6') || fixtureName.startsWith('t1d-gps-v7') || fixtureName.startsWith('t1d-gps-v8');
   const developerContext = useMemo(() => t1dGpsDeveloperContextFor(fixtureName), [fixtureName]);
   const reviewMode = useMemo(() => t1dGpsReviewModeFor(fixtureName), [fixtureName]);
   const exactPreviewCapture = exactPreviewCaptureRequested();
-  const requestedFocusNodeId = fixtureName.startsWith('t1d-gps-v6/')
+  const requestedFocusNodeId = /^(t1d-gps-v[678])\//.test(fixtureName)
     ? graphFocusNodeIdRequested()
     : '';
   const developerMode = useMemo(() => {
     if (!developerContext || reviewMode?.enabled) return null;
     const local = ['127.0.0.1', 'localhost'].includes(window.location.hostname);
-    const v6ApiBase = process.env.REACT_APP_T1D_GPS_V6_DEV_API_URL;
+    const versionedApiBase = {
+      v6: process.env.REACT_APP_T1D_GPS_V6_DEV_API_URL,
+      v7: process.env.REACT_APP_T1D_GPS_V7_DEV_API_URL,
+      v8: process.env.REACT_APP_T1D_GPS_V8_DEV_API_URL,
+    }[developerContext.release];
     const localWritesEnabled = local && (
-      developerContext.release === 'v5' || Boolean(v6ApiBase)
+      developerContext.release === 'v5' || Boolean(versionedApiBase)
     );
     return {
       enabled: true,
       adapter: createT1dGpsAuthoringAdapter({
         local: localWritesEnabled,
         release: developerContext.release,
-        ...(v6ApiBase && developerContext.release === 'v6' ? { apiBase: v6ApiBase } : {}),
+        ...(versionedApiBase && ['v6', 'v7', 'v8'].includes(developerContext.release)
+          ? { apiBase: versionedApiBase }
+          : {}),
       }),
       permissions: { editData: true, editInfoPanel: true, saveLayout: true },
     };
@@ -139,6 +158,7 @@ export default function SampleGraphPage({ fixtureName = 'samplegraph' }) {
         setError('');
         const fixtureBaseUrl = fixtureBaseUrlFor(fixtureName);
         const fixtureAssetBaseUrl = fixtureRootUrlFor(fixtureName);
+        const fixtureVersion = fixtureVersionFor(fixtureName);
         const apiUrl = fixtureName === 'mechanismgraph' ? MECHANISMGRAPH_API_URL : SAMPLEGRAPH_API_URL;
         const loadedDemo = apiUrl && ['samplegraph', 'mechanismgraph'].includes(fixtureName)
           ? await (async () => {
@@ -164,13 +184,18 @@ export default function SampleGraphPage({ fixtureName = 'samplegraph' }) {
               ? loadJson(fixtureBaseUrl, 'edge_routes.json')
               : Promise.resolve(null),
             loadJson(fixtureBaseUrl, 'metadata.json'),
-          ]).then(([queryRequest, graphData, coordData, edgeRoutes, metadata]) => ({
+            ['t1d-gps-v7', 't1d-gps-v8'].includes(fixtureVersion)
+              ? loadJson(fixtureAssetBaseUrl, 'search-index.json').catch(() => null)
+              : Promise.resolve(null),
+          ]).then(([queryRequest, graphData, coordData, edgeRoutes, metadata, searchIndex]) => ({
             queryRequest,
             graphData,
             coordData,
             edgeRoutes,
             metadata,
             assetBaseUrl: fixtureAssetBaseUrl,
+            searchIndex,
+            searchIndexUrl: searchIndex ? `${fixtureAssetBaseUrl.replace(/\/$/, '')}/search-index.json` : '',
           }));
 
         if (!active) {
@@ -243,6 +268,10 @@ export default function SampleGraphPage({ fixtureName = 'samplegraph' }) {
             containerHeight="calc(100vh - 315px)"
             developerMode={developerMode}
             reviewMode={reviewMode}
+            searchConfig={demo.searchIndex ? {
+              index: demo.searchIndex,
+              indexUrl: demo.searchIndexUrl,
+            } : null}
             exactPreviewCapture={exactPreviewCapture}
           />
         ) : (

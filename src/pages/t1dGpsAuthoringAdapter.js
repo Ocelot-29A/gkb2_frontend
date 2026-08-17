@@ -35,7 +35,7 @@ const createExportAdapter = (release) => ({
     return { record: edited };
   },
   loadInfoPanel: async ({ panel }) => ({ panel }),
-  validateInfoPanel: ({ panel }) => (Array.isArray(panel) ? [] : ['Info panel must be an array.']),
+  validateInfoPanel: ({ panel }) => (Array.isArray(panel) || (panel && typeof panel === 'object') ? [] : ['Info panel must be an array or V2 object.']),
   saveInfoPanel: async ({ kind, type, panel }) => {
     download(`graph-viewer-schema.${type}.patch.json`, { kind, type, info_panel: panel });
     return { panel };
@@ -58,7 +58,7 @@ export const createT1dGpsAuthoringAdapter = ({
     validateRecord: ({ edited }) => validObject(edited, 'Record'),
     saveRecord: ({ original, edited, context }) => requestJson(`${apiBase}/records/${encodeURIComponent(context.viewId)}/${encodeURIComponent(original['~id'])}`, { method: 'PATCH', body: JSON.stringify({ original, edited, release }) }),
     loadInfoPanel: ({ kind, type }) => requestJson(`${apiBase}/info-panels/${encodeURIComponent(kind)}/${encodeURIComponent(type)}`),
-    validateInfoPanel: ({ panel }) => (Array.isArray(panel) ? [] : ['Info panel must be an array.']),
+    validateInfoPanel: ({ panel }) => (Array.isArray(panel) || (panel && typeof panel === 'object') ? [] : ['Info panel must be an array or V2 object.']),
     saveInfoPanel: ({ kind, type, panel }) => requestJson(`${apiBase}/info-panels/${encodeURIComponent(kind)}/${encodeURIComponent(type)}`, { method: 'PUT', body: JSON.stringify({ panel }) }),
     resetInfoPanel: ({ kind, type }) => requestJson(`${apiBase}/info-panels/${encodeURIComponent(kind)}/${encodeURIComponent(type)}`, { method: 'DELETE' }),
     saveLayout: ({ viewId, positions }) => requestJson(`${apiBase}/layouts/${encodeURIComponent(viewId)}`, { method: 'PUT', body: JSON.stringify({ release, positions }) }),

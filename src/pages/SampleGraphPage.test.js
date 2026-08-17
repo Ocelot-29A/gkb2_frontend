@@ -9,6 +9,8 @@ import {
 } from './SampleGraphPage';
 import { T1D_GPS_V5_VIEW_PATHS } from './t1dGpsV5Routes';
 import { T1D_GPS_V6_VIEW_PATHS } from './t1dGpsV6Routes';
+import { T1D_GPS_V7_VIEW_PATHS } from './t1dGpsV7Routes';
+import { T1D_GPS_V8_VIEW_PATHS } from './t1dGpsV8Routes';
 
 describe('T1D GPS v4 fixture hosting', () => {
   test('keeps local development on the ignored local fixture', () => {
@@ -24,6 +26,81 @@ describe('T1D GPS v4 fixture hosting', () => {
   test('does not change existing fixture paths', () => {
     expect(fixtureBaseUrlFor('layeredgraph/overview', 'dev.genomickb.org'))
       .toBe('/layeredgraph/overview');
+  });
+});
+
+describe('T1D GPS v7 fixture hosting and hierarchy', () => {
+  test('keeps local V7 fixtures local and uses the versioned S3 root when deployed', () => {
+    expect(fixtureBaseUrlFor('t1d-gps-v7/pathways/islet-entry-spatial-insulitis', 'localhost'))
+      .toBe('/t1d-gps-v7/pathways/islet-entry-spatial-insulitis');
+    expect(fixtureBaseUrlFor(
+      't1d-gps-v7/details/beta-cell-stimulus-secretion-and-reserve',
+      'dev.genomickb.org',
+    )).toBe('https://pank-s3-to-share.s3.us-east-1.amazonaws.com/t1d-gps-v7/details/beta-cell-stimulus-secretion-and-reserve');
+  });
+
+  test('registers the complete 26-view V7 hierarchy', () => {
+    expect(T1D_GPS_V7_VIEW_PATHS).toHaveLength(26);
+    expect(new Set(T1D_GPS_V7_VIEW_PATHS).size).toBe(26);
+    expect(T1D_GPS_V7_VIEW_PATHS.filter((path) => path.startsWith('pathways/'))).toHaveLength(10);
+    expect(T1D_GPS_V7_VIEW_PATHS.filter((path) => path.startsWith('details/'))).toHaveLength(15);
+    expect(T1D_GPS_V7_VIEW_PATHS).toEqual(expect.arrayContaining([
+      'pathways/islet-entry-spatial-insulitis',
+      'pathways/glucose-homeostasis-and-beta-cell-reserve',
+      'details/microvascular-immune-entry',
+      'details/beta-cell-stimulus-secretion-and-reserve',
+    ]));
+  });
+
+  test('authorizes Developer Mode for V7 views', () => {
+    expect(t1dGpsDeveloperContextFor('t1d-gps-v7/overview')).toEqual({
+      fixtureVersion: 't1d-gps-v7', release: 'v7', viewId: 'overview',
+    });
+  });
+
+  test('accepts bounded contextual focus IDs but rejects paths and traversal', () => {
+    expect(graphFocusNodeIdRequested('?focus=A02%40stimulus-secretion-detail')).toBe('A02@stimulus-secretion-detail');
+    expect(graphFocusNodeIdRequested('?focus=cell%23one')).toBe('cell#one');
+    expect(graphFocusNodeIdRequested('?focus=../secret')).toBe('');
+    expect(graphFocusNodeIdRequested('?focus=path/to/node')).toBe('');
+  });
+});
+
+describe('T1D GPS v8 fixture hosting and ontology-locked hierarchy', () => {
+  test('keeps local V8 fixtures local and uses the isolated V8 S3 root when deployed', () => {
+    expect(fixtureBaseUrlFor(
+      't1d-gps-v8/pathways/immune-cell-differentiation-foundation',
+      'localhost',
+    )).toBe('/t1d-gps-v8/pathways/immune-cell-differentiation-foundation');
+    expect(fixtureBaseUrlFor(
+      't1d-gps-v8/pathways/human-alpha-beta-t-cell-differentiation-and-regulation',
+      'dev.genomickb.org',
+    )).toBe('https://pank-s3-to-share.s3.us-east-1.amazonaws.com/t1d-gps-v8/pathways/human-alpha-beta-t-cell-differentiation-and-regulation');
+  });
+
+  test('registers exactly 28 V8 views while retaining all 26 V7 paths', () => {
+    expect(T1D_GPS_V8_VIEW_PATHS).toHaveLength(28);
+    expect(new Set(T1D_GPS_V8_VIEW_PATHS).size).toBe(28);
+    expect(T1D_GPS_V8_VIEW_PATHS.filter((path) => path.startsWith('pathways/'))).toHaveLength(12);
+    expect(T1D_GPS_V8_VIEW_PATHS.filter((path) => path.startsWith('details/'))).toHaveLength(15);
+    expect(T1D_GPS_V7_VIEW_PATHS.every((path) => T1D_GPS_V8_VIEW_PATHS.includes(path))).toBe(true);
+    expect(T1D_GPS_V8_VIEW_PATHS).toEqual(expect.arrayContaining([
+      'pathways/immune-cell-differentiation-foundation',
+      'pathways/human-alpha-beta-t-cell-differentiation-and-regulation',
+    ]));
+  });
+
+  test('authorizes the existing Developer Mode adapter for V8 without changing V7', () => {
+    expect(t1dGpsDeveloperContextFor(
+      't1d-gps-v8/pathways/immune-cell-differentiation-foundation',
+    )).toEqual({
+      fixtureVersion: 't1d-gps-v8',
+      release: 'v8',
+      viewId: 'pathways/immune-cell-differentiation-foundation',
+    });
+    expect(t1dGpsDeveloperContextFor('t1d-gps-v7/overview')).toEqual({
+      fixtureVersion: 't1d-gps-v7', release: 'v7', viewId: 'overview',
+    });
   });
 });
 

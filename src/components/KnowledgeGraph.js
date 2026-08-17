@@ -15,7 +15,6 @@ import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
 import {
   Box,
   Collapse,
-  Link,
   Typography,
 } from '@mui/material';
 import IconButton from '@mui/material/IconButton';
@@ -29,9 +28,7 @@ import InfoEnableIcon
 import downloadIcon from '../image/material-symbols--download-rounded.svg';
 import recenterIcon from '../image/material-symbols--recenter-rounded.svg';
 import sampleResponse from '../schema/demo_query_result.json';
-import graphInfocard from '../schema/graph_viewer_schema.json';
-import { addWhitespace } from '../utils/textProcessing';
-import { formatInfocardValue, getInfocardHref } from './graphViewerInfocardValue';
+import GraphInfocard from './GraphInfocard';
 import {
   edgeIsInverted,
   edgeLabels,
@@ -110,231 +107,6 @@ export default function KnowledgeGraph() {
       document.body.removeChild(link);
     }
   };
-
-  const InfocardData = ({ value, config, dataKey }) => {
-    // config can be either just a type or the form "type(setting)""
-    const safeConfig = typeof config === 'string' ? config : '';
-    const setting = safeConfig.match(/\(([^)]+)\)/)?.[1];
-    const type = setting ? safeConfig.split('(')[0] : safeConfig;
-    return !type ? (<>{formatInfocardValue(value)}</>) :
-      type === "string" ? (
-        <>{formatInfocardValue(value)}</>
-      ) :
-        type === "list" ? (
-          <>{formatInfocardValue(value)}</>
-      ) :
-        type === "int" ? (
-          <>{value ? parseInt(value).toLocaleString() : "No Data"}</>
-        ) :
-          type === "float" ? (
-            <>{value ? parseFloat(value).toFixed(setting || 1) : "No Data"}</>
-          ) : ["link", "link_static"].includes(type) ? (
-            <Link href={getInfocardHref(type === "link" ? value : dataKey) || undefined} target="_blank" rel="noopener noreferrer" sx={{
-              textDecoration: "none",
-              "&:hover": {
-                textDecoration: "underline",
-                cursor: "pointer",
-              },
-            }}>
-              Open Link ↗
-            </Link>
-          ) : ["label_chr", "label_percentage"].includes(type) ? (
-            <div style={{
-              backgroundColor: setting || "#0FB47D",
-              height: "14px",
-              padding: "1.5px 4px",
-              marginY: "-4px",
-              borderRadius: "8.5px",
-              textDecoration: "none",
-              color: "white",
-              fontFamily: "Open Sans",
-              fontWeight: "700",
-              fontSize: "12px"
-            }}>
-              {value ? (type === "label_chr" ? `Chr${value}` : `${parseFloat(value).toFixed(1)}%`) : "No Data"}
-            </div>
-          ) : (
-            <span>{formatInfocardValue(value)}</span>
-          );
-  }
-
-  const InfocardMenu = () => {
-    const hoveredData = cyRef.current?.getElementById(hoveredId)?.data();
-    const isEdge = hoveredData?.source && hoveredData?.target;
-    const schema = (isEdge ? graphInfocard?.edges : graphInfocard?.nodes)?.[hoveredData?.type]?.info_panel;
-    const titleColumn = schema?.find(([label, _]) => label === "Title");
-    const footerInfo = schema?.find(([label, _]) => label === "Footer")?.[1] || [];
-    return (
-      hoveredData && (schema?.length > 0
-        ? (
-          <>
-            {/* Title Bar */}
-            <Box sx={{
-              display: "flex",
-              paddingY: "17px",
-              textAlign: "center",
-              backgroundColor: "#E4F0F1",
-              alignItems: "center",
-              justifyContent: "center",
-            }}>
-              <Typography sx={{
-                fontFamily: "Open Sans",
-                fontWeight: "700",
-                fontSize: "20px",
-                lineHeight: "20px",
-              }}>
-                <InfocardData
-                  value={typeof hoveredData[titleColumn?.[1]] === 'string'
-                    ? hoveredData[titleColumn?.[1]].replace(/_/g, ' ')
-                    : hoveredData[titleColumn?.[1]]}
-                  dataKey={titleColumn?.[1]}
-                  config={titleColumn?.[2]}
-                />
-              </Typography>
-            </Box>
-            {
-              schema.map(([title, content, config]) => (
-                ["Title", "Footer"].includes(title) ? "" : (
-                  <Box key={title} sx={{
-                    width: "calc(100% - 32px)",
-                    display: "flex",
-                    flexDirection: "column",
-                    padding: "16px",
-                    borderBottom: "1px solid #F0F0F0",
-                    gap: "12px",
-                  }}>
-                    {/* Part Subtitle */}
-                    <Typography sx={{
-                      alignSelf: "center",
-                      fontFamily: "Open Sans",
-                      fontWeight: "600",
-                      fontSize: "10px",
-                      color: "#6B7880",
-                      lineHeight: "7px",
-                      textTransform: "uppercase",
-                    }}>
-                      {title}
-                    </Typography>
-                    {
-                      Array.isArray(content) ? (
-                        content.map(([label, key, config]) => ( // Data Row
-                          <Box key={key} sx={{ display: "flex", flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-                            <Typography sx={{
-                              fontFamily: "Open Sans",
-                              fontWeight: "600",
-                              fontSize: "12px",
-                              color: "#6B7880",
-                              lineHeight: "14px",
-                              marginTop: "-5px",
-                            }}>
-                              {label}
-                            </Typography>
-                            <Typography
-                              component="span"
-                              sx={{
-                                textAlign: "right",
-                                fontFamily: "Open Sans",
-                                fontWeight: "600",
-                                fontSize: "12px",
-                                color: "#263238",
-                                marginLeft: "8px",
-                                lineHeight: "14px",
-                                marginTop: "-5px",
-                              }}
-                            >
-                              <InfocardData value={hoveredData[key]} dataKey={key} config={config} />
-                            </Typography>
-                          </Box>
-                        )))
-                        : ( // Text Content
-                          <Box sx={{ display: "flex", flexDirection: "row", alignItems: "center" }}>
-                            <Typography
-                              sx={{
-                                marginTop: "-5px",
-                                fontFamily: "Open Sans",
-                                fontWeight: "600",
-                                fontSize: "10px",
-                                lineHeight: "15px",
-                                wordWrap: "break-word",
-                                color: "#263238",
-                                textAlign: "justify",
-                              }}
-                            >
-                              {(() => {
-                                const rawValue = hoveredData[content];
-                                const processedData = config !== "string" && typeof rawValue === 'string'
-                                  ? addWhitespace(rawValue)
-                                  : rawValue;
-                                const processedKey = config === "string" ? addWhitespace(content) : content;
-                                return <InfocardData value={processedData} dataKey={processedKey} config={config} />
-                              })()}
-                            </Typography>
-                          </Box>
-                        )
-                    }
-                  </Box>
-                )
-              ))
-            }
-            {/* Footer */}
-            <Box sx={{
-              display: "flex",
-              height: "30px",
-              textAlign: "center",
-              alignItems: "center",
-              justifyContent: "center",
-              background: "linear-gradient(360deg, #CACFD5 -73.08%, #F4F6F8 75%)",
-            }}>
-              <Typography sx={{ fontWeight: "600", fontSize: "9px", color: "#5F7885" }}>
-                {footerInfo?.map(
-                  ([label, key, config], index) =>
-                    index === 0
-                      ? <span key={index}>
-                        {`${label}: `}
-                        <InfocardData value={hoveredData[key]} dataKey={key} config={config} />
-                      </span>
-                      : <span key={index}>
-                        {` | ${label}: `}
-                        <InfocardData value={hoveredData[key]} dataKey={key} config={config} />
-                      </span>
-                )}
-              </Typography>
-            </Box>
-          </>
-        )
-        : (<div style={{
-          padding: "16px",
-          fontFamily: "Open Sans",
-          fontWeight: "600",
-          alignContent: "center",
-        }}>
-          <div style={{ fontWeight: "bold", marginBottom: "8px" }}>
-            {hoveredData?.HGNC_symbol || hoveredData?.id}
-          </div>
-          {Object.entries(hoveredData || {})?.map(
-            ([key, value]) =>
-              key !== "type" &&
-              (key === "link" || key === "url" ? (
-                <div key={key}>
-                  <span style={{ fontWeight: 500 }}>{key}:</span>{" "}
-                  <a
-                    href={getInfocardHref(value) || undefined}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{ color: "#007bff" }}
-                  >
-                    {getInfocardHref(value) ? 'Open Link ↗' : 'Not Available'}
-                  </a>
-                </div>
-              ) : (
-                <div key={key}>
-                  <span style={{ fontWeight: 500 }}>{key}:</span> {formatInfocardValue(value)}
-                </div>
-              ))
-          )}
-        </div>))
-    );
-  }
 
   useEffect(() => {
     const container = document.getElementById("cy-container");
@@ -602,11 +374,14 @@ export default function KnowledgeGraph() {
           top: infocardPosition.y,
           background: "#fff",
           borderRadius: "8px",
-          overflow: "hidden",
+          maxHeight: "80vh",
+          overflowX: "hidden",
+          overflowY: "auto",
+          overscrollBehavior: "contain",
           color: "#333",
           boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
           zIndex: 1000,
-          width: "240px",
+          width: "min(430px, calc(100vw - 24px))",
           pointerEvents: "auto",
           opacity: infocardVisible ? 1 : 0,
           display: infocardVisible ? "block" : "none",
@@ -617,7 +392,7 @@ export default function KnowledgeGraph() {
           wordWrap: "break-word",
         }}
       >
-        <InfocardMenu />
+        <GraphInfocard hoveredData={cyRef.current?.getElementById(hoveredId)?.data()} />
       </div>
       <div style={{ display: "flex", flexDirection: "row", gap: "200px" }}>
         {/* Legend */}

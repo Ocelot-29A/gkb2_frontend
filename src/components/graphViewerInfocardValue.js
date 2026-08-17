@@ -24,6 +24,9 @@ export const formatInfocardValue = (value, { emptyValue = EMPTY_INFOCARD_VALUE }
   if (typeof value === 'string') return value;
   if (typeof value === 'number' || typeof value === 'bigint') return String(value);
   if (Array.isArray(value)) {
+    if (value.some((item) => item && typeof item === 'object')) {
+      return stringifyStructuredValue(value);
+    }
     const items = value
       .map((item) => formatInfocardValue(item, { emptyValue: '' }))
       .filter((item) => item !== '');
@@ -33,6 +36,21 @@ export const formatInfocardValue = (value, { emptyValue = EMPTY_INFOCARD_VALUE }
   return String(value);
 };
 
-export const getInfocardHref = (value) => (
-  typeof value === 'string' && value.trim() ? value.trim() : ''
-);
+export const getInfocardHref = (value, format = 'link') => {
+  if (typeof value !== 'string' || !value.trim()) return '';
+  const source = value.trim();
+  if (format === 'doi') {
+    const doi = source.replace(/^https?:\/\/(?:dx\.)?doi\.org\//i, '').replace(/^DOI:/i, '');
+    return /^10\.\d{4,9}\/.+/.test(doi) ? `https://doi.org/${encodeURI(doi)}` : '';
+  }
+  if (format === 'pubmed') {
+    const pubmedId = source.replace(/^PMID:/i, '').trim();
+    return /^\d+$/.test(pubmedId) ? `https://pubmed.ncbi.nlm.nih.gov/${pubmedId}/` : '';
+  }
+  try {
+    const url = new URL(source);
+    return ['http:', 'https:'].includes(url.protocol) ? url.href : '';
+  } catch {
+    return '';
+  }
+};

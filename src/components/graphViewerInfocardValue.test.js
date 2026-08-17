@@ -41,5 +41,8 @@ describe('graph viewer infocard value formatting', () => {
     expect(formatInfocardValue(circular)).toContain('[Circular]');
     expect(getInfocardHref(acceptedKgAnnotation)).toBe('');
     expect(getInfocardHref(' https://example.org/source ')).toBe('https://example.org/source');
+    expect(getInfocardHref('javascript:alert(1)')).toBe('');
+    expect(getInfocardHref('DOI:10.2337/db11-0090', 'doi')).toBe('https://doi.org/10.2337/db11-0090');
+    expect(getInfocardHref('12345678', 'pubmed')).toBe('https://pubmed.ncbi.nlm.nih.gov/12345678/');
   });
 });
