@@ -79,6 +79,47 @@ describe('NIH graph infocard rendering', () => {
     data_source_url: 'https://doi.org/10.2337/db11-0090',
   };
 
+  const dataNavigationEdges = [
+    {
+      lane: 'CD4',
+      payload: {
+        id: 'V8:TCELL:DATA_VIEW-1',
+        type: 'HAS_ASSOCIATED_DATA_VIEW',
+        source: 'CL:0000624-1',
+        target: 'T1D:DATARESOURCE:scfm_t_cell_rna_umap-1',
+        source_name: 'CD4-positive, alpha-beta T cell',
+        target_name: 'scFM T-cell RNA-side UMAP',
+        display_label: 'scFM T-cell UMAP · CD4 context',
+        link_reason: 'CD4 subtype labels crosswalk to KG concepts shown in this lane.',
+        mapped_subtype_count: 3,
+        mapped_concept_summary: 'Naive CD4 T cell; Memory CD4 T cell; CD4+ CD25+ regulatory T cell',
+        link_basis: 'curated_subtype_crosswalk',
+        evidence_boundary: 'CD4 data-navigation context only; not differentiation evidence.',
+        non_causal: true,
+        not_evidence: true,
+      },
+    },
+    {
+      lane: 'CD8',
+      payload: {
+        id: 'V8:TCELL:DATA_VIEW-2',
+        type: 'HAS_ASSOCIATED_DATA_VIEW',
+        source: 'CL:0000625-1',
+        target: 'T1D:DATARESOURCE:scfm_t_cell_rna_umap-2',
+        source_name: 'CD8-positive, alpha-beta T cell',
+        target_name: 'scFM T-cell RNA-side UMAP',
+        display_label: 'scFM T-cell UMAP · CD8 context',
+        link_reason: 'CD8 subtype labels crosswalk to KG concepts shown in this lane.',
+        mapped_subtype_count: 3,
+        mapped_concept_summary: 'Naive CD8 T cell; Memory CD8 T cell; CD8 cytotoxic T cell',
+        link_basis: 'curated_subtype_crosswalk',
+        evidence_boundary: 'CD8 data-navigation context only; not differentiation evidence.',
+        non_causal: true,
+        not_evidence: true,
+      },
+    },
+  ];
+
   test('shows annotation, evidence, and provenance before collapsed secondary details', () => {
     render(<GraphInfocard hoveredData={th17} />);
     expect(screen.getByText('What this state represents')).toBeTruthy();
@@ -112,4 +153,52 @@ describe('NIH graph infocard rendering', () => {
     expect(screen.getByText('Generated fallback — not evidence')).toBeTruthy();
     expect(screen.queryByText('Key statistics')).toBeNull();
   });
+
+  test.each(dataNavigationEdges)(
+    'renders the unique $lane DataResource edge through the normal infocard profile',
+    ({ payload }) => {
+      const model = buildInfocardModel({
+        kind: 'edge',
+        type: payload.type,
+        data: payload,
+      });
+      expect(model.title).toBe(payload.display_label);
+      expect(model.annotation).toMatchObject({
+        label: 'Why this view is linked',
+        value: payload.link_reason,
+      });
+      expect(model.key_statistics).toEqual([
+        expect.objectContaining({ label: 'Mapped UMAP labels', value: 3 }),
+      ]);
+      const navigationRows = model.detail_sections[0].rows;
+      expect(navigationRows.map((row) => row.label)).toEqual([
+        'From',
+        'To',
+        'Link basis',
+        'Mapped concepts',
+        'Evidence boundary',
+      ]);
+      expect(navigationRows).toEqual(expect.arrayContaining([
+        expect.objectContaining({ label: 'From', value: payload.source_name }),
+        expect.objectContaining({ label: 'To', value: payload.target_name }),
+        expect.objectContaining({ label: 'Link basis', value: payload.link_basis }),
+        expect.objectContaining({
+          label: 'Mapped concepts',
+          value: payload.mapped_concept_summary,
+        }),
+        expect.objectContaining({ label: 'Evidence boundary', value: payload.evidence_boundary }),
+      ]));
+
+      render(<GraphInfocard hoveredData={payload} />);
+      expect(screen.getByText(payload.display_label)).toBeTruthy();
+      expect(screen.getByText(payload.link_reason)).toBeTruthy();
+      expect(screen.getByText('3')).toBeTruthy();
+      fireEvent.click(screen.getByRole('button', { name: 'More details' }));
+      expect(screen.getByText(payload.source_name)).toBeTruthy();
+      expect(screen.getByText(payload.target_name)).toBeTruthy();
+      expect(screen.getByText(payload.link_basis)).toBeTruthy();
+      expect(screen.getByText(payload.mapped_concept_summary)).toBeTruthy();
+      expect(screen.getByText(payload.evidence_boundary)).toBeTruthy();
+    },
+  );
 });

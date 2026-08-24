@@ -1,16 +1,23 @@
 import {
+  embeddingPortalVisibleFor,
   exactPreviewCaptureRequested,
   fixtureBaseUrlFor,
   fixtureRootUrlFor,
   graphFocusNodeIdRequested,
+  isT1dGpsFixture,
+  kgLinkedViewPanelVisibleFor,
   t1dGpsDeveloperContextFor,
   t1dGpsReviewModeFor,
+  viewModeSelectorVisibleFor,
   withT1dGpsDeveloperMetadata,
 } from './SampleGraphPage';
 import { T1D_GPS_V5_VIEW_PATHS } from './t1dGpsV5Routes';
 import { T1D_GPS_V6_VIEW_PATHS } from './t1dGpsV6Routes';
 import { T1D_GPS_V7_VIEW_PATHS } from './t1dGpsV7Routes';
-import { T1D_GPS_V8_VIEW_PATHS } from './t1dGpsV8Routes';
+import {
+  T1D_GPS_V8_SCFM_T_CELL_DETAIL,
+  T1D_GPS_V8_VIEW_PATHS,
+} from './t1dGpsV8Routes';
 
 describe('T1D GPS v4 fixture hosting', () => {
   test('keeps local development on the ignored local fixture', () => {
@@ -88,6 +95,54 @@ describe('T1D GPS v8 fixture hosting and ontology-locked hierarchy', () => {
       'pathways/immune-cell-differentiation-foundation',
       'pathways/human-alpha-beta-t-cell-differentiation-and-regulation',
     ]));
+  });
+
+  test('registers the UMAP as a separate non-KG Layer-3 detail route', () => {
+    expect(T1D_GPS_V8_SCFM_T_CELL_DETAIL).toEqual({
+      path: 'details/scfm-t-cell-differentiation',
+      route: '/T1D_GPS/v8/details/scfm-t-cell-differentiation',
+      backRoute: '/T1D_GPS/v8/pathways/human-alpha-beta-t-cell-differentiation-and-regulation',
+      manifestPath: 'embeddings/scfm-t-cell-differentiation/manifest.json',
+    });
+    expect(T1D_GPS_V8_VIEW_PATHS).not.toContain(T1D_GPS_V8_SCFM_T_CELL_DETAIL.path);
+  });
+
+  test('keeps the legacy metadata helper visible for focused views but not preview capture', () => {
+    const metadata = {
+      embedding_view: {
+        target_route: T1D_GPS_V8_SCFM_T_CELL_DETAIL.route,
+      },
+    };
+    expect(embeddingPortalVisibleFor(metadata, '')).toBe(true);
+    expect(embeddingPortalVisibleFor(metadata, '?focus=CL%3A0000545')).toBe(true);
+    expect(embeddingPortalVisibleFor(metadata, '?focus=')).toBe(true);
+    expect(embeddingPortalVisibleFor(metadata, '?graph_preview_capture=1')).toBe(false);
+    expect(embeddingPortalVisibleFor({}, '')).toBe(false);
+  });
+
+  test('derives the floating panel from a registered KG resource node', () => {
+    const graph = {
+      nodes: [{
+        '~id': 'T1D:DATARESOURCE:scfm_t_cell_rna_umap',
+        '~labels': ['T1DConcept', 'DataResource'],
+        '~properties': { resource_view_key: 'scfm-t-cell-rna-umap' },
+      }],
+      edges: [],
+    };
+    expect(kgLinkedViewPanelVisibleFor(graph, '')).toBe(true);
+    expect(kgLinkedViewPanelVisibleFor(graph, '?focus=CL%3A0000900')).toBe(true);
+    expect(kgLinkedViewPanelVisibleFor(graph, '?graph_preview_capture=1')).toBe(false);
+    expect(kgLinkedViewPanelVisibleFor({ nodes: [], edges: [] }, '')).toBe(false);
+  });
+
+  test('keeps the T1D GPS layout mode fixed while ordinary graph viewers retain the selector', () => {
+    expect(isT1dGpsFixture('t1d-gps-v8/overview')).toBe(true);
+    expect(isT1dGpsFixture('t1d-gps-v8')).toBe(true);
+    expect(isT1dGpsFixture('layeredgraph/overview')).toBe(true);
+    expect(viewModeSelectorVisibleFor('t1d-gps-v8/pathways/human-alpha-beta-t-cell-differentiation-and-regulation')).toBe(false);
+    expect(viewModeSelectorVisibleFor('layeredgraph/thymus')).toBe(false);
+    expect(viewModeSelectorVisibleFor('samplegraph')).toBe(true);
+    expect(viewModeSelectorVisibleFor('mechanismgraph')).toBe(true);
   });
 
   test('authorizes the existing Developer Mode adapter for V8 without changing V7', () => {

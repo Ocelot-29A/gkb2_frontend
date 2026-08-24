@@ -173,6 +173,7 @@ export const inverseLayoutPosition = (position, original) => ({
 export const navigationLabel = (data = {}) => {
   const action = String(data.navigation_action || '').toLowerCase();
   const graphLink = String(data.graph_link || '').toLowerCase();
+  if (action.includes('data view')) return 'Open data view';
   if (action.includes('detail')) return 'Open detail';
   if (graphLink.includes('/details/')) return 'Open detail';
   if (graphLink.includes('/pathways/')) return 'Open pathway';

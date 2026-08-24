@@ -33,13 +33,32 @@ const sentence = (value, limit = 240) => {
   return text.length > limit ? `${text.slice(0, limit - 1).trim()}…` : text;
 };
 
-const locationLabel = (location) => {
+export const searchLocationLabel = (location, locations = []) => {
   const parts = [
     location?.layer ? `Layer ${location.layer}` : '',
     location?.view_title || location?.view_id,
     location?.organ,
   ].filter(Boolean);
+  const sameViewLocations = locations.filter((candidate) => (
+    candidate?.view_id && candidate.view_id === location?.view_id
+  ));
+  if (sameViewLocations.length > 1) {
+    const occurrenceLabel = location?.viewer_occurrence_role
+      || location?.occurrence_label
+      || location?.node_id
+      || location?.location_id;
+    if (occurrenceLabel) {
+      parts.push(String(occurrenceLabel).replace(/_/g, ' '));
+    }
+  }
   return parts.join(' · ');
+};
+
+export const searchLocationSelectorLabel = (locations = []) => {
+  const uniqueViews = new Set(locations.map((location) => location?.view_id).filter(Boolean));
+  return uniqueViews.size === locations.length
+    ? `Appears in ${locations.length} views`
+    : `Appears in ${locations.length} locations`;
 };
 
 const provenanceLabel = (record) => {
@@ -104,20 +123,20 @@ const SearchResultCard = ({ record, currentViewId, onOpen, active, optionId }) =
             <TextField
               select
               size="small"
-              label={`Appears in ${record.locations.length} views`}
+              label={searchLocationSelectorLabel(record.locations)}
               value={locationId}
               onChange={(event) => setLocationId(event.target.value)}
               SelectProps={{ MenuProps: { PaperProps: { sx: { maxHeight: '320px' } } } }}
             >
               {(record.locations || []).map((item) => (
                 <MenuItem key={item.location_id} value={item.location_id}>
-                  {locationLabel(item)}
+                  {searchLocationLabel(item, record.locations)}
                 </MenuItem>
               ))}
             </TextField>
           ) : (
             <Typography sx={{ fontSize: '11px', color: '#65736F', lineHeight: 1.35 }}>
-              {locationLabel(location)}
+              {searchLocationLabel(location, record.locations)}
             </Typography>
           )}
           <Button

@@ -10,6 +10,8 @@ import {
 } from '@mui/material';
 
 import StandaloneKnowledgeGraph from '../components/StandaloneKnowledgeGraph';
+import KgLinkedViewHost from '../components/kgLinkedViews/KgLinkedViewHost';
+import { hasRegisteredKgLinkedView } from '../components/kgLinkedViews/registry';
 import { createT1dGpsAuthoringAdapter } from './t1dGpsAuthoringAdapter';
 
 const SAMPLEGRAPH_API_URL = process.env.REACT_APP_SAMPLEGRAPH_API_URL;
@@ -24,6 +26,8 @@ const T1D_GPS_V7_S3_BASE_URL = 'https://pank-s3-to-share.s3.us-east-1.amazonaws.
 const T1D_GPS_V7_FIXTURE_BASE_URL = process.env.REACT_APP_T1D_GPS_V7_FIXTURE_BASE_URL;
 const T1D_GPS_V8_S3_BASE_URL = 'https://pank-s3-to-share.s3.us-east-1.amazonaws.com/t1d-gps-v8';
 const T1D_GPS_V8_FIXTURE_BASE_URL = process.env.REACT_APP_T1D_GPS_V8_FIXTURE_BASE_URL;
+const T1D_GPS_V9_S3_BASE_URL = 'https://pank-s3-to-share.s3.us-east-1.amazonaws.com/t1d-gps-v9';
+const T1D_GPS_V9_FIXTURE_BASE_URL = process.env.REACT_APP_T1D_GPS_V9_FIXTURE_BASE_URL;
 const T1D_REVIEW_MODE = process.env.REACT_APP_T1D_REVIEW_MODE === 'true';
 
 const versionedFixtureConfig = {
@@ -46,6 +50,10 @@ const versionedFixtureConfig = {
   't1d-gps-v8': {
     overrideUrl: T1D_GPS_V8_FIXTURE_BASE_URL,
     deployedUrl: T1D_GPS_V8_S3_BASE_URL,
+  },
+  't1d-gps-v9': {
+    overrideUrl: T1D_GPS_V9_FIXTURE_BASE_URL,
+    deployedUrl: T1D_GPS_V9_S3_BASE_URL,
   },
 };
 
@@ -86,6 +94,23 @@ export const graphFocusNodeIdRequested = (search = window.location.search) => {
   return /^[A-Za-z0-9_.:@#~-]+$/.test(value) ? value : '';
 };
 
+export const kgLinkedViewPanelVisibleFor = (graphData, search = window.location.search) => (
+  hasRegisteredKgLinkedView(graphData) && !exactPreviewCaptureRequested(search)
+);
+
+// Kept as a compatibility helper for callers that only have presentation
+// metadata. New graph pages use kgLinkedViewPanelVisibleFor so the KG resource
+// node—not detached page metadata—is the source of panel existence.
+export const embeddingPortalVisibleFor = (metadata, search = window.location.search) => (
+  Boolean(metadata?.embedding_view?.target_route) && !exactPreviewCaptureRequested(search)
+);
+
+export const isT1dGpsFixture = (fixtureName = '') => (
+  fixtureName.startsWith('layeredgraph') || /^t1d-gps-v\d+(?:\/|$)/.test(fixtureName)
+);
+
+export const viewModeSelectorVisibleFor = (fixtureName = '') => !isT1dGpsFixture(fixtureName);
+
 export const t1dGpsDeveloperContextFor = (fixtureName) => {
   const match = /^(t1d-gps-(v[5678]))\/(.+)$/.exec(fixtureName || '');
   return match ? { fixtureVersion: match[1], release: match[2], viewId: match[3] } : null;
@@ -119,7 +144,7 @@ const loadJson = async (baseUrl, path) => {
 export default function SampleGraphPage({ fixtureName = 'samplegraph' }) {
   const [demo, setDemo] = useState(null);
   const [error, setError] = useState('');
-  const isLayeredT1DDemo = fixtureName.startsWith('layeredgraph') || fixtureName.startsWith('t1d-gps-v4') || fixtureName.startsWith('t1d-gps-v5') || fixtureName.startsWith('t1d-gps-v6') || fixtureName.startsWith('t1d-gps-v7') || fixtureName.startsWith('t1d-gps-v8');
+  const isLayeredT1DDemo = isT1dGpsFixture(fixtureName);
   const developerContext = useMemo(() => t1dGpsDeveloperContextFor(fixtureName), [fixtureName]);
   const reviewMode = useMemo(() => t1dGpsReviewModeFor(fixtureName), [fixtureName]);
   const exactPreviewCapture = exactPreviewCaptureRequested();
@@ -184,7 +209,7 @@ export default function SampleGraphPage({ fixtureName = 'samplegraph' }) {
               ? loadJson(fixtureBaseUrl, 'edge_routes.json')
               : Promise.resolve(null),
             loadJson(fixtureBaseUrl, 'metadata.json'),
-            ['t1d-gps-v7', 't1d-gps-v8'].includes(fixtureVersion)
+            ['t1d-gps-v7', 't1d-gps-v8', 't1d-gps-v9'].includes(fixtureVersion)
               ? loadJson(fixtureAssetBaseUrl, 'search-index.json').catch(() => null)
               : Promise.resolve(null),
           ]).then(([queryRequest, graphData, coordData, edgeRoutes, metadata, searchIndex]) => ({
@@ -229,6 +254,37 @@ export default function SampleGraphPage({ fixtureName = 'samplegraph' }) {
     };
   }, [fixtureName, developerContext, requestedFocusNodeId, reviewMode]);
 
+  const graphViewer = demo ? (
+    <StandaloneKnowledgeGraph
+      graphData={demo.graphData}
+      coordData={demo.coordData}
+      edgeRoutes={demo.edgeRoutes}
+      metadata={demo.metadata}
+      queryRequest={demo.queryRequest?.cypher?.length ? demo.queryRequest : null}
+      assetBaseUrl={demo.assetBaseUrl}
+      queryExamples={[{ label: fixtureName === 'mechanismgraph' ? 'Full static T1D mechanism' : 'Synthetic T1D immune network', request: demo.queryRequest }]}
+      containerHeight="calc(100vh - 315px)"
+      developerMode={developerMode}
+      reviewMode={reviewMode}
+      searchConfig={demo.searchIndex ? {
+        index: demo.searchIndex,
+        indexUrl: demo.searchIndexUrl,
+      } : null}
+      exactPreviewCapture={exactPreviewCapture}
+      showViewModeSelector={viewModeSelectorVisibleFor(fixtureName)}
+      // Linked-view availability is a page-level contract. Keep the panel
+      // resident even when search/query/delete temporarily changes the visible
+      // graph; minimization remains the user's explicit way to hide its body.
+      canvasOverlay={kgLinkedViewPanelVisibleFor(demo.graphData) ? (
+        <KgLinkedViewHost
+          graphData={demo.graphData}
+          metadata={demo.metadata}
+          assetBaseUrl={demo.assetBaseUrl}
+        />
+      ) : null}
+    />
+  ) : null;
+
   return (
     <Box
       sx={{
@@ -257,23 +313,7 @@ export default function SampleGraphPage({ fixtureName = 'samplegraph' }) {
         {error ? (
           <Alert severity="error">{error}</Alert>
         ) : demo ? (
-          <StandaloneKnowledgeGraph
-            graphData={demo.graphData}
-            coordData={demo.coordData}
-            edgeRoutes={demo.edgeRoutes}
-            metadata={demo.metadata}
-            queryRequest={demo.queryRequest?.cypher?.length ? demo.queryRequest : null}
-            assetBaseUrl={demo.assetBaseUrl}
-            queryExamples={[{ label: fixtureName === 'mechanismgraph' ? 'Full static T1D mechanism' : 'Synthetic T1D immune network', request: demo.queryRequest }]}
-            containerHeight="calc(100vh - 315px)"
-            developerMode={developerMode}
-            reviewMode={reviewMode}
-            searchConfig={demo.searchIndex ? {
-              index: demo.searchIndex,
-              indexUrl: demo.searchIndexUrl,
-            } : null}
-            exactPreviewCapture={exactPreviewCapture}
-          />
+          graphViewer
         ) : (
           <Box
             sx={{

@@ -1,6 +1,6 @@
 import './index.css';
 
-import React, { useState } from 'react';
+import React, { lazy, Suspense, useState } from 'react';
 
 import ReactDOM from 'react-dom/client';
 import { Provider } from 'react-redux';
@@ -32,7 +32,11 @@ import SampleGraphPage from './pages/SampleGraphPage';
 import { T1D_GPS_V5_VIEW_PATHS } from './pages/t1dGpsV5Routes';
 import { T1D_GPS_V6_VIEW_PATHS } from './pages/t1dGpsV6Routes';
 import { T1D_GPS_V7_VIEW_PATHS } from './pages/t1dGpsV7Routes';
-import { T1D_GPS_V8_VIEW_PATHS } from './pages/t1dGpsV8Routes';
+import {
+  T1D_GPS_V8_SCFM_T_CELL_DETAIL,
+  T1D_GPS_V9_SCFM_T_CELL_DETAIL,
+  T1D_GPS_V8_VIEW_PATHS,
+} from './pages/t1dGpsV8Routes';
 import StatPage from './pages/StatPage';
 import Tutorial from './pages/Tutorial';
 import UsecasesPage from './pages/UsecasePage';
@@ -40,6 +44,7 @@ import { store } from './redux/store';
 import ResultPage from './SearchResult';
 
 const T1D_REVIEW_MODE = process.env.REACT_APP_T1D_REVIEW_MODE === 'true';
+const TCellUmapPage = lazy(() => import('./pages/TCellUmapPage'));
 
 function SiteHeader() {
   const { pathname } = useLocation();
@@ -179,11 +184,45 @@ root.render(
             />
           ))}
           <Route path="/T1D_GPS/v8" element={<SampleGraphPage fixtureName="t1d-gps-v8/overview" />} />
+          <Route
+            path={T1D_GPS_V8_SCFM_T_CELL_DETAIL.route}
+            element={(
+              <Suspense fallback={(
+                <Box sx={{ minHeight: 560, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Typography sx={{ color: '#526864' }}>Loading interactive UMAP…</Typography>
+                </Box>
+              )}
+              >
+                <TCellUmapPage />
+              </Suspense>
+            )}
+          />
           {T1D_GPS_V8_VIEW_PATHS.map((viewPath) => (
             <Route
               key={`v8-${viewPath}`}
               path={`/T1D_GPS/v8/${viewPath}`}
               element={<SampleGraphPage fixtureName={`t1d-gps-v8/${viewPath}`} />}
+            />
+          ))}
+          <Route path="/T1D_GPS/v9" element={<SampleGraphPage fixtureName="t1d-gps-v9/overview" />} />
+          <Route
+            path={T1D_GPS_V9_SCFM_T_CELL_DETAIL.route}
+            element={(
+              <Suspense fallback={(
+                <Box sx={{ minHeight: 560, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Typography sx={{ color: '#526864' }}>Loading interactive UMAP…</Typography>
+                </Box>
+              )}
+              >
+                <TCellUmapPage />
+              </Suspense>
+            )}
+          />
+          {T1D_GPS_V8_VIEW_PATHS.map((viewPath) => (
+            <Route
+              key={`v9-${viewPath}`}
+              path={`/T1D_GPS/v9/${viewPath}`}
+              element={<SampleGraphPage fixtureName={`t1d-gps-v9/${viewPath}`} />}
             />
           ))}
           <Route path="/graphquery" element={<QueryPage />} />

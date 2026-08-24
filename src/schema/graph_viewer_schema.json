@@ -2,7 +2,7 @@
   "$comment": "GKB_07_18 presentation contract. Node keys and relationship keys match live Neo4j labels/types exactly.",
   "schema_version": "GKB_07_18",
   "canonical_node_label_priority": [
-    "GeneratedFallback", "Gene", "Transcript", "Protein", "Cell", "CellType", "Cytokine", "Chemokine", "Peptide", "Antibody", "Process", "Pathway", "Anatomy", "Pathology", "ExternalFactor", "Chemical", "Outcome", "ClinicalStage", "Intervention", "HLA_allele", "HLA_allele_group",
+    "GeneratedFallback", "DataResource", "Gene", "Transcript", "Protein", "Cell", "CellType", "Cytokine", "Chemokine", "Peptide", "Antibody", "Process", "Pathway", "Anatomy", "Pathology", "ExternalFactor", "Chemical", "Outcome", "ClinicalStage", "Intervention", "HLA_allele", "HLA_allele_group",
     "Exon", "CDS_segments", "TSS_segment", "UTR_segments",
     "SNP", "SNV", "Deletion", "Insertion", "Structural_variant", "Sequence_variant",
     "Loop", "LoopAnchor", "AB_compartment", "FIRE_region", "Replication_timing",
@@ -22,6 +22,7 @@
     "preview_selection_method", "preview_anchor_ids", "preview_node_ids", "preview_edge_ids",
     "preview_target_view", "preview_target_route", "preview_data_scope",
     "graph_link", "graph_focus_node_id", "clickable", "navigation_action", "not_evidence",
+    "resource_view_key", "resource_view_kind", "query_id",
     "broaderColor", "borderColor", "demo_release_id", "v8_overlay", "v8_overlay_release_id",
     "x", "y", "width", "height", "display_lane", "event_order", "default_visible",
     "display_instance_id", "primary_semantic_type", "node_type", "layer", "level", "Level",
@@ -74,6 +75,7 @@
       "PhysiologicalReadout": "readout",
       "Pathology": "readout",
       "GeneratedFallback": "generated_fallback",
+      "DataResource": "data_resource",
       "ENCODE_feature": "regulatory_feature",
       "cCRE": "regulatory_feature",
       "ChromHMM_state": "regulatory_feature",
@@ -100,7 +102,8 @@
       "DIFFERENTIATES_INTO": "lineage",
       "MAY_DIFFERENTIATE_INTO": "lineage",
       "STATE_OF": "lineage",
-      "HAS_SUBTYPE": "lineage"
+      "HAS_SUBTYPE": "lineage",
+      "HAS_ASSOCIATED_DATA_VIEW": "data_navigation"
     },
     "edge_profile_by_semantic_family": {
       "cell_expression_annotation": "expression_generic",
@@ -114,7 +117,8 @@
       "biological_process_flow": "generic_edge",
       "contextual_participation": "generic_edge",
       "anatomical_context": "generic_edge",
-      "external_human_evidence": "generic_edge"
+      "external_human_evidence": "generic_edge",
+      "data_navigation": "data_navigation"
     },
     "node_profiles": {
       "generic_node": {
@@ -242,6 +246,15 @@
         "provenance": [{"label": "Source", "paths": ["data_source"]}, {"label": "Version", "paths": ["data_version"]}, {"label": "Record", "paths": ["source_record_id", "id"], "format": "identifier"}, {"label": "Source link", "paths": ["data_source_url"], "format": "link"}],
         "detail_sections": []
       },
+      "data_resource": {
+        "schema_version": "2.0",
+        "title": {"paths": ["preferred_name", "name", "id"]},
+        "annotation": {"label": "Public data view", "paths": ["description", "public_view_description", "data_scope"]},
+        "evidence": [{"label": "Interpretation", "paths": ["arrow_limitation", "schematic_arrow_limitation"]}, {"label": "Evidence role", "paths": ["not_evidence"]}],
+        "key_statistics": [{"label": "Cells", "paths": ["cell_count"], "format": "count"}, {"label": "Donors", "paths": ["donor_count"], "format": "count"}],
+        "provenance": [{"label": "Source", "paths": ["data_source"]}, {"label": "Version", "paths": ["data_version", "release_id"]}, {"label": "Record", "paths": ["source_record_id", "id"], "format": "identifier"}],
+        "detail_sections": [{"title": "Viewer contract", "rows": [{"label": "Manifest", "paths": ["manifest_path"]}, {"label": "Action", "paths": ["navigation_action"]}, {"label": "Public fields only", "paths": ["public_fields_only"]}]}]
+      },
       "regulatory_feature": {
         "schema_version": "2.0",
         "title": {"paths": ["name", "accession", "id"]},
@@ -325,6 +338,15 @@
         "provenance": [{"label": "Source", "paths": ["data_source"]}, {"label": "Version", "paths": ["data_version"]}, {"label": "Record", "paths": ["source_record_id", "id"], "format": "identifier"}, {"label": "Source link", "paths": ["data_source_url"], "format": "link"}],
         "detail_sections": [{"title": "Interaction details", "rows": [{"label": "From", "paths": ["source_name", "source_id"]}, {"label": "To", "paths": ["target_name", "target_id"]}, {"label": "Evidence IDs", "paths": ["evidence_ids"], "format": "list"}]}]
       },
+      "data_navigation": {
+        "schema_version": "2.0",
+        "title": {"paths": ["display_label", "relation_label", "name", "type"]},
+        "annotation": {"label": "Why this view is linked", "paths": ["link_reason", "description", "rationale", "direction_semantics"]},
+        "evidence": [{"label": "Semantics", "paths": ["relationship_semantics"]}, {"label": "Non-causal", "paths": ["non_causal"]}, {"label": "Not evidence", "paths": ["not_evidence"]}],
+        "key_statistics": [{"label": "Mapped UMAP labels", "paths": ["mapped_subtype_count"], "format": "count"}],
+        "provenance": [{"label": "Source", "paths": ["data_source"]}, {"label": "Version", "paths": ["data_version", "release_id"]}, {"label": "Record", "paths": ["source_record_id", "id"], "format": "identifier"}],
+        "detail_sections": [{"title": "Navigation", "rows": [{"label": "From", "paths": ["source_name", "source_id"]}, {"label": "To", "paths": ["target_name", "target_id"]}, {"label": "Link basis", "paths": ["link_basis"]}, {"label": "Mapped concepts", "paths": ["mapped_concept_summary", "mapped_subtypes"], "format": "list"}, {"label": "Evidence boundary", "paths": ["evidence_boundary"]}]}]
+      },
       "lineage": {
         "schema_version": "2.0",
         "title": {"paths": ["relation_label", "name", "type"]},
@@ -362,6 +384,7 @@
     "ontology": [["Title", "name"], ["Ontology identity", [["ID", "id"], ["Domain", "go_domain"], ["Synonyms", "synonyms", "list"], ["Alternate IDs", "alt_ids", "list"]]], ["Description", "description"], ["Footer", [["Data Source", "data_source"], ["Version", "data_version"], ["Source Record", "data_source_url", "link"]]]],
     "nc_rna": [["Title", "name"], ["RNA identity", [["ID", "id"], ["RNA type", "rna_type"], ["Rfam ID", "alt_id_rfam"], ["Rfam function", "rfam_function"]]], ["Genomic location", [["Chromosome", "chr", "label_chr(#0FB47D)"], ["Start", "start_loc", "int"], ["End", "end_loc", "int"]]], ["Footer", [["Data Source", "data_source"], ["Version", "data_version"], ["Source Record", "data_source_url", "link"]]]],
     "three_d_feature": [["Title", "name"], ["Feature identity", [["ID", "id"], ["Compartment", "compartment"], ["Tissue", "tissue_name"], ["Accession", "accession"], ["Early or late", "early_or_late"]]], ["Genomic location", [["Chromosome", "chr", "label_chr(#0FB47D)"], ["Start", "start_loc", "int"], ["End", "end_loc", "int"]]], ["Footer", [["Data Source", "data_source"], ["Version", "data_version"], ["Source Record", "data_source_url", "link"]]]],
+    "data_resource": [["Title", "name"], ["Public data view", "description"], ["Summary", [["Cells", "cell_count", "int"], ["Donors", "donor_count", "int"], ["Manifest", "manifest_path"]]], ["Interpretation", "arrow_limitation"], ["Footer", [["Data Source", "data_source"], ["Version", "data_version"], ["Source Record", "source_record_id"]]]],
     "t1d_biology": [
       ["Title", "name"],
       ["Biological identity", [["Canonical ID", "canonical_id"], ["Specification IDs", "specification_ids", "list"], ["Organism", "organism"]]],
@@ -381,7 +404,7 @@
     "Loop": "loop", "LoopAnchor": "genomic_segment", "AB_compartment": "three_d_feature", "FIRE_region": "three_d_feature", "Replication_timing": "three_d_feature",
     "ENCODE_feature": "regulatory_feature", "cCRE": "regulatory_feature", "ChromHMM_state": "regulatory_feature", "TF_binding_motif": "regulatory_feature", "Enhancer": "regulatory_feature", "Promoter": "regulatory_feature", "Super_enhancer": "regulatory_feature",
     "Ontology_term": "ontology", "GO_term": "ontology", "Cell_or_tissue": "ontology", "Non_coding_RNA": "nc_rna",
-    "Cell": "t1d_biology", "CellType": "t1d_biology", "Cytokine": "t1d_biology", "Chemokine": "t1d_biology", "Peptide": "t1d_biology", "Antibody": "t1d_biology", "Process": "t1d_biology", "Pathway": "t1d_biology", "Anatomy": "t1d_biology", "Pathology": "t1d_biology", "ExternalFactor": "t1d_biology", "Chemical": "t1d_biology", "Outcome": "t1d_biology", "ClinicalStage": "t1d_biology", "Intervention": "t1d_biology", "HLA_allele": "t1d_biology", "HLA_allele_group": "t1d_biology", "GeneratedFallback": "t1d_biology"
+    "Cell": "t1d_biology", "CellType": "t1d_biology", "Cytokine": "t1d_biology", "Chemokine": "t1d_biology", "Peptide": "t1d_biology", "Antibody": "t1d_biology", "Process": "t1d_biology", "Pathway": "t1d_biology", "Anatomy": "t1d_biology", "Pathology": "t1d_biology", "ExternalFactor": "t1d_biology", "Chemical": "t1d_biology", "Outcome": "t1d_biology", "ClinicalStage": "t1d_biology", "Intervention": "t1d_biology", "HLA_allele": "t1d_biology", "HLA_allele_group": "t1d_biology", "GeneratedFallback": "t1d_biology", "DataResource": "data_resource"
   },
   "nodes": {
     "Gene": {"node_color": "#A4D0F6", "text_color": "#000000"},
@@ -438,7 +461,8 @@
     "Intervention": {"node_color": "#74A8A1", "text_color": "#173F3A"},
     "HLA_allele": {"node_color": "#FFB16C", "text_color": "#4B321C"},
     "HLA_allele_group": {"node_color": "#FFB16C", "text_color": "#4B321C"},
-    "GeneratedFallback": {"node_color": "#B7B7B7", "text_color": "#334155"}
+    "GeneratedFallback": {"node_color": "#B7B7B7", "text_color": "#334155"},
+    "DataResource": {"node_color": "#F5F2EA", "text_color": "#274B46"}
   },
   "edges": {
     "ASSOCIATED_WITH_GO": {"text_color": "#000000", "edge_label": "associated with GO", "inverted": "FALSE"},
@@ -491,7 +515,8 @@
     "UPREGULATES": {"text_color": "#7C2D12", "edge_label": "upregulates", "inverted": "FALSE"},
     "INFECTS": {"text_color": "#166534", "edge_label": "infects", "inverted": "FALSE"},
     "SENSED_BY": {"text_color": "#166534", "edge_label": "sensed by", "inverted": "FALSE"},
-    "FEEDS_BACK_TO": {"text_color": "#1D4ED8", "edge_label": "feeds back to", "inverted": "FALSE"}
+    "FEEDS_BACK_TO": {"text_color": "#1D4ED8", "edge_label": "feeds back to", "inverted": "FALSE"},
+    "HAS_ASSOCIATED_DATA_VIEW": {"text_color": "#3F7169", "edge_label": "associated data view", "inverted": "FALSE"}
   },
   "legend": [
     {"label": "Coding elements", "color": "#A4D0F6"},

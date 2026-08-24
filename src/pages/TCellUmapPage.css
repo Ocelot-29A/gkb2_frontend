@@ -1,0 +1,7 @@
+.scfm-t-cell-umap-plot .legend .bg {
+  shape-rendering: geometricPrecision;
+}
+
+.scfm-t-cell-umap-plot .shapelayer path {
+  pointer-events: none;
+}

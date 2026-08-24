@@ -1,15 +1,22 @@
 import { render } from '@testing-library/react';
 
 import {
+  buildFindConnectionCypher,
+  buildDataNavigationStyles,
   buildViewNodeStyles,
   buildMechanismTitleNodes,
+  getNodeRenderFontSize,
   buildPreviousLayout,
   createExactGraphCapture,
   edgeLabelToCytoscapeData,
   edgeRouteToCytoscapeData,
+  extendOccurrenceProjection,
   getCanonicalNodeLabel,
   getNodeType,
   getNodeLabel,
+  resolveLegendPanelLayout,
+  resolveLegendToggleDirection,
+  resolveMechanismTitleSlot,
   getEdgeTextBackplateData,
   getGenomeLaneModelYs,
   getImageNodeBackgroundData,
@@ -20,12 +27,25 @@ import {
   getNodePrimaryAction,
   getNodeTextBackplateData,
   getRasterImageOpacityStyle,
+  getCanonicalVisibleNodeIds,
+  getCanvasOverlayAwarePan,
+  getNewCanonicalCandidateNodeIds,
+  GRAPH_QUERY_ID_PROPERTY,
+  graphHasDataNavigationEdge,
+  graphHasDataResource,
+  getCytoscapeEdgeLabel,
+  getCytoscapeNodeLabel,
   isExactLinkedViewPreview,
   isHiddenInfoProperty,
+  isDirectResourceNavigationNodeData,
+  isStrictEdgeMidpointHit,
   isOverflowId,
   mergeExploreNeighborsCypher,
   normalizeEdgeLineStyle,
+  projectGraphViewerResultToOccurrences,
   resolveNodeImageUrl,
+  resolveInitialFocusNode,
+  resolveCanonicalNodeQueryId,
   resolvePreviewAssetUrl,
   restoreAdjacentDeletedIds,
 } from './StandaloneKnowledgeGraph';
@@ -42,6 +62,50 @@ const genomeRegion = {
 const genomeTracks = { min_y: 0, max_y: 468 };
 
 describe('layered presentation helpers', () => {
+  test('uses horizontal chevrons for a horizontal legend and vertical chevrons otherwise', () => {
+    expect(resolveLegendToggleDirection(true, false)).toBe('left');
+    expect(resolveLegendToggleDirection(true, true)).toBe('right');
+    expect(resolveLegendToggleDirection(false, false)).toBe('down');
+    expect(resolveLegendToggleDirection(false, true)).toBe('up');
+  });
+
+  test('keeps the default legend vertical and supports a view-specific horizontal bottom-right legend', () => {
+    expect(resolveLegendPanelLayout({}, {
+      layeredNavigationEnabled: true,
+      canvasOverlayPresent: true,
+    })).toEqual(expect.objectContaining({
+      horizontal: false,
+      right: 424,
+      bottom: 24,
+      width: 208,
+      showConnections: true,
+      dataResourceLabel: 'Data view',
+    }));
+
+    expect(resolveLegendPanelLayout({
+      legend_layout: {
+        placement: 'below-data-view',
+        orientation: 'horizontal',
+        right: 88,
+        bottom: 24,
+        width: 620,
+        show_connections: false,
+        data_resource_label: 'Data view',
+      },
+    }, {
+      layeredNavigationEnabled: true,
+      canvasOverlayPresent: true,
+    })).toEqual(expect.objectContaining({
+      horizontal: true,
+      placement: 'below-data-view',
+      right: 88,
+      bottom: 24,
+      width: 620,
+      showConnections: false,
+      dataResourceLabel: 'Data view',
+    }));
+  });
+
   test('resolves versioned image assets against local and deployed fixture roots', () => {
     expect(resolveNodeImageUrl(
       '/t1d-gps-v8/assets/trialnet-25-logo.svg',
@@ -85,6 +149,36 @@ describe('layered presentation helpers', () => {
     expect(nodes[0].data.mechanismTitleVariant).toBe('compact-tag');
     expect(nodes[0].data.renderWidth).toBe(420);
     expect(nodes[0].position).toEqual({ x: 770, y: 168 });
+  });
+
+  test('resolves all region title positions from fixed perimeter slots', () => {
+    const region = { x: 100, y: 200, width: 1000, height: 600 };
+    const common = {
+      position_mode: 'region-slot-v1', width: 200, height: 100,
+      placement: 'inside', offset_x: 20, offset_y: 30,
+    };
+    expect(resolveMechanismTitleSlot(region, { ...common, anchor_slot: 'top-left' }))
+      .toEqual({ x: 220, y: 280 });
+    expect(resolveMechanismTitleSlot(region, { ...common, anchor_slot: 'top' }))
+      .toEqual({ x: 600, y: 280 });
+    expect(resolveMechanismTitleSlot(region, { ...common, anchor_slot: 'top-right' }))
+      .toEqual({ x: 980, y: 280 });
+    expect(resolveMechanismTitleSlot(region, { ...common, anchor_slot: 'right' }))
+      .toEqual({ x: 980, y: 500 });
+    expect(resolveMechanismTitleSlot(region, { ...common, anchor_slot: 'bottom-right' }))
+      .toEqual({ x: 980, y: 720 });
+    expect(resolveMechanismTitleSlot(region, { ...common, anchor_slot: 'bottom' }))
+      .toEqual({ x: 600, y: 720 });
+    expect(resolveMechanismTitleSlot(region, { ...common, anchor_slot: 'bottom-left' }))
+      .toEqual({ x: 220, y: 720 });
+    expect(resolveMechanismTitleSlot(region, { ...common, anchor_slot: 'left' }))
+      .toEqual({ x: 220, y: 500 });
+  });
+
+  test('supports a metadata-scoped font hierarchy by node type', () => {
+    const layout = { node_font_size: 30, node_font_sizes_by_type: { Pathway: 46 } };
+    expect(getNodeRenderFontSize(layout, 'Pathway')).toBe(46);
+    expect(getNodeRenderFontSize(layout, 'CellType')).toBe(30);
   });
 });
 
@@ -139,6 +233,12 @@ describe('getCanonicalNodeLabel', () => {
     expect(
       getCanonicalNodeLabel({ '~labels': ['Ontology', 'Transcript', 'Coding_element'] }),
     ).toBe('Transcript');
+  });
+
+  test('recognizes DataResource as a first-class non-biological display type', () => {
+    const node = { '~labels': ['T1DConcept', 'DataResource'] };
+    expect(getCanonicalNodeLabel(node)).toBe('DataResource');
+    expect(getNodeType(node)).toBe('DataResource');
   });
 
   test('preserves unknown domain labels when no canonical label exists', () => {
@@ -202,6 +302,21 @@ describe('GKB 07-18 viewer schema', () => {
     expect(graphViewerSchema.node_panel_by_label.Process).toBe('t1d_biology');
     expect(graphViewerSchema.node_panel_by_label.Pathway).toBe('t1d_biology');
     expect(graphViewerSchema.node_panel_by_label.Cell).toBe('t1d_biology');
+    expect(graphViewerSchema.info_panel_v2.node_profile_by_type.DataResource)
+      .toBe('data_resource');
+    expect(graphViewerSchema.info_panel_v2.edge_profile_by_type.HAS_ASSOCIATED_DATA_VIEW)
+      .toBe('data_navigation');
+    const dataNavigationProfile = graphViewerSchema.info_panel_v2.edge_profiles.data_navigation;
+    expect(dataNavigationProfile.title.paths[0]).toBe('display_label');
+    expect(dataNavigationProfile.annotation.paths[0]).toBe('link_reason');
+    expect(dataNavigationProfile.key_statistics[0]).toEqual({
+      label: 'Mapped UMAP labels', paths: ['mapped_subtype_count'], format: 'count',
+    });
+    expect(dataNavigationProfile.detail_sections[0].rows)
+      .toEqual(expect.arrayContaining([
+        expect.objectContaining({ label: 'Link basis', paths: ['link_basis'] }),
+        expect.objectContaining({ label: 'Evidence boundary', paths: ['evidence_boundary'] }),
+      ]));
     expect(graphViewerSchema.hidden_info_properties).toEqual(expect.arrayContaining([
       'gkb_matches',
       'accepted_kg_annotation',
@@ -231,7 +346,7 @@ describe('GKB 07-18 viewer schema', () => {
     expect(Object.keys(graphViewerSchema.nodes).sort()).toEqual([
       'AB_compartment', 'Anatomy', 'Antibody', 'CDS_segments', 'Cell', 'CellType',
       'Cell_or_tissue', 'Chemical', 'Chemokine', 'ChromHMM_state', 'ClinicalStage', 'Coding_element', 'Cytokine',
-      'Deletion', 'ENCODE_feature', 'Enhancer', 'Epigenomic_feature', 'Exon', 'ExternalFactor',
+      'DataResource', 'Deletion', 'ENCODE_feature', 'Enhancer', 'Epigenomic_feature', 'Exon', 'ExternalFactor',
       'FIRE_region', 'GO_term', 'Gene', 'GeneratedFallback', 'Genomic_feature', 'HLA_allele',
       'HLA_allele_group', 'Insertion', 'Intervention', 'Loop', 'LoopAnchor', 'Non_coding_RNA',
       'Non_coding_element', 'Ontology', 'Ontology_term', 'Outcome', 'Pathology', 'Pathway',
@@ -244,13 +359,138 @@ describe('GKB 07-18 viewer schema', () => {
       'CONTRIBUTES_TO', 'CO_STIMULATES', 'DIFFERENTIATES_INTO', 'DRAINS_TO', 'ENCODED_BY',
       'ENCODES', 'EQTL_OF', 'EXPRESSES', 'EXPRESS_IN', 'FEEDS_BACK_TO', 'FUNCTION_ANNOTATE',
       'GENERATES', 'GENETIC_INTERACTION', 'GWAS_ASSOCIATION', 'HAS_ANCHOR_A', 'HAS_ANCHOR_B',
-      'HAS_CDS_SEGMENT', 'HAS_EXON', 'HAS_STATE', 'HAS_TRANSCRIPT', 'HAS_TSS',
+      'HAS_ASSOCIATED_DATA_VIEW', 'HAS_CDS_SEGMENT', 'HAS_EXON', 'HAS_STATE', 'HAS_TRANSCRIPT', 'HAS_TSS',
       'HAS_UTR_SEGMENT', 'INDUCES', 'INFECTS', 'INFILTRATES', 'INHIBITS', 'KILLS',
       'LIGAND_RECEPTOR_PAIR', 'LOCATED_IN', 'MAPPING_MAPPING', 'MIGRATES_TO', 'MODIFIES',
       'PHYSICAL_INTERACTION', 'PRESENTS_TO', 'PROVIDES_HELP_TO', 'RECOGNIZES', 'RECRUITS',
       'REGULATE', 'REPLACED_BY', 'RESULTS_IN', 'SECRETES', 'SENSED_BY', 'SUBCLASS_OF',
       'TRANSLATES_TO', 'UNDERGOES', 'UPREGULATES',
     ].sort());
+  });
+
+  test('keeps DataResource nodes distinct while data-navigation edges use regular edge styling', () => {
+    const styles = buildDataNavigationStyles();
+    expect(styles).toHaveLength(1);
+    expect(styles[0]).toEqual(expect.objectContaining({
+      selector: 'node[type = "DataResource"]',
+      style: expect.objectContaining({
+        shape: 'round-rectangle',
+        'background-color': '#F5F2EA',
+        'border-color': '#3F7169',
+        'border-width': 4,
+        'border-style': 'double',
+        'underlay-color': '#79AFA6',
+        'underlay-opacity': 0.16,
+      }),
+    }));
+    expect(styles.some(({ selector }) => selector.includes('edge'))).toBe(false);
+
+    const graph = {
+      nodes: [{ '~id': 'resource', '~labels': ['DataResource'] }],
+      edges: [{
+        '~id': 'data-link',
+        '~type': 'HAS_ASSOCIATED_DATA_VIEW',
+        '~start': 'pathway',
+        '~end': 'resource',
+      }],
+    };
+    expect(graphHasDataResource(graph)).toBe(true);
+    expect(graphHasDataNavigationEdge(graph)).toBe(true);
+    expect(graphHasDataResource(graph, new Set(['resource']))).toBe(false);
+    expect(graphHasDataNavigationEdge(graph, new Set(['data-link']))).toBe(false);
+    expect(graphHasDataNavigationEdge(graph, new Set(['resource']))).toBe(false);
+  });
+
+  test('uses the curated crosswalk reason as the visible data-navigation label', () => {
+    expect(getCytoscapeEdgeLabel({
+      '~type': 'HAS_ASSOCIATED_DATA_VIEW',
+      '~properties': { display_label: '6 UMAP cell labels map to KG concepts' },
+    })).toBe('6 UMAP cell labels map to KG concepts');
+    expect(getCytoscapeEdgeLabel({
+      '~type': 'HAS_ASSOCIATED_DATA_VIEW',
+      '~properties': {},
+    })).toBe('associated data view');
+  });
+
+  test('gives linked UMAP resources an explicit visual-only navigation label', () => {
+    const umapResource = {
+      '~id': 'T1D:DATARESOURCE:scfm_t_cell_rna_umap',
+      '~labels': ['T1DConcept', 'DataResource'],
+      '~properties': {
+        name: 'scFM T-cell RNA-side UMAP',
+        graph_link: '/T1D_GPS/v8/details/scfm-t-cell-differentiation',
+        manifest_path: 'embeddings/scfm-t-cell-differentiation/manifest.json',
+      },
+    };
+    expect(getNodeLabel(umapResource)).toBe('scFM T-cell RNA-side UMAP');
+    expect(getCytoscapeNodeLabel(umapResource, 'DataResource')).toBe(
+      'UMAP DATA VIEW ↗\nscFM T-cell RNA-side UMAP',
+    );
+
+    const ordinaryNode = {
+      '~id': 'CL:0000909',
+      '~labels': ['T1DConcept', 'Cell'],
+      '~properties': { name: 'CD8-positive, alpha-beta memory T cell' },
+    };
+    expect(getCytoscapeNodeLabel(ordinaryNode, 'Cell')).toBe(
+      'CD8-positive, alpha-beta memory T cell',
+    );
+  });
+
+  test('gives DataResource nodes a direct same-origin navigation action', () => {
+    expect(isDirectResourceNavigationNodeData({
+      type: 'DataResource',
+      graph_link: '/T1D_GPS/v8/details/scfm-t-cell-differentiation',
+    })).toBe(true);
+    expect(isDirectResourceNavigationNodeData({
+      type: 'DataResource',
+      graph_link: 'https://example.org/private',
+    })).toBe(false);
+    expect(isDirectResourceNavigationNodeData({
+      type: 'Pathway',
+      graph_link: '/T1D_GPS/v8/details/scfm-t-cell-differentiation',
+    })).toBe(false);
+  });
+
+  test('focuses the first deterministic occurrence when metadata names a canonical resource ID', () => {
+    const canonicalId = 'T1D:DATARESOURCE:scfm_t_cell_rna_umap';
+    const occurrence = (id, canonical_id, resource_view_key) => ({
+      id: () => id,
+      data: (property) => ({ canonical_id, resource_view_key })[property],
+    });
+    const cd4Occurrence = occurrence(
+      `${canonicalId}@cd4`,
+      canonicalId,
+      'scfm-t-cell-rna-umap',
+    );
+    const cd8Occurrence = occurrence(
+      `${canonicalId}@cd8`,
+      canonicalId,
+      'scfm-t-cell-rna-umap',
+    );
+    const cy = {
+      getElementById: jest.fn(() => ({ nonempty: () => false })),
+      nodes: jest.fn(() => [cd4Occurrence, cd8Occurrence]),
+    };
+
+    expect(resolveInitialFocusNode(cy, canonicalId)).toBe(cd4Occurrence);
+  });
+
+  test('uses the registered view key as a canonical-focus fallback for legacy occurrences', () => {
+    const canonicalId = 'T1D:DATARESOURCE:scfm_t_cell_rna_umap';
+    const occurrence = {
+      id: () => `${canonicalId}@cd4`,
+      data: (property) => ({
+        canonical_id: undefined,
+        resource_view_key: 'scfm-t-cell-rna-umap',
+      })[property],
+    };
+    const cy = {
+      getElementById: () => ({ nonempty: () => false }),
+      nodes: () => [occurrence],
+    };
+
+    expect(resolveInitialFocusNode(cy, canonicalId)).toBe(occurrence);
   });
 });
 
@@ -268,23 +508,23 @@ describe('hover infocard structured values', () => {
   };
 
   test('renders a nested accepted KG annotation without passing an object to React', () => {
-    let rendered;
+    let view;
     expect(() => {
-      rendered = render(<InfocardData value={acceptedKgAnnotation} dataKey="accepted_kg_annotation" />);
+      view = render(<InfocardData value={acceptedKgAnnotation} dataKey="accepted_kg_annotation" />);
     }).not.toThrow();
-    expect(rendered.container.textContent).toContain('dendritic cell');
-    expect(rendered.container.textContent).toContain('Homo sapiens');
-    expect(rendered.container.textContent).not.toContain('[object Object]');
+    expect(view.container.textContent).toContain('dendritic cell');
+    expect(view.container.textContent).toContain('Homo sapiens');
+    expect(view.container.textContent).not.toContain('[object Object]');
   });
 
   test('renders an object array through the list formatter safely', () => {
-    const rendered = render(<InfocardData value={[acceptedKgAnnotation]} config="list" />);
-    expect(rendered.container.textContent).toContain('CL:0000451');
-    expect(rendered.container.textContent).not.toContain('[object Object]');
+    const view = render(<InfocardData value={[acceptedKgAnnotation]} config="list" />);
+    expect(view.container.textContent).toContain('CL:0000451');
+    expect(view.container.textContent).not.toContain('[object Object]');
   });
 
   test('shows structured evidence limitations but hides rendering and navigation internals', () => {
-    const rendered = render(<InfocardMenu
+    const view = render(<InfocardMenu
       hoveredData={{
         id: 'T1DGPS:CS:000002',
         name: 'TCF7-high stem-like autoreactive CD8 state',
@@ -309,24 +549,24 @@ describe('hover infocard structured values', () => {
       }}
     />);
 
-    expect(rendered.container.textContent).toContain('Evidence limitation');
-    expect(rendered.container.textContent).toContain('not_established');
-    expect(rendered.container.textContent).toContain('NOD mouse');
-    expect(rendered.container.textContent).not.toContain('Broader Color');
-    expect(rendered.container.textContent).not.toContain('Show all data');
-    expect(rendered.container.textContent).not.toContain('abc123');
-    expect(rendered.container.textContent).not.toContain('Display Lane');
-    expect(rendered.container.textContent).not.toContain('Event Order');
-    expect(rendered.container.textContent).not.toContain('Default Visible');
-    expect(rendered.container.textContent).not.toContain('Display Instance Id');
-    expect(rendered.container.textContent).not.toContain('Primary Semantic Type');
-    expect(rendered.container.textContent).not.toContain('Node Type');
-    expect(rendered.container.textContent).not.toContain('Layer');
-    expect(rendered.container.textContent).not.toContain('12345.678');
-    expect(rendered.container.textContent).not.toContain('23456.789');
-    expect(rendered.container.textContent).not.toContain('34567.891');
-    expect(rendered.container.textContent).not.toContain('45678.912');
-    expect(rendered.container.textContent).not.toContain('[object Object]');
+    expect(view.container.textContent).toContain('Evidence limitation');
+    expect(view.container.textContent).toContain('not_established');
+    expect(view.container.textContent).toContain('NOD mouse');
+    expect(view.container.textContent).not.toContain('Broader Color');
+    expect(view.container.textContent).not.toContain('Show all data');
+    expect(view.container.textContent).not.toContain('abc123');
+    expect(view.container.textContent).not.toContain('Display Lane');
+    expect(view.container.textContent).not.toContain('Event Order');
+    expect(view.container.textContent).not.toContain('Default Visible');
+    expect(view.container.textContent).not.toContain('Display Instance Id');
+    expect(view.container.textContent).not.toContain('Primary Semantic Type');
+    expect(view.container.textContent).not.toContain('Node Type');
+    expect(view.container.textContent).not.toContain('Layer');
+    expect(view.container.textContent).not.toContain('12345.678');
+    expect(view.container.textContent).not.toContain('23456.789');
+    expect(view.container.textContent).not.toContain('34567.891');
+    expect(view.container.textContent).not.toContain('45678.912');
+    expect(view.container.textContent).not.toContain('[object Object]');
   });
 });
 
@@ -337,6 +577,412 @@ describe('interaction query helpers', () => {
 
     expect(mergedQuery).toHaveLength(1);
     expect(mergedQuery[0].query).toContain('LIMIT 20');
+  });
+
+  test('uses canonical IDs for occurrence-backed Explore and Find queries', () => {
+    const selectedOccurrence = {
+      id: () => 'CL:0000625-2',
+      data: (property) => ({
+        canonical_id: 'CL:0000625',
+        viewer_occurrence_of: 'CL:0000625',
+      })[property],
+    };
+    const graphData = {
+      nodes: [
+        {
+          '~id': 'CL:0000625-1',
+          '~properties': { canonical_id: 'CL:0000625' },
+        },
+        {
+          '~id': 'CL:0000625-2',
+          '~properties': { canonical_id: 'CL:0000625' },
+        },
+        {
+          '~id': 'ENSG00000148737-1',
+          '~properties': { canonical_id: 'ENSG00000148737' },
+        },
+      ],
+    };
+
+    const queryNodeId = resolveCanonicalNodeQueryId(selectedOccurrence, selectedOccurrence.id());
+    const canonicalVisibleIds = getCanonicalVisibleNodeIds(
+      graphData,
+      new Set(['ENSG00000148737-1']),
+    );
+    const explore = mergeExploreNeighborsCypher([], queryNodeId)[0].query;
+    const find = buildFindConnectionCypher(queryNodeId, Array.from(canonicalVisibleIds)).query;
+
+    expect(queryNodeId).toBe('CL:0000625');
+    expect(canonicalVisibleIds).toEqual(new Set(['CL:0000625']));
+    expect(explore).toContain('WITH "CL:0000625" AS node_id');
+    expect(explore).not.toContain('CL:0000625-2');
+    expect(find).toContain('WITH "CL:0000625" AS selected_id');
+    expect(find).toContain('["CL:0000625"] AS node_ids');
+    expect(find).not.toContain('CL:0000625-1');
+    expect(find).not.toContain('CL:0000625-2');
+
+    const candidateGraphData = {
+      nodes: [
+        {
+          '~id': 'CL:0000625',
+          '~properties': { canonical_id: 'CL:0000625' },
+        },
+        {
+          '~id': 'ENSG00000148737',
+          '~properties': { canonical_id: 'ENSG00000148737' },
+        },
+        {
+          '~id': 'ENSG00000148737-duplicate',
+          '~properties': { canonical_id: 'ENSG00000148737' },
+        },
+      ],
+    };
+    expect(getNewCanonicalCandidateNodeIds(candidateGraphData, canonicalVisibleIds))
+      .toEqual(['ENSG00000148737']);
+  });
+
+  test('prefers the explicit DB query identity when canonical identity differs', () => {
+    const selectedOccurrence = {
+      id: () => 'CL:0000625-2',
+      data: (property) => ({
+        [GRAPH_QUERY_ID_PROPERTY]: 'neo4j-node-625',
+        canonical_id: 'CL:0000625',
+      })[property],
+    };
+
+    expect(resolveCanonicalNodeQueryId(selectedOccurrence, selectedOccurrence.id()))
+      .toBe('neo4j-node-625');
+    expect(isHiddenInfoProperty(GRAPH_QUERY_ID_PROPERTY)).toBe(true);
+  });
+
+  test('projects through query_id without conflating semantic canonical and DB identity', () => {
+    const existing = {
+      graphData: {
+        nodes: [{
+          '~id': 'DISPLAY:CELL-1',
+          '~labels': ['Cell'],
+          '~properties': {
+            query_id: 'DB:NODE:625',
+            canonical_id: 'CL:0000625',
+            viewer_occurrence: true,
+            viewer_occurrence_index: 1,
+          },
+        }],
+        edges: [],
+      },
+      coordData: { 'DISPLAY:CELL-1': { x: 10, y: 20 } },
+    };
+    const rawResult = {
+      graphData: {
+        nodes: [
+          {
+            '~id': 'DB:NODE:625',
+            '~labels': ['Cell'],
+            '~properties': { query_id: 'DB:NODE:625', canonical_id: 'CL:0000625' },
+          },
+          { '~id': 'DB:NODE:NEW', '~labels': ['Gene'], '~properties': {} },
+        ],
+        edges: [{
+          '~id': 'DB:EDGE:NEW',
+          '~type': 'EXPRESSES',
+          '~start': 'DB:NODE:625',
+          '~end': 'DB:NODE:NEW',
+          '~properties': {},
+        }],
+      },
+      coordData: { 'DB:NODE:625': { x: 100, y: 200 } },
+    };
+
+    const projected = projectGraphViewerResultToOccurrences(
+      rawResult,
+      existing,
+      { exactNodeIds: ['DISPLAY:CELL-1'] },
+    );
+    expect(projected.graphData.nodes.map((node) => node['~id'])).toEqual([
+      'DB:NODE:NEW',
+      'DISPLAY:CELL-1',
+    ]);
+    expect(projected.graphData.edges[0]).toEqual(expect.objectContaining({
+      '~start': 'DISPLAY:CELL-1',
+      '~end': 'DB:NODE:NEW',
+    }));
+  });
+
+  test('projects bare query records onto stable viewer occurrences deterministically', () => {
+    const occurrenceNode = (id, canonicalId, index, role) => ({
+      '~id': id,
+      '~labels': ['Cell'],
+      '~properties': {
+        id,
+        canonical_id: canonicalId,
+        viewer_occurrence: true,
+        viewer_occurrence_of: canonicalId,
+        viewer_occurrence_index: index,
+        viewer_occurrence_role: role,
+      },
+    });
+    const occurrenceEdge = (id, canonicalId, index, start, end) => ({
+      '~id': id,
+      '~type': 'RELATED_TO',
+      '~start': start,
+      '~end': end,
+      '~properties': {
+        id,
+        canonical_id: canonicalId,
+        viewer_occurrence: true,
+        viewer_occurrence_of: canonicalId,
+        viewer_occurrence_index: index,
+      },
+    });
+    const existing = {
+      graphData: {
+        nodes: [
+          occurrenceNode('CELL:A-1', 'CELL:A', 1, 'first_lane'),
+          occurrenceNode('CELL:A-2', 'CELL:A', 2, 'second_lane'),
+          // Deliberately reverse B in source order: occurrence_index still wins.
+          occurrenceNode('CELL:B-2', 'CELL:B', 2, 'second_lane'),
+          occurrenceNode('CELL:B-1', 'CELL:B', 1, 'first_lane'),
+        ],
+        edges: [
+          occurrenceEdge('EDGE:AB-1', 'EDGE:AB', 1, 'CELL:A-1', 'CELL:B-1'),
+          occurrenceEdge('EDGE:AB-2', 'EDGE:AB', 2, 'CELL:A-2', 'CELL:B-2'),
+        ],
+      },
+      coordData: {
+        'CELL:A-1': { x: 10, y: 10 },
+        'CELL:A-2': { x: 20, y: 20 },
+        'CELL:B-1': { x: 30, y: 30 },
+        'CELL:B-2': { x: 40, y: 40 },
+      },
+      edgeRoutes: {
+        'EDGE:AB-1': { curveDistance: '-20' },
+        'EDGE:AB-2': { curveDistance: '20' },
+      },
+    };
+    const rawResult = {
+      graphData: {
+        nodes: [
+          { '~id': 'CELL:A', '~labels': ['Cell'], '~properties': { canonical_id: 'CELL:A' } },
+          { '~id': 'CELL:B', '~labels': ['Cell'], '~properties': { canonical_id: 'CELL:B' } },
+          { '~id': 'CELL:C', '~labels': ['Cell'], '~properties': { canonical_id: 'CELL:C' } },
+        ],
+        edges: [
+          {
+            '~id': 'EDGE:AB', '~type': 'RELATED_TO', '~start': 'CELL:A', '~end': 'CELL:B',
+            '~properties': { canonical_id: 'EDGE:AB' },
+          },
+          {
+            '~id': 'EDGE:AC:NEW', '~type': 'RELATED_TO', '~start': 'CELL:A', '~end': 'CELL:C',
+            '~properties': { canonical_id: 'EDGE:AC:NEW' },
+          },
+          {
+            '~id': 'EDGE:AB:NEW', '~type': 'RELATED_TO', '~start': 'CELL:A', '~end': 'CELL:B',
+            '~properties': { canonical_id: 'EDGE:AB:NEW' },
+          },
+        ],
+      },
+      coordData: {
+        'CELL:A': { x: 100, y: 100 },
+        'CELL:B': { x: 200, y: 200 },
+        'CELL:C': { x: 300, y: 300 },
+      },
+      edgeRoutes: {
+        'EDGE:AB': { curveDistance: '100' },
+        'EDGE:AC:NEW': { curveDistance: '110' },
+        'EDGE:AB:NEW': { curveDistance: '120' },
+      },
+    };
+
+    const projected = projectGraphViewerResultToOccurrences(
+      rawResult,
+      existing,
+      { exactNodeIds: ['CELL:A-2'] },
+    );
+    const projectedNodes = new Set(projected.graphData.nodes.map((node) => node['~id']));
+    const projectedEdges = new Map(projected.graphData.edges.map((edge) => [edge['~id'], edge]));
+
+    expect(projectedNodes).toEqual(new Set([
+      'CELL:C', 'CELL:A-1', 'CELL:A-2', 'CELL:B-1', 'CELL:B-2',
+    ]));
+    expect(projectedNodes.has('CELL:A')).toBe(false);
+    expect(projectedNodes.has('CELL:B')).toBe(false);
+    expect(projectedEdges.has('EDGE:AB')).toBe(false);
+    expect(projectedEdges.get('EDGE:AC:NEW')).toEqual(expect.objectContaining({
+      '~start': 'CELL:A-2',
+      '~end': 'CELL:C',
+    }));
+    expect(projectedEdges.get('EDGE:AB:NEW')).toEqual(expect.objectContaining({
+      '~start': 'CELL:A-2',
+      '~end': 'CELL:B-1',
+    }));
+    expect(projectedEdges.has('EDGE:AB-1')).toBe(true);
+    expect(projectedEdges.has('EDGE:AB-2')).toBe(true);
+    expect(projected.coordData['CELL:A']).toBeUndefined();
+    expect(projected.coordData['CELL:A-2']).toEqual({ x: 20, y: 20 });
+    expect(projected.edgeRoutes['EDGE:AB:NEW']).toBeUndefined();
+    expect(projected.edgeRoutes['EDGE:AB-1']).toEqual({ curveDistance: '-20' });
+
+    const exactTargetProjection = projectGraphViewerResultToOccurrences(
+      rawResult,
+      existing,
+      { exactNodeIds: ['CELL:A-2', 'CELL:B-2'] },
+    );
+    expect(exactTargetProjection.graphData.edges.find(
+      (edge) => edge['~id'] === 'EDGE:AB:NEW',
+    )).toEqual(expect.objectContaining({ '~start': 'CELL:A-2', '~end': 'CELL:B-2' }));
+  });
+
+  test('preserves exact resource occurrences for distinct canonical CellType data edges', () => {
+    const canonicalResourceId = 'T1D:DATARESOURCE:scfm_t_cell_rna_umap';
+    const cd4Id = 'CL:0000624';
+    const cd8Id = 'CL:0000625';
+    const cd4ResourceId = `${canonicalResourceId}-1`;
+    const cd8ResourceId = `${canonicalResourceId}-2`;
+    const resourceOccurrence = (id, index, role) => ({
+      '~id': id,
+      '~labels': ['DataResource'],
+      '~properties': {
+        id,
+        canonical_id: canonicalResourceId,
+        viewer_occurrence: true,
+        viewer_occurrence_of: canonicalResourceId,
+        viewer_occurrence_index: index,
+        viewer_occurrence_role: role,
+      },
+    });
+    const dataEdge = (id, source, target) => ({
+      '~id': id,
+      '~type': 'HAS_ASSOCIATED_DATA_VIEW',
+      '~start': source,
+      '~end': target,
+      '~properties': {
+        id,
+        canonical_id: id,
+        canonical_source_id: source,
+        canonical_target_id: canonicalResourceId,
+      },
+    });
+    const cd4EdgeId = 'V8:TCELL:DATA_VIEW:CD4';
+    const cd8EdgeId = 'V8:TCELL:DATA_VIEW:CD8';
+    const existing = {
+      graphData: {
+        nodes: [
+          {
+            '~id': cd4Id,
+            '~labels': ['CellType', 'Cell'],
+            '~properties': { name: 'CD4-positive, alpha-beta T cell' },
+          },
+          {
+            '~id': cd8Id,
+            '~labels': ['CellType', 'Cell'],
+            '~properties': { name: 'CD8-positive, alpha-beta T cell' },
+          },
+          resourceOccurrence(cd4ResourceId, 1, 'cd4_lane'),
+          resourceOccurrence(cd8ResourceId, 2, 'cd8_lane'),
+        ],
+        edges: [
+          dataEdge(cd4EdgeId, cd4Id, cd4ResourceId),
+          dataEdge(cd8EdgeId, cd8Id, cd8ResourceId),
+        ],
+      },
+      coordData: {
+        [cd4Id]: { x: 10, y: 20 },
+        [cd8Id]: { x: 10, y: 120 },
+        [cd4ResourceId]: { x: 200, y: 20 },
+        [cd8ResourceId]: { x: 200, y: 120 },
+      },
+      edgeRoutes: {
+        [cd4EdgeId]: { curveDistance: '-30' },
+        [cd8EdgeId]: { curveDistance: '30' },
+      },
+    };
+    const rawResult = {
+      graphData: {
+        // Deliberately omit both ordinary CellType sources. Preserved viewer
+        // edges must bring their exact source records back from `existing`.
+        nodes: [{
+          '~id': canonicalResourceId,
+          '~labels': ['DataResource'],
+          '~properties': { canonical_id: canonicalResourceId },
+        }],
+        edges: [
+          {
+            '~id': cd4EdgeId,
+            '~type': 'HAS_ASSOCIATED_DATA_VIEW',
+            '~start': cd4Id,
+            '~end': canonicalResourceId,
+            '~properties': { canonical_id: cd4EdgeId },
+          },
+          {
+            '~id': cd8EdgeId,
+            '~type': 'HAS_ASSOCIATED_DATA_VIEW',
+            '~start': cd8Id,
+            '~end': canonicalResourceId,
+            '~properties': { canonical_id: cd8EdgeId },
+          },
+        ],
+      },
+      coordData: { [canonicalResourceId]: { x: 500, y: 500 } },
+      edgeRoutes: {
+        [cd4EdgeId]: { curveDistance: '-100' },
+        [cd8EdgeId]: { curveDistance: '100' },
+      },
+    };
+
+    const projected = projectGraphViewerResultToOccurrences(rawResult, existing);
+    const nodeIds = new Set(projected.graphData.nodes.map((node) => node['~id']));
+    const projectedEdges = new Map(
+      projected.graphData.edges.map((edge) => [edge['~id'], edge]),
+    );
+
+    expect(nodeIds).toEqual(new Set([cd4Id, cd8Id, cd4ResourceId, cd8ResourceId]));
+    expect(nodeIds.has(canonicalResourceId)).toBe(false);
+    expect(projectedEdges).toEqual(new Map([
+      [cd4EdgeId, expect.objectContaining({ '~start': cd4Id, '~end': cd4ResourceId })],
+      [cd8EdgeId, expect.objectContaining({ '~start': cd8Id, '~end': cd8ResourceId })],
+    ]));
+    projected.graphData.edges.forEach((edge) => {
+      expect(nodeIds.has(edge['~start'])).toBe(true);
+      expect(nodeIds.has(edge['~end'])).toBe(true);
+    });
+    expect(projected.coordData[canonicalResourceId]).toBeUndefined();
+    expect(projected.coordData[cd4Id]).toEqual(existing.coordData[cd4Id]);
+    expect(projected.coordData[cd8Id]).toEqual(existing.coordData[cd8Id]);
+    expect(projected.edgeRoutes).toEqual(existing.edgeRoutes);
+  });
+
+  test('retains prior exact occurrences across consecutive viewer actions', () => {
+    const graphData = {
+      nodes: [
+        {
+          '~id': 'CELL:A-1',
+          '~properties': { query_id: 'DB:A', viewer_occurrence: true },
+        },
+        {
+          '~id': 'CELL:A-2',
+          '~properties': { query_id: 'DB:A', viewer_occurrence: true },
+        },
+        {
+          '~id': 'CELL:B-2',
+          '~properties': { query_id: 'DB:B', viewer_occurrence: true },
+        },
+      ],
+    };
+    const afterA = extendOccurrenceProjection(null, graphData, 'CELL:A-2');
+    const afterB = extendOccurrenceProjection(afterA, graphData, 'CELL:B-2');
+    const afterSwitchingA = extendOccurrenceProjection(afterB, graphData, 'CELL:A-1');
+
+    expect(afterB.exactNodeIds).toEqual(['CELL:A-2', 'CELL:B-2']);
+    expect(afterSwitchingA.exactNodeIds).toEqual(['CELL:B-2', 'CELL:A-1']);
+  });
+
+  test('falls back to the display ID for ordinary nodes without canonical metadata', () => {
+    const ordinaryNode = {
+      id: () => 'ordinary-node',
+      data: () => undefined,
+    };
+    expect(resolveCanonicalNodeQueryId(ordinaryNode, ordinaryNode.id()))
+      .toBe('ordinary-node');
   });
 
   test('restores adjacent nodes and edges only when edge endpoints are visible', () => {
@@ -360,6 +1006,29 @@ describe('interaction query helpers', () => {
       new Set(['edge-1', 'edge-2', 'node-3']),
       false,
     ))).toEqual(['edge-2', 'node-3']);
+  });
+
+  test('restores result-graph adjacency with the selected occurrence canonical ID', () => {
+    const selectedOccurrence = {
+      id: () => 'CL:0000625-2',
+      data: (property) => ({ canonical_id: 'CL:0000625' })[property],
+    };
+    const resultGraph = {
+      nodes: [{ '~id': 'CL:0000625' }, { '~id': 'T1D:neighbor' }],
+      edges: [{
+        '~id': 'canonical-edge',
+        '~start': 'CL:0000625',
+        '~end': 'T1D:neighbor',
+      }],
+    };
+    const queryNodeId = resolveCanonicalNodeQueryId(selectedOccurrence, selectedOccurrence.id());
+
+    expect(Array.from(restoreAdjacentDeletedIds(
+      resultGraph,
+      queryNodeId,
+      new Set(['T1D:neighbor', 'canonical-edge']),
+      true,
+    ))).toEqual([]);
   });
 
   test('recognizes overflow placeholder ids', () => {
@@ -593,6 +1262,35 @@ describe('evidence-aware edge styling', () => {
     expect(normalizeEdgeLineStyle('dotted')).toBe('dotted');
     expect(normalizeEdgeLineStyle('mouse-mechanistic')).toBe('solid');
     expect(normalizeEdgeLineStyle()).toBe('solid');
+  });
+});
+
+describe('strict edge midpoint hover targeting', () => {
+  test.each([
+    ['CD4 DataResource edge', 'HAS_ASSOCIATED_DATA_VIEW'],
+    ['CD8 DataResource edge', 'HAS_ASSOCIATED_DATA_VIEW'],
+    ['ordinary biological edge', 'DIFFERENTIATES_INTO'],
+  ])('%s uses the same strict 20px threshold (%s)', (_label, _type) => {
+    const midpoint = { x: 100, y: 100 };
+    expect(isStrictEdgeMidpointHit(midpoint, [119.999, 100])).toBe(true);
+    expect(isStrictEdgeMidpointHit(midpoint, [120, 100])).toBe(false);
+    expect(isStrictEdgeMidpointHit(midpoint, [121, 100])).toBe(false);
+  });
+});
+
+describe('canvas overlay viewport avoidance', () => {
+  test('shifts fitted pan left only when an overlay is present', () => {
+    expect(getCanvasOverlayAwarePan({ x: 240, y: -30 }, true))
+      .toEqual({ x: 128, y: -30 });
+    expect(getCanvasOverlayAwarePan({ x: 240, y: -30 }, false))
+      .toEqual({ x: 240, y: -30 });
+    expect(getCanvasOverlayAwarePan({ x: 240, y: -30 }, true, 100))
+      .toEqual({ x: 140, y: -30 });
+  });
+
+  test('leaves invalid Cytoscape pan values untouched', () => {
+    const invalidPan = { x: Number.NaN, y: 10 };
+    expect(getCanvasOverlayAwarePan(invalidPan, true)).toBe(invalidPan);
   });
 });
 

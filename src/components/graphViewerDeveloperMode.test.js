@@ -46,6 +46,7 @@ describe('graph viewer developer mode contract', () => {
 
   test('uses a meaningful first navigation label', () => {
     expect(navigationLabel({ type: 'Process' })).toBe('Open pathway');
+    expect(navigationLabel({ navigation_action: 'Open data view' })).toBe('Open data view');
     expect(navigationLabel({ navigation_action: 'detail view' })).toBe('Open detail');
     expect(navigationLabel({
       type: 'Process',

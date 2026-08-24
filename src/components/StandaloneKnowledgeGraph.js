@@ -18,6 +18,7 @@ import { useSelector } from 'react-redux';
 
 import AdsClickIcon from '@mui/icons-material/AdsClick';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import BubbleChartRoundedIcon from '@mui/icons-material/BubbleChartRounded';
 import CenterFocusStrongIcon from '@mui/icons-material/CenterFocusStrong';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import DataObjectIcon from '@mui/icons-material/DataObject';
@@ -25,6 +26,8 @@ import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import GridViewIcon from '@mui/icons-material/GridView';
 import HubIcon from '@mui/icons-material/Hub';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
+import KeyboardArrowLeftIcon from '@mui/icons-material/KeyboardArrowLeft';
+import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import LinkIcon from '@mui/icons-material/Link';
 import RedoIcon from '@mui/icons-material/Redo';
@@ -57,6 +60,10 @@ import { inverseLayoutPosition, navigationLabel } from './graphViewerDeveloperMo
 import { formatInfocardValue, getInfocardHref } from './graphViewerInfocardValue';
 import GraphInfocard from './GraphInfocard';
 import {
+  findKgLinkedViewRegistrationForCanonicalNodeId,
+  resolveRegisteredKgLinkedViewRoute,
+} from './kgLinkedViews/registry';
+import {
   edgeIsInverted,
   edgeLabels,
   legendSchema,
@@ -73,8 +80,8 @@ const scaleX = (value) => value * CY_LAYOUT_SCALE;
 const scaleYPosition = (value) => value * CY_LAYOUT_SCALE * CY_Y_POSITION_MULTIPLIER;
 const scaleHeight = (value) => value * CY_LAYOUT_SCALE;
 
-const LegendItem = ({ label, color }) => (
-  <Box sx={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%', padding: '4px 0' }}>
+const LegendItem = ({ label, color, horizontal = false }) => (
+  <Box sx={{ display: 'flex', alignItems: 'center', gap: horizontal ? '8px' : '12px', width: horizontal ? 'auto' : '100%', padding: '4px 0' }}>
     <Box
       sx={{
         flex: '0 0 auto',
@@ -84,10 +91,71 @@ const LegendItem = ({ label, color }) => (
         backgroundColor: color || '#D9E1E6',
       }}
     />
-    <Typography sx={{ fontFamily: 'Inter, sans-serif', fontSize: '14px', fontWeight: 400, lineHeight: '20px', color: '#374151' }}>
+    <Typography sx={{ fontFamily: 'Inter, sans-serif', fontSize: '14px', fontWeight: 400, lineHeight: '20px', color: '#374151', whiteSpace: horizontal ? 'nowrap' : 'normal' }}>
       {label}
     </Typography>
   </Box>
+);
+
+const DataResourceLegendItem = ({ label = 'Data view', horizontal = false }) => (
+  <Box sx={{ display: 'flex', alignItems: 'center', gap: horizontal ? '8px' : '12px', width: horizontal ? 'auto' : '100%', padding: '4px 0' }}>
+    <Box
+      aria-hidden="true"
+      sx={{
+        boxSizing: 'border-box',
+        flex: '0 0 auto',
+        display: 'grid',
+        placeItems: 'center',
+        width: '28px',
+        height: '22px',
+        borderRadius: '6px',
+        border: `3px double ${DATA_RESOURCE_VISUAL.borderColor}`,
+        backgroundColor: DATA_RESOURCE_VISUAL.backgroundColor,
+        color: DATA_RESOURCE_VISUAL.textColor,
+      }}
+    >
+      <BubbleChartRoundedIcon sx={{ fontSize: '15px' }} />
+    </Box>
+    <Typography sx={{ fontFamily: 'Inter, sans-serif', fontSize: '14px', fontWeight: 500, lineHeight: '20px', color: '#374151', whiteSpace: horizontal ? 'nowrap' : 'normal' }}>
+      {label}
+    </Typography>
+  </Box>
+);
+
+const LegendLineItem = ({ label, color = '#D3D3D3' }) => (
+  <Box sx={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%', padding: '4px 0' }}>
+    <Box sx={{ flex: '0 0 auto', width: '24px', borderTop: `2px solid ${color}` }} />
+    <Typography sx={{ fontFamily: 'Inter, sans-serif', fontSize: '12.5px', fontWeight: 500, lineHeight: '18px', color: '#425B57' }}>
+      {label}
+    </Typography>
+  </Box>
+);
+
+export const resolveLegendPanelLayout = (
+  layout = {},
+  { layeredNavigationEnabled = false, canvasOverlayPresent = false } = {},
+) => {
+  const config = layout?.legend_layout || {};
+  const numberOr = (value, fallback) => (
+    Number.isFinite(Number(value)) ? Number(value) : fallback
+  );
+  const horizontal = config.orientation === 'horizontal';
+  return {
+    horizontal,
+    placement: config.placement || 'default',
+    right: numberOr(config.right, canvasOverlayPresent ? 424 : 88),
+    bottom: numberOr(config.bottom, 24),
+    width: numberOr(config.width, horizontal ? 620 : 208),
+    showConnections: config.show_connections !== false,
+    dataResourceLabel: String(config.data_resource_label || 'Data view'),
+    layeredNavigationEnabled,
+  };
+};
+
+export const resolveLegendToggleDirection = (horizontal, visible) => (
+  horizontal
+    ? (visible ? 'right' : 'left')
+    : (visible ? 'up' : 'down')
 );
 
 const toolbarButtonSx = {
@@ -358,6 +426,302 @@ const contextMenuItemSx = {
 
 const escapeCypherString = (value) => String(value ?? '').replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 
+// Viewer records may use a display-only ~id while Neo4j is queried through its
+// stable `id` property. `query_id` is the explicit escape hatch when that DB
+// identity differs from the semantic canonical_id. canonical_id and
+// viewer_occurrence_of remain backward-compatible fallbacks.
+export const GRAPH_QUERY_ID_PROPERTY = 'query_id';
+
+const graphRecordProperty = (record, property) => (
+  typeof record?.data === 'function'
+    ? record.data(property)
+    : record?.['~properties']?.[property] ?? record?.[property]
+);
+
+const graphRecordId = (record) => (
+  typeof record?.id === 'function' ? record.id() : record?.['~id']
+);
+
+export const resolveCanonicalNodeQueryId = (node, fallbackId = '') => {
+  if (!node) return String(fallbackId || '');
+  return String(
+    graphRecordProperty(node, GRAPH_QUERY_ID_PROPERTY)
+    || graphRecordProperty(node, 'canonical_id')
+    || graphRecordProperty(node, 'viewer_occurrence_of')
+    || fallbackId
+    || graphRecordId(node)
+    || '',
+  );
+};
+
+export const extendOccurrenceProjection = (
+  currentProjection,
+  graphData,
+  exactNodeId,
+) => {
+  const nodesById = new Map(
+    (graphData?.nodes || []).map((node) => [node?.['~id'], node]),
+  );
+  const exactNode = nodesById.get(exactNodeId);
+  const exactQueryId = resolveCanonicalNodeQueryId(exactNode, exactNodeId);
+  const retainedNodeIds = (currentProjection?.exactNodeIds || []).filter((nodeId) => {
+    if (nodeId === exactNodeId) return false;
+    const node = nodesById.get(nodeId);
+    return !exactQueryId || resolveCanonicalNodeQueryId(node, nodeId) !== exactQueryId;
+  });
+  return {
+    ...(currentProjection || {}),
+    exactNodeIds: [...retainedNodeIds, exactNodeId],
+  };
+};
+
+export const isViewerOccurrenceRecord = (record) => {
+  const recordId = graphRecordId(record);
+  const canonicalId = graphRecordProperty(record, 'canonical_id')
+    || graphRecordProperty(record, 'viewer_occurrence_of');
+  const occurrenceIndex = graphRecordProperty(record, 'viewer_occurrence_index');
+  return graphRecordProperty(record, 'viewer_occurrence') === true
+    || (occurrenceIndex !== undefined && occurrenceIndex !== null)
+    || Boolean(
+      recordId
+      && canonicalId
+      && recordId !== canonicalId
+      && (
+        graphRecordProperty(record, 'display_instance') === true
+        || graphRecordProperty(record, 'display_instance_id') === recordId
+        || graphRecordProperty(record, 'viewer_occurrence_of')
+      )
+    );
+};
+
+const viewerOccurrenceOrder = (left, right) => {
+  const leftIndex = Number(graphRecordProperty(left, 'viewer_occurrence_index'));
+  const rightIndex = Number(graphRecordProperty(right, 'viewer_occurrence_index'));
+  const safeLeftIndex = Number.isFinite(leftIndex) ? leftIndex : Number.MAX_SAFE_INTEGER;
+  const safeRightIndex = Number.isFinite(rightIndex) ? rightIndex : Number.MAX_SAFE_INTEGER;
+  return safeLeftIndex - safeRightIndex
+    || String(graphRecordProperty(left, 'viewer_occurrence_role') || '')
+      .localeCompare(String(graphRecordProperty(right, 'viewer_occurrence_role') || ''))
+    || String(graphRecordId(left) || '').localeCompare(String(graphRecordId(right) || ''));
+};
+
+const viewerOccurrenceGroups = (records = []) => {
+  const groups = new Map();
+  records.filter(isViewerOccurrenceRecord).forEach((record) => {
+    const queryId = resolveCanonicalNodeQueryId(record, graphRecordId(record));
+    if (!queryId) return;
+    if (!groups.has(queryId)) groups.set(queryId, []);
+    groups.get(queryId).push(record);
+  });
+  groups.forEach((recordsForQueryId) => recordsForQueryId.sort(viewerOccurrenceOrder));
+  return groups;
+};
+
+export const projectGraphViewerResultToOccurrences = (
+  result,
+  existing = {},
+  { exactNodeIds = [], exactOccurrenceByQueryId = {} } = {},
+) => {
+  if (!result?.graphData) return result;
+
+  const existingGraphData = existing.graphData || {};
+  const existingNodes = existingGraphData.nodes || [];
+  const existingEdges = existingGraphData.edges || [];
+  const nodeOccurrenceGroups = viewerOccurrenceGroups(existingNodes);
+  const edgeOccurrenceGroups = viewerOccurrenceGroups(existingEdges);
+  if (!nodeOccurrenceGroups.size && !edgeOccurrenceGroups.size) return result;
+
+  const existingNodesById = new Map(existingNodes.map((node) => [node?.['~id'], node]));
+  const existingEdgesById = new Map(existingEdges.map((edge) => [edge?.['~id'], edge]));
+  const exactOccurrences = new Map(Object.entries(exactOccurrenceByQueryId || {}));
+  exactNodeIds.forEach((nodeId) => {
+    const node = existingNodesById.get(nodeId);
+    if (!node) return;
+    exactOccurrences.set(resolveCanonicalNodeQueryId(node, nodeId), nodeId);
+  });
+
+  const returnedNodes = result.graphData.nodes || [];
+  const returnedNodesById = new Map(returnedNodes.map((node) => [node?.['~id'], node]));
+  const endpointQueryId = (endpointId) => resolveCanonicalNodeQueryId(
+    returnedNodesById.get(endpointId),
+    endpointId,
+  );
+  const projectEndpoint = (endpointId, preferredDisplayEndpointId = '') => {
+    const queryId = endpointQueryId(endpointId);
+    const preferredDisplayEndpoint = existingNodesById.get(preferredDisplayEndpointId);
+    if (
+      preferredDisplayEndpoint
+      && resolveCanonicalNodeQueryId(
+        preferredDisplayEndpoint,
+        preferredDisplayEndpointId,
+      ) === queryId
+    ) {
+      return preferredDisplayEndpointId;
+    }
+    const exactOccurrence = exactOccurrences.get(queryId);
+    if (exactOccurrence) return exactOccurrence;
+    return nodeOccurrenceGroups.get(queryId)?.[0]?.['~id'] || endpointId;
+  };
+
+  const replacedNodeIds = new Set();
+  const projectedNodesById = new Map();
+  returnedNodes.forEach((node) => {
+    const nodeId = node?.['~id'];
+    const queryId = resolveCanonicalNodeQueryId(node, nodeId);
+    if (nodeOccurrenceGroups.has(queryId)) {
+      if (nodeId) replacedNodeIds.add(nodeId);
+      return;
+    }
+    if (nodeId) projectedNodesById.set(nodeId, node);
+  });
+  nodeOccurrenceGroups.forEach((occurrences) => {
+    occurrences.forEach((node) => projectedNodesById.set(node['~id'], node));
+  });
+
+  const replacedEdgeIds = new Set();
+  const remappedEdgeIds = new Set();
+  const preservedDisplayEdgeIds = new Set();
+  const projectedEdgesById = new Map();
+  (result.graphData.edges || []).forEach((edge, index) => {
+    const edgeId = edge?.['~id'] || index.toString();
+    const queryId = resolveCanonicalNodeQueryId(edge, edgeId);
+    if (edgeOccurrenceGroups.has(queryId)) {
+      replacedEdgeIds.add(edgeId);
+      return;
+    }
+    const existingDisplayEdge = edge?.['~type'] === 'HAS_ASSOCIATED_DATA_VIEW'
+      && existingEdgesById.get(edgeId)?.['~type'] === 'HAS_ASSOCIATED_DATA_VIEW'
+      ? existingEdgesById.get(edgeId)
+      : null;
+    const projectedStart = projectEndpoint(
+      edge?.['~start'],
+      existingDisplayEdge?.['~start'],
+    );
+    const projectedEnd = projectEndpoint(
+      edge?.['~end'],
+      existingDisplayEdge?.['~end'],
+    );
+    if (existingDisplayEdge) preservedDisplayEdgeIds.add(edgeId);
+    const remapped = projectedStart !== edge?.['~start'] || projectedEnd !== edge?.['~end'];
+    if (remapped) remappedEdgeIds.add(edgeId);
+    projectedEdgesById.set(edgeId, remapped ? {
+      ...edge,
+      '~start': projectedStart,
+      '~end': projectedEnd,
+      '~properties': {
+        ...(edge?.['~properties'] || {}),
+        source_id: projectedStart,
+        target_id: projectedEnd,
+        canonical_source_id: graphRecordProperty(edge, 'canonical_source_id')
+          || endpointQueryId(edge?.['~start']),
+        canonical_target_id: graphRecordProperty(edge, 'canonical_target_id')
+          || endpointQueryId(edge?.['~end']),
+      },
+    } : edge);
+  });
+  edgeOccurrenceGroups.forEach((occurrences) => {
+    occurrences.forEach((edge, index) => {
+      projectedEdgesById.set(edge?.['~id'] || index.toString(), edge);
+    });
+  });
+
+  // Viewer-occurrence edges and exact-ID data-navigation edges are stable
+  // display records, so a partial query result may omit an ordinary source
+  // node that a preserved endpoint still needs. Restore exact endpoint records
+  // from the existing graph; if neither graph owns an endpoint, drop the edge
+  // instead of emitting invalid Cytoscape elements.
+  const preservedEndpointNodeIds = new Set();
+  const filteredEdgeIds = new Set();
+  projectedEdgesById.forEach((edge, edgeId) => {
+    const endpointIds = [edge?.['~start'], edge?.['~end']];
+    const missingEndpoint = endpointIds.some((endpointId) => (
+      !endpointId
+      || (!projectedNodesById.has(endpointId) && !existingNodesById.has(endpointId))
+    ));
+    if (missingEndpoint) {
+      projectedEdgesById.delete(edgeId);
+      filteredEdgeIds.add(edgeId);
+      return;
+    }
+    endpointIds.forEach((endpointId) => {
+      if (projectedNodesById.has(endpointId)) return;
+      projectedNodesById.set(endpointId, existingNodesById.get(endpointId));
+      preservedEndpointNodeIds.add(endpointId);
+    });
+  });
+
+  const projectedCoordData = { ...(result.coordData || {}) };
+  replacedNodeIds.forEach((nodeId) => delete projectedCoordData[nodeId]);
+  nodeOccurrenceGroups.forEach((occurrences) => {
+    occurrences.forEach((node) => {
+      const nodeId = node?.['~id'];
+      if (nodeId && existing.coordData?.[nodeId]) {
+        projectedCoordData[nodeId] = existing.coordData[nodeId];
+      }
+    });
+  });
+  preservedEndpointNodeIds.forEach((nodeId) => {
+    if (existing.coordData?.[nodeId]) {
+      projectedCoordData[nodeId] = existing.coordData[nodeId];
+    }
+  });
+
+  const projectedEdgeRoutes = { ...(result.edgeRoutes || {}) };
+  [...replacedEdgeIds, ...remappedEdgeIds, ...filteredEdgeIds].forEach((edgeId) => {
+    delete projectedEdgeRoutes[edgeId];
+  });
+  edgeOccurrenceGroups.forEach((occurrences) => {
+    occurrences.forEach((edge) => {
+      const edgeId = edge?.['~id'];
+      if (edgeId && projectedEdgesById.has(edgeId) && existing.edgeRoutes?.[edgeId]) {
+        projectedEdgeRoutes[edgeId] = existing.edgeRoutes[edgeId];
+      }
+    });
+  });
+  preservedDisplayEdgeIds.forEach((edgeId) => {
+    if (projectedEdgesById.has(edgeId) && existing.edgeRoutes?.[edgeId]) {
+      projectedEdgeRoutes[edgeId] = existing.edgeRoutes[edgeId];
+    }
+  });
+
+  return {
+    ...result,
+    graphData: {
+      ...result.graphData,
+      nodes: Array.from(projectedNodesById.values()),
+      edges: Array.from(projectedEdgesById.values()),
+    },
+    coordData: projectedCoordData,
+    edgeRoutes: projectedEdgeRoutes,
+  };
+};
+
+export const getCanonicalVisibleNodeIds = (graphData, deletedIds = new Set()) => {
+  const deleted = deletedIds instanceof Set ? deletedIds : new Set(deletedIds || []);
+  return new Set((graphData?.nodes || [])
+    .filter((node) => !deleted.has(node?.['~id']))
+    .map((node) => resolveCanonicalNodeQueryId(node, node?.['~id']))
+    .filter(Boolean));
+};
+
+export const getNewCanonicalCandidateNodeIds = (
+  candidateGraphData,
+  existingCanonicalNodeIds = new Set(),
+) => {
+  const existing = existingCanonicalNodeIds instanceof Set
+    ? existingCanonicalNodeIds
+    : new Set(existingCanonicalNodeIds || []);
+  const seen = new Set();
+  const nodeIds = [];
+  (candidateGraphData?.nodes || []).forEach((node) => {
+    const canonicalId = resolveCanonicalNodeQueryId(node, node?.['~id']);
+    if (!canonicalId || existing.has(canonicalId) || seen.has(canonicalId)) return;
+    seen.add(canonicalId);
+    if (node?.['~id']) nodeIds.push(node['~id']);
+  });
+  return nodeIds;
+};
+
 const buildExploreNeighborsCypher = (nodeId, limit = NEIGHBOR_QUERY_LIMIT) => ({
   source: 'neo4j',
   query: [
@@ -439,7 +803,7 @@ export const restoreAdjacentDeletedIds = (graphData, nodeId, deletedIds, restore
   return nextDeletedIds;
 };
 
-const buildFindConnectionCypher = (nodeId, visibleNodeIds) => ({
+export const buildFindConnectionCypher = (nodeId, visibleNodeIds) => ({
   source: 'neo4j',
   query: [
     `WITH "${escapeCypherString(nodeId)}" AS selected_id,`,
@@ -453,10 +817,11 @@ const buildFindConnectionCypher = (nodeId, visibleNodeIds) => ({
   ].join('\n'),
 });
 
-const buildGraphRequestKey = (cypherList, mode, engine) => JSON.stringify({
+const buildGraphRequestKey = (cypherList, mode, engine, occurrenceProjection = null) => JSON.stringify({
   cypher: cypherList,
   mode,
   engine,
+  occurrence_projection: occurrenceProjection?.exactNodeIds || [],
 });
 
 const modeOptionSx = {
@@ -615,6 +980,43 @@ const getSafeEdgeMidpoint = (ele) => {
   }
 };
 
+export const isStrictEdgeMidpointHit = (
+  midpoint,
+  renderedPoint,
+  threshold = 20,
+) => {
+  if (
+    !midpoint
+    || !Number.isFinite(midpoint.x)
+    || !Number.isFinite(midpoint.y)
+    || !Array.isArray(renderedPoint)
+    || renderedPoint.length < 2
+    || !Number.isFinite(renderedPoint[0])
+    || !Number.isFinite(renderedPoint[1])
+    || !Number.isFinite(threshold)
+    || threshold <= 0
+  ) return false;
+  const deltaX = midpoint.x - renderedPoint[0];
+  const deltaY = midpoint.y - renderedPoint[1];
+  return (deltaX * deltaX) + (deltaY * deltaY) < threshold * threshold;
+};
+
+export const getCanvasOverlayAwarePan = (
+  pan,
+  overlayPresent,
+  horizontalShift = 112,
+) => {
+  const x = Number(pan?.x);
+  const y = Number(pan?.y);
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return pan;
+  if (!overlayPresent) return { x, y };
+  const shift = Number(horizontalShift);
+  return {
+    x: x - (Number.isFinite(shift) && shift > 0 ? shift : 112),
+    y,
+  };
+};
+
 const getSafeElementPosition = (ele) => {
   try {
     if (!ele || ele.nonempty === false) {
@@ -741,6 +1143,100 @@ export const buildViewNodeStyles = (
     },
   },
 ]));
+
+export const DATA_RESOURCE_VISUAL = Object.freeze({
+  backgroundColor: '#F5F2EA',
+  borderColor: '#3F7169',
+  textColor: '#274B46',
+  haloColor: '#79AFA6',
+});
+
+export const getCytoscapeNodeLabel = (node, nodeType = getNodeType(node)) => {
+  const label = getNodeLabel(node);
+  if (nodeType !== 'DataResource') {
+    return label;
+  }
+  const properties = node?.['~properties'] || {};
+  const resourceDescription = [
+    label,
+    properties.graph_link,
+    properties.route,
+    properties.manifest_path,
+  ].filter(Boolean).join(' ');
+  const eyebrow = /(?:^|[\s/_-])umap(?:$|[\s/_-])/i.test(resourceDescription)
+    ? 'UMAP DATA VIEW ↗'
+    : 'DATA VIEW ↗';
+  return `${eyebrow}\n${label}`;
+};
+
+export const getCytoscapeEdgeLabel = (edge) => {
+  const properties = edge?.['~properties'] || {};
+  const type = edge?.['~type'] || '';
+  return properties.display_label
+    || edgeLabels[type]
+    || type.replace(/_/g, ' ');
+};
+
+export const isDirectResourceNavigationNodeData = (nodeData) => (
+  nodeData?.type === 'DataResource'
+  && typeof nodeData.graph_link === 'string'
+  && nodeData.graph_link.startsWith('/')
+);
+
+export const resolveInitialFocusNode = (cy, requestedNodeId) => {
+  if (!cy || typeof requestedNodeId !== 'string' || !requestedNodeId) return null;
+  const exactNode = cy.getElementById?.(requestedNodeId);
+  if (exactNode?.nonempty?.()) return exactNode;
+
+  const registration = findKgLinkedViewRegistrationForCanonicalNodeId(requestedNodeId);
+  const occurrences = cy.nodes?.().filter((node) => (
+    node.data('canonical_id') === requestedNodeId
+    || (registration && node.data('resource_view_key') === registration.key)
+  ));
+  return occurrences?.[0] || null;
+};
+
+export const buildDataNavigationStyles = () => ([
+  {
+    selector: 'node[type = "DataResource"]',
+    style: {
+      shape: 'round-rectangle',
+      'background-color': DATA_RESOURCE_VISUAL.backgroundColor,
+      'background-opacity': 1,
+      'border-color': DATA_RESOURCE_VISUAL.borderColor,
+      'border-width': 4,
+      'border-style': 'double',
+      color: DATA_RESOURCE_VISUAL.textColor,
+      'font-size': '24px',
+      'font-weight': 700,
+      'text-halign': 'center',
+      'text-margin-x': '14px',
+      'text-wrap': 'wrap',
+      'underlay-color': DATA_RESOURCE_VISUAL.haloColor,
+      'underlay-opacity': 0.16,
+      'underlay-padding': '8px',
+      'underlay-shape': 'round-rectangle',
+      padding: '14px',
+    },
+  },
+]);
+
+export const graphHasDataResource = (graphData, deletedIds = new Set()) => (
+  (graphData?.nodes || []).some((node) => (
+    !deletedIds.has(node['~id'])
+    && (Array.isArray(node['~labels']) ? node['~labels'] : [node['~labels']])
+      .includes('DataResource')
+  ))
+);
+
+export const graphHasDataNavigationEdge = (graphData, deletedIds = new Set()) => (
+  (graphData?.edges || []).some((edge, index) => (
+    !deletedIds.has(edge['~id'] || index.toString())
+    && !deletedIds.has(edge['~start'])
+    && !deletedIds.has(edge['~end'])
+    && edge['~type'] === 'HAS_ASSOCIATED_DATA_VIEW'
+  ))
+);
 
 export const getNodeLabel = (node) => {
   const properties = node?.['~properties'] || {};
@@ -1069,6 +1565,57 @@ const buildMechanismBackgroundNodes = (mechanismRegions, titleMode) => (mechanis
     locked: true,
   }));
 
+const REGION_TITLE_SLOTS = new Set([
+  'top-left', 'top', 'top-right', 'right',
+  'bottom-right', 'bottom', 'bottom-left', 'left',
+]);
+
+export const resolveMechanismTitleSlot = (region, tab) => {
+  if (tab?.position_mode !== 'region-slot-v1') {
+    return { x: tab?.x, y: tab?.y };
+  }
+  const slot = String(tab.anchor_slot || tab.anchor || '').replaceAll('_', '-').toLowerCase();
+  if (!REGION_TITLE_SLOTS.has(slot)) return { x: tab?.x, y: tab?.y };
+  const width = Number(tab.width);
+  const height = Number(tab.height);
+  if (![region.x, region.y, region.width, region.height, width, height].every(Number.isFinite)) {
+    return { x: tab?.x, y: tab?.y };
+  }
+  const left = Number(region.x);
+  const top = Number(region.y);
+  const right = left + Number(region.width);
+  const bottom = top + Number(region.height);
+  const centerX = left + Number(region.width) / 2;
+  const centerY = top + Number(region.height) / 2;
+  const offsetX = Number.isFinite(Number(tab.offset_x)) ? Number(tab.offset_x) : Number(tab.offset) || 0;
+  const offsetY = Number.isFinite(Number(tab.offset_y)) ? Number(tab.offset_y) : Number(tab.offset) || 0;
+  const overlap = Number(tab.overlap) || 0;
+  const inside = tab.placement === 'inside';
+  const topY = inside ? top + height / 2 + offsetY : top - height / 2 + overlap;
+  const bottomY = inside ? bottom - height / 2 - offsetY : bottom + height / 2 - overlap;
+  const leftX = inside ? left + width / 2 + offsetX : left - width / 2 + overlap;
+  const rightX = inside ? right - width / 2 - offsetX : right + width / 2 - overlap;
+  const cornerLeftX = left + width / 2 + offsetX;
+  const cornerRightX = right - width / 2 - offsetX;
+  const positions = {
+    'top-left': { x: cornerLeftX, y: topY },
+    top: { x: centerX, y: topY },
+    'top-right': { x: cornerRightX, y: topY },
+    right: { x: rightX, y: centerY },
+    'bottom-right': { x: cornerRightX, y: bottomY },
+    bottom: { x: centerX, y: bottomY },
+    'bottom-left': { x: cornerLeftX, y: bottomY },
+    left: { x: leftX, y: centerY },
+  };
+  return positions[slot];
+};
+
+export const getNodeRenderFontSize = (layout, nodeType) => (
+  Number(layout?.node_font_sizes_by_type?.[nodeType])
+  || Number(layout?.node_font_size)
+  || 6
+);
+
 export const buildMechanismTitleNodes = (mechanismRegions, titleStyle = {}) => (
   ['header_band_v1', 'region_tab_v1'].includes(titleStyle?.mode) ? (mechanismRegions || []) : []
 ).filter((region) => region?.id
@@ -1078,11 +1625,12 @@ export const buildMechanismTitleNodes = (mechanismRegions, titleStyle = {}) => (
   .map((region) => {
     if (titleStyle?.mode === 'region_tab_v1') {
       const tab = region.label_node || {};
+      const titlePosition = resolveMechanismTitleSlot(region, tab);
       const compactTag = (tab.shape || titleStyle.default_shape) === 'compact-tag';
       const lines = Array.isArray(tab.title_lines)
         ? tab.title_lines.slice(0, 2)
         : (Array.isArray(region.title_lines) ? region.title_lines.slice(0, 2) : [region.label || region.id]);
-      if (![tab.x, tab.y, tab.width, tab.height].every(Number.isFinite)) return null;
+      if (![titlePosition.x, titlePosition.y, tab.width, tab.height].every(Number.isFinite)) return null;
       return {
         data: {
           id: `__mechanism_title__:${region.id}`,
@@ -1099,7 +1647,7 @@ export const buildMechanismTitleNodes = (mechanismRegions, titleStyle = {}) => (
           renderWidth: scaleX(tab.width),
           renderHeight: scaleHeight(tab.height),
         },
-        position: { x: scaleX(tab.x), y: scaleYPosition(tab.y) },
+        position: { x: scaleX(titlePosition.x), y: scaleYPosition(titlePosition.y) },
         selectable: false,
         grabbable: false,
         pannable: false,
@@ -1489,6 +2037,8 @@ export default function StandaloneKnowledgeGraph({
   reviewMode = null,
   searchConfig = null,
   exactPreviewCapture = false,
+  canvasOverlay = null,
+  showViewModeSelector = true,
   sx = {},
 }) {
   const cyRef = useRef(null);
@@ -1625,16 +2175,36 @@ export default function StandaloneKnowledgeGraph({
   };
   const displayQueryRequest = queryResult?.request || queryRequest;
   const activeCypherList = interactionHistory?.present.cypher || displayQueryRequest?.cypher || [];
+  const activeOccurrenceProjection = interactionHistory?.present.occurrenceProjection || null;
   const activeDeletedIdList = interactionHistory?.present.deletedIds || EMPTY_DELETED_ID_LIST;
   const activeDeletedIds = useMemo(() => new Set(activeDeletedIdList), [activeDeletedIdList]);
   const visibleGraphExport = useMemo(() => buildVisibleGraphExport(
     displayGraphData || queryResultPage?.combined_query_result,
     activeDeletedIds,
   ), [displayGraphData, queryResultPage?.combined_query_result, activeDeletedIds]);
+  const canvasOverlayContent = typeof canvasOverlay === 'function'
+    ? canvasOverlay({ graphData: visibleGraphExport, metadata: effectiveMetadata })
+    : canvasOverlay;
+  const canvasOverlayPresent = Boolean(canvasOverlayContent);
+  const legendPanelLayout = resolveLegendPanelLayout(effectiveMetadata?.layout, {
+    layeredNavigationEnabled,
+    canvasOverlayPresent,
+  });
   const canUndo = developerEnabled ? Boolean(layoutHistory.past.length) : Boolean(interactionHistory?.past.length);
   const canRedo = developerEnabled ? Boolean(layoutHistory.future.length) : Boolean(interactionHistory?.future.length);
   const exportNodeLimit = Number(displayMetadata?.layout?.static_export_limit) || MAX_VISIBLE_NODES;
   const activeLegend = Array.isArray(displayMetadata?.legend) ? displayMetadata.legend : legendSchema;
+  const dataResourceVisible = useMemo(() => graphHasDataResource(
+    displayGraphData || queryResultPage?.combined_query_result,
+    activeDeletedIds,
+  ), [activeDeletedIds, displayGraphData, queryResultPage?.combined_query_result]);
+  const dataNavigationVisible = useMemo(() => graphHasDataNavigationEdge(
+    displayGraphData || queryResultPage?.combined_query_result,
+    activeDeletedIds,
+  ), [activeDeletedIds, displayGraphData, queryResultPage?.combined_query_result]);
+  const canvasMinHeight = Number.isFinite(Number(effectiveMetadata?.layout?.min_canvas_height))
+    ? Math.max(460, Number(effectiveMetadata.layout.min_canvas_height))
+    : 460;
 
   const getVisibleNodeIds = () => {
     const ids = new Set((displayGraphData?.nodes || []).map((node) => node['~id']));
@@ -1803,7 +2373,11 @@ export default function StandaloneKnowledgeGraph({
       const staticGraphData = queryResult?.graphData ?? graphData;
       const hasStaticGraph = Boolean(staticGraphData?.nodes);
 
-      setInteractionHistory({ past: [], present: { cypher: baseCypher, deletedIds: [] }, future: [] });
+      setInteractionHistory({
+        past: [],
+        present: { cypher: baseCypher, deletedIds: [], occurrenceProjection: null },
+        future: [],
+      });
       setActionMessage(null);
       setContextMenu(null);
       setHighlightedIds(new Set());
@@ -1840,11 +2414,17 @@ export default function StandaloneKnowledgeGraph({
     }
 
     const cypherList = interactionHistory?.present.cypher;
+    const occurrenceProjection = interactionHistory?.present.occurrenceProjection || null;
     if (!cypherList) {
       return undefined;
     }
 
-    const key = buildGraphRequestKey(cypherList, viewMode, layoutEngine);
+    const key = buildGraphRequestKey(
+      cypherList,
+      viewMode,
+      layoutEngine,
+      occurrenceProjection,
+    );
     if (key === lastFetchedKeyRef.current) {
       return undefined;
     }
@@ -1859,13 +2439,18 @@ export default function StandaloneKnowledgeGraph({
         let result = graphCacheRef.current.get(key);
         if (!result) {
           const previousLayout = buildPreviousLayout(displayCoordData, displayEdgeRoutes, displayMetadata);
-          result = await requestGraphViewer({
+          const rawResult = await requestGraphViewer({
             ...(displayQueryRequest || {}),
             cypher: cypherList,
             layout_mode: viewMode,
             layout_engine: layoutEngine,
             ...(previousLayout ? { previous_layout: previousLayout } : {}),
           }, { signal: controller.signal });
+          result = projectGraphViewerResultToOccurrences(rawResult, {
+            graphData: displayGraphData || queryResultPage?.combined_query_result,
+            coordData: displayCoordData,
+            edgeRoutes: displayEdgeRoutes,
+          }, occurrenceProjection || undefined);
           graphCacheRef.current.set(key, result);
         }
         if (!cancelled) {
@@ -1990,6 +2575,11 @@ export default function StandaloneKnowledgeGraph({
     }
   };
 
+  const applyCanvasOverlayPan = (cy) => {
+    if (!cy || !canvasOverlayPresent) return;
+    cy.pan(getCanvasOverlayAwarePan(cy.pan(), true));
+  };
+
   const handleRecenter = () => {
     if (cyRef.current) {
       if (effectiveMetadata?.layout?.initial_view === 'fit') {
@@ -1998,6 +2588,7 @@ export default function StandaloneKnowledgeGraph({
         cyRef.current.zoom(initZoom);
         cyRef.current.center();
       }
+      applyCanvasOverlayPan(cyRef.current);
     }
   };
 
@@ -2009,6 +2600,7 @@ export default function StandaloneKnowledgeGraph({
     }
     if (!region) {
       cyRef.current.fit(cyRef.current.elements(), 48);
+      applyCanvasOverlayPan(cyRef.current);
       return;
     }
     const background = cyRef.current.getElementById(`__mechanism_background__:${region.id}`);
@@ -2019,6 +2611,7 @@ export default function StandaloneKnowledgeGraph({
         cyRef.current.zoom(Math.min(maximumZoom, focusZoom));
         cyRef.current.center(background);
       }
+      applyCanvasOverlayPan(cyRef.current);
     }
   };
 
@@ -2052,25 +2645,54 @@ export default function StandaloneKnowledgeGraph({
     interactionAbortRef.current = controller;
     setInteractionLoading(true);
     try {
-      const nextCypher = mergeExploreNeighborsCypher(activeCypherList, nodeId);
-      const key = buildGraphRequestKey(nextCypher, viewMode, layoutEngine);
+      const queryNodeId = resolveCanonicalNodeQueryId(
+        cyRef.current?.getElementById(nodeId),
+        nodeId,
+      );
+      const nextCypher = mergeExploreNeighborsCypher(activeCypherList, queryNodeId);
+      const occurrenceProjection = extendOccurrenceProjection(
+        activeOccurrenceProjection,
+        displayGraphData || queryResultPage?.combined_query_result,
+        nodeId,
+      );
+      const key = buildGraphRequestKey(
+        nextCypher,
+        viewMode,
+        layoutEngine,
+        occurrenceProjection,
+      );
       let result = graphCacheRef.current.get(key);
       if (!result) {
         const previousLayout = buildPreviousLayout(displayCoordData, displayEdgeRoutes, displayMetadata);
-        result = await requestGraphViewer({
+        const rawResult = await requestGraphViewer({
           ...(displayQueryRequest || {}),
           cypher: nextCypher,
           layout_mode: viewMode,
           layout_engine: layoutEngine,
           ...(previousLayout ? { previous_layout: previousLayout } : {}),
         }, { signal: controller.signal });
+        result = projectGraphViewerResultToOccurrences(rawResult, {
+          graphData: displayGraphData || queryResultPage?.combined_query_result,
+          coordData: displayCoordData,
+          edgeRoutes: displayEdgeRoutes,
+        }, occurrenceProjection);
         graphCacheRef.current.set(key, result);
       }
 
-      const candidateNodeIds = Array.from(new Set((result.graphData?.nodes || []).map((node) => node['~id'])));
-      const restoredDeletedIds = restoreAdjacentDeletedIds(result.graphData, nodeId, activeDeletedIds, true);
-      const existingNodeIds = new Set((displayGraphData?.nodes || []).map((node) => node['~id']));
-      const newNodeIds = candidateNodeIds.filter((id) => !existingNodeIds.has(id));
+      const restoredDeletedIds = restoreAdjacentDeletedIds(
+        result.graphData,
+        nodeId,
+        activeDeletedIds,
+        true,
+      );
+      const existingCanonicalNodeIds = getCanonicalVisibleNodeIds(
+        displayGraphData || queryResultPage?.combined_query_result,
+        activeDeletedIds,
+      );
+      const newNodeIds = getNewCanonicalCandidateNodeIds(
+        result.graphData,
+        existingCanonicalNodeIds,
+      );
       const remainingBudget = Math.max(0, MAX_VISIBLE_NODES - visibleNodeIds.size);
       const acceptedIds = newNodeIds.slice(0, remainingBudget);
       const overflowIds = newNodeIds.slice(remainingBudget);
@@ -2080,7 +2702,11 @@ export default function StandaloneKnowledgeGraph({
 
       lastFetchedKeyRef.current = key;
       setInteractionGraph(result);
-      pushInteractionHistory({ cypher: nextCypher, deletedIds: Array.from(nextDeletedIds) });
+      pushInteractionHistory({
+        cypher: nextCypher,
+        deletedIds: Array.from(nextDeletedIds),
+        occurrenceProjection,
+      });
       setHighlightedIds(new Set(acceptedIds));
       clearHighlightSoon();
 
@@ -2114,7 +2740,10 @@ export default function StandaloneKnowledgeGraph({
       return;
     }
 
-    const visibleNodeIds = getVisibleNodeIds();
+    const visibleNodeIds = getCanonicalVisibleNodeIds(
+      displayGraphData || queryResultPage?.combined_query_result,
+      activeDeletedIds,
+    );
     const visibleEdgeIds = getVisibleEdgeIds();
 
     interactionAbortRef.current?.abort();
@@ -2122,28 +2751,58 @@ export default function StandaloneKnowledgeGraph({
     interactionAbortRef.current = controller;
     setInteractionLoading(true);
     try {
-      const nextCypher = [...activeCypherList, buildFindConnectionCypher(nodeId, Array.from(visibleNodeIds))];
-      const key = buildGraphRequestKey(nextCypher, viewMode, layoutEngine);
+      const queryNodeId = resolveCanonicalNodeQueryId(
+        cyRef.current?.getElementById(nodeId),
+        nodeId,
+      );
+      const nextCypher = [
+        ...activeCypherList,
+        buildFindConnectionCypher(queryNodeId, Array.from(visibleNodeIds)),
+      ];
+      const occurrenceProjection = extendOccurrenceProjection(
+        activeOccurrenceProjection,
+        displayGraphData || queryResultPage?.combined_query_result,
+        nodeId,
+      );
+      const key = buildGraphRequestKey(
+        nextCypher,
+        viewMode,
+        layoutEngine,
+        occurrenceProjection,
+      );
       let result = graphCacheRef.current.get(key);
       if (!result) {
         const previousLayout = buildPreviousLayout(displayCoordData, displayEdgeRoutes, displayMetadata);
-        result = await requestGraphViewer({
+        const rawResult = await requestGraphViewer({
           ...(displayQueryRequest || {}),
           cypher: nextCypher,
           layout_mode: viewMode,
           layout_engine: layoutEngine,
           ...(previousLayout ? { previous_layout: previousLayout } : {}),
         }, { signal: controller.signal });
+        result = projectGraphViewerResultToOccurrences(rawResult, {
+          graphData: displayGraphData || queryResultPage?.combined_query_result,
+          coordData: displayCoordData,
+          edgeRoutes: displayEdgeRoutes,
+        }, occurrenceProjection);
         graphCacheRef.current.set(key, result);
       }
 
       const candidateEdgeIds = (result.graphData?.edges || []).map((edge, index) => edge['~id'] || index.toString());
       const newEdgeIds = candidateEdgeIds.filter((id) => !visibleEdgeIds.has(id));
-      const nextDeletedIds = restoreAdjacentDeletedIds(result.graphData, nodeId, activeDeletedIds);
+      const nextDeletedIds = restoreAdjacentDeletedIds(
+        result.graphData,
+        nodeId,
+        activeDeletedIds,
+      );
 
       lastFetchedKeyRef.current = key;
       setInteractionGraph(result);
-      pushInteractionHistory({ cypher: nextCypher, deletedIds: Array.from(nextDeletedIds) });
+      pushInteractionHistory({
+        cypher: nextCypher,
+        deletedIds: Array.from(nextDeletedIds),
+        occurrenceProjection,
+      });
       setHighlightedIds(new Set(newEdgeIds));
       clearHighlightSoon();
 
@@ -2168,7 +2827,11 @@ export default function StandaloneKnowledgeGraph({
     closeContextMenu();
     const nextDeletedIds = new Set(activeDeletedIds);
     nextDeletedIds.add(elementId);
-    pushInteractionHistory({ cypher: activeCypherList, deletedIds: Array.from(nextDeletedIds) });
+    pushInteractionHistory({
+      cypher: activeCypherList,
+      deletedIds: Array.from(nextDeletedIds),
+      occurrenceProjection: activeOccurrenceProjection,
+    });
     setActionMessage({ text: 'Removed from view. Use undo to restore.', severity: 'info' });
   };
 
@@ -2223,7 +2886,11 @@ export default function StandaloneKnowledgeGraph({
     if (!baseCypherRef.current) {
       return;
     }
-    setInteractionHistory({ past: [], present: { cypher: baseCypherRef.current, deletedIds: [] }, future: [] });
+    setInteractionHistory({
+      past: [],
+      present: { cypher: baseCypherRef.current, deletedIds: [], occurrenceProjection: null },
+      future: [],
+    });
     setActionMessage({ text: 'Graph reset to the original query.', severity: 'info' });
   };
 
@@ -2475,15 +3142,17 @@ export default function StandaloneKnowledgeGraph({
       const imageNodeUrlData = node['~properties']?.image_url
         ? { image_url: resolveNodeImageUrl(node['~properties'].image_url, assetBaseUrl) }
         : {};
+      const registeredResourceRoute = resolveRegisteredKgLinkedViewRoute(node);
 
       return {
         data: {
           id: node['~id'],
           ...node['~properties'],
-          label: getNodeLabel(node),
+          ...(registeredResourceRoute ? { graph_link: registeredResourceRoute } : {}),
+          label: getCytoscapeNodeLabel(node, nodeType),
           type: nodeType,
           Level: posData.Level || 'Core',
-          renderFontSize: Number(effectiveMetadata?.layout?.node_font_size) || 6,
+          renderFontSize: getNodeRenderFontSize(effectiveMetadata?.layout, nodeType),
           renderWidth,
           renderHeight,
           labelMaxWidth: getLabelMaxWidth(renderWidth),
@@ -2516,7 +3185,9 @@ export default function StandaloneKnowledgeGraph({
     })();
 
     const nodeNameMap = graphNodes.reduce((acc, node) => {
-      acc[node.data.id] = node.data.label;
+      acc[node.data.id] = node.data.type === 'DataResource'
+        ? (node.data.name || node.data.label)
+        : node.data.label;
       return acc;
     }, {});
     const nodePositionMap = graphNodes.reduce((acc, node) => {
@@ -2543,7 +3214,8 @@ export default function StandaloneKnowledgeGraph({
         nodePositionMap[source],
         nodePositionMap[target],
       );
-      const label = edgeLabels[edge['~type']] || edge['~type'].replace(/_/g, ' ');
+      const edgeProperties = edge['~properties'] || {};
+      const label = getCytoscapeEdgeLabel(edge);
       const labelData = edgeLabelToCytoscapeData(
         displayEdgeRoutes?.[edgeId],
         nodePositionMap[source],
@@ -2578,7 +3250,7 @@ export default function StandaloneKnowledgeGraph({
             curveDistance: routeData?.curveDistance || String(getEdgeCurveDistance(edgeId)),
             curveWeight: routeData?.curveWeight || '0.5',
           }),
-          ...edge['~properties'],
+          ...edgeProperties,
           ...edgeTextBackplateData,
           renderLineStyle: normalizeEdgeLineStyle(edge['~properties']?.renderLineStyle),
         },
@@ -2851,6 +3523,7 @@ export default function StandaloneKnowledgeGraph({
             'radius-type': 'arc-radius',
           },
         },
+        ...buildDataNavigationStyles(),
         {
           selector: 'node.kg-highlight-new',
           style: {
@@ -2932,12 +3605,7 @@ export default function StandaloneKnowledgeGraph({
         return;
       }
 
-      const dist = Math.sqrt(
-        Math.pow(midpoint.x - mouseRendered[0], 2) +
-        Math.pow(midpoint.y - mouseRendered[1], 2)
-      );
-
-      if (dist < 20) {
+      if (isStrictEdgeMidpointHit(midpoint, mouseRendered)) {
         handler(evt);
       }
     };
@@ -2949,6 +3617,11 @@ export default function StandaloneKnowledgeGraph({
         || node.data('cellBackground') === 'true'
         || node.data('mechanismBackground') === 'true'
       ) {
+        return;
+      }
+      if (isDirectResourceNavigationNodeData(node.data())) {
+        setContextMenu(null);
+        developerNavigate(node.data('graph_link'));
         return;
       }
       if (developerEnabled || reviewEnabled) {
@@ -3019,16 +3692,31 @@ export default function StandaloneKnowledgeGraph({
       cy.reset();
       cy.center();
     }
+    applyCanvasOverlayPan(cy);
     setZoomLevel(cy.zoom());
     setInitZoom(cy.zoom());
     const initialFocusNodeId = effectiveMetadata?.layout?.initial_focus_node_id;
-    if (typeof initialFocusNodeId === 'string' && cy.getElementById(initialFocusNodeId)?.nonempty()) {
-      const focusNode = cy.getElementById(initialFocusNodeId);
+    const focusNode = resolveInitialFocusNode(cy, initialFocusNodeId);
+    if (focusNode) {
       const configuredZoom = Number(effectiveMetadata?.layout?.search_focus_zoom) || 0.9;
-      const targetZoom = Math.min(maximumZoom, Math.max(cy.zoom(), configuredZoom));
+      const dataResourceFocus = focusNode.data('type') === 'DataResource';
+      const requestedZoom = dataResourceFocus ? 0.54 : configuredZoom;
+      const targetZoom = Math.min(maximumZoom, Math.max(cy.zoom(), requestedZoom));
       cy.stop();
-      cy.animate({ center: { eles: focusNode }, zoom: targetZoom }, { duration: 360 });
-      setHighlightedIds(new Set([initialFocusNodeId]));
+      if (dataResourceFocus) {
+        const nodePosition = focusNode.position();
+        const horizontalOffset = Math.min(180, cy.width() * 0.17);
+        cy.animate({
+          pan: {
+            x: (cy.width() / 2) - horizontalOffset - (nodePosition.x * targetZoom),
+            y: (cy.height() / 2) - (nodePosition.y * targetZoom),
+          },
+          zoom: targetZoom,
+        }, { duration: 360 });
+      } else {
+        cy.animate({ center: { eles: focusNode }, zoom: targetZoom }, { duration: 360 });
+      }
+      setHighlightedIds(new Set([focusNode.id()]));
       clearTimeout(highlightTimeoutRef.current);
       highlightTimeoutRef.current = setTimeout(
         () => setHighlightedIds(new Set()),
@@ -3060,7 +3748,10 @@ export default function StandaloneKnowledgeGraph({
         const showLabels = cy.zoom() >= edgeLabelZoomThreshold;
         cy.edges().forEach((edge) => {
           if (!edge.hasClass('kg-edge-hover')) {
-            edge.data('displayLabel', showLabels ? edge.data('baseLabel') : '');
+            edge.data(
+              'displayLabel',
+              showLabels ? edge.data('baseLabel') : '',
+            );
           }
         });
       }
@@ -3080,7 +3771,7 @@ export default function StandaloneKnowledgeGraph({
       cyRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [displayCoordData, displayEdgeRoutes, genomeRegion, cellRegions, mechanismRegions, canvasImage, viewerNodeColors, viewerNodeTextColors, displayGraphData, queryResultPage, interactionHistory?.present.deletedIds, assetBaseUrl, effectiveMetadata?.layout?.pathway_preview_node_body, effectiveMetadata?.layout?.node_text_background_color, effectiveMetadata?.layout?.node_text_background_opacity, effectiveMetadata?.layout?.edge_text_background_color, effectiveMetadata?.layout?.edge_text_background_opacity, effectiveMetadata?.layout?.image_background_color, effectiveMetadata?.layout?.initial_focus_node_id, developerEnabled]);
+  }, [displayCoordData, displayEdgeRoutes, genomeRegion, cellRegions, mechanismRegions, canvasImage, viewerNodeColors, viewerNodeTextColors, displayGraphData, queryResultPage, interactionHistory?.present.deletedIds, assetBaseUrl, effectiveMetadata?.layout?.pathway_preview_node_body, effectiveMetadata?.layout?.node_text_background_color, effectiveMetadata?.layout?.node_text_background_opacity, effectiveMetadata?.layout?.edge_text_background_color, effectiveMetadata?.layout?.edge_text_background_opacity, effectiveMetadata?.layout?.image_background_color, effectiveMetadata?.layout?.initial_focus_node_id, developerEnabled, canvasOverlayPresent]);
 
   useEffect(() => {
     if (!exactPreviewCapture) {
@@ -3384,7 +4075,7 @@ export default function StandaloneKnowledgeGraph({
                 )}
               </Box>
             )}
-            <Box ref={modeMenuRef} sx={{ position: 'relative' }}>
+            {showViewModeSelector && <Box ref={modeMenuRef} sx={{ position: 'relative' }}>
               <Button onClick={() => setModeMenuOpen((previous) => !previous)} variant="outlined" startIcon={<GridViewIcon sx={{ fontSize: '15px' }} />} endIcon={<KeyboardArrowDownIcon sx={{ fontSize: '12px' }} />} sx={viewerToolbarButtonSx}>
                 {viewModeLabel(viewMode)}
               </Button>
@@ -3404,7 +4095,7 @@ export default function StandaloneKnowledgeGraph({
                   </Button>
                 </Box>
               )}
-            </Box>
+            </Box>}
               <IconButton onClick={handleUndo} disabled={!canUndo} size="small" sx={{ width: '36px', height: '36px', border: `1px solid ${viewerPalette.border}`, borderRadius: '10px' }} aria-label="Undo">
               <UndoIcon sx={{ fontSize: '18px', color: canUndo ? viewerPalette.control : '#C9C5BD' }} />
             </IconButton>
@@ -3415,7 +4106,7 @@ export default function StandaloneKnowledgeGraph({
           </Box>
         </Box>
       </Box>
-      <div style={{ position: 'relative', height: containerHeight, minHeight: '460px', overflow: 'hidden', background: viewerPalette.canvas }}>
+      <div style={{ position: 'relative', height: containerHeight, minHeight: `${canvasMinHeight}px`, overflow: 'hidden', background: viewerPalette.canvas }}>
       {actionMessage && (
         <Alert severity={actionMessage.severity} onClose={() => setActionMessage(null)} sx={{ position: 'absolute', top: '12px', right: '16px', zIndex: 8, maxWidth: '420px' }}>
           {actionMessage.text}
@@ -3470,6 +4161,25 @@ export default function StandaloneKnowledgeGraph({
             </div>
           ))}
         </div>
+      )}
+      {canvasOverlayContent && (
+        <Box
+          data-testid="knowledge-graph-canvas-overlay"
+          sx={{
+            position: 'absolute',
+            top: { xs: 12, sm: 20, md: 24 },
+            right: { xs: 72, sm: 82, md: 88 },
+            zIndex: 5,
+            width: { xs: 'min(320px, calc(100% - 96px))', sm: 320 },
+            maxHeight: 'calc(100% - 48px)',
+            overflow: 'visible',
+            borderRadius: '22px',
+            pointerEvents: 'none',
+            '& > *': { pointerEvents: 'auto' },
+          }}
+        >
+          {canvasOverlayContent}
+        </Box>
       )}
       {typeof document !== 'undefined' && createPortal(
         <div
@@ -3642,23 +4352,101 @@ export default function StandaloneKnowledgeGraph({
             zIndex: 4,
           }}
         >
-          <div style={{ display: 'flex', flexDirection: 'column', flex: '0 1 auto', minHeight: 0, overflow: 'hidden', maxHeight: layeredNavigationEnabled ? '40vh' : undefined, position: layeredNavigationEnabled ? 'absolute' : undefined, right: layeredNavigationEnabled ? '88px' : undefined, bottom: layeredNavigationEnabled ? '24px' : undefined, width: layeredNavigationEnabled ? '208px' : undefined, zIndex: layeredNavigationEnabled ? 6 : undefined, background: viewerPalette.surface, border: `0.75px solid ${viewerPalette.border}`, borderRadius: '16px', boxShadow: `0px 8px 12px ${viewerPalette.shadow}` }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px 12.75px', borderBottom: legendVisible ? '0.75px solid #F1F5F9' : 'none' }}>
+          <div
+            data-testid="knowledge-graph-legend"
+            data-orientation={legendPanelLayout.horizontal ? 'horizontal' : 'vertical'}
+            data-placement={legendPanelLayout.placement}
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              flex: '0 1 auto',
+              minHeight: 0,
+              overflow: 'hidden',
+              maxHeight: layeredNavigationEnabled && !legendPanelLayout.horizontal ? '40vh' : undefined,
+              position: layeredNavigationEnabled ? 'absolute' : undefined,
+              right: layeredNavigationEnabled ? `${legendPanelLayout.right}px` : undefined,
+              bottom: layeredNavigationEnabled ? `${legendPanelLayout.bottom}px` : undefined,
+              width: layeredNavigationEnabled
+                ? (legendPanelLayout.horizontal && legendVisible
+                  ? `min(${legendPanelLayout.width}px, calc(100% - ${legendPanelLayout.right + 32}px))`
+                  : '208px')
+                : undefined,
+              zIndex: layeredNavigationEnabled ? 6 : undefined,
+              background: viewerPalette.surface,
+              border: `0.75px solid ${viewerPalette.border}`,
+              borderRadius: '16px',
+              boxShadow: `0px 8px 12px ${viewerPalette.shadow}`,
+              transition: legendPanelLayout.horizontal
+                ? (legendVisible
+                  ? 'width 180ms cubic-bezier(0.2, 0, 0, 1)'
+                  : 'width 180ms cubic-bezier(0.2, 0, 0, 1) 210ms')
+                : undefined,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: legendPanelLayout.horizontal ? '10px 16px 8px' : '16px 20px 12.75px', borderBottom: legendVisible ? '0.75px solid #F1F5F9' : 'none' }}>
               <Typography sx={{ fontFamily: 'Inter, sans-serif', fontSize: '16px', fontWeight: 600, lineHeight: '24px', color: viewerPalette.ink }}>
                 Legend
               </Typography>
               <IconButton onClick={() => setLegendVisible((prev) => !prev)} size="small" sx={{ width: '28px', height: '28px' }} aria-label={legendVisible ? 'Collapse legend' : 'Expand legend'}>
-                {legendVisible ? <KeyboardArrowUpIcon sx={{ fontSize: '16px' }} /> : <KeyboardArrowDownIcon sx={{ fontSize: '16px' }} />}
+                {resolveLegendToggleDirection(legendPanelLayout.horizontal, legendVisible) === 'left' && <KeyboardArrowLeftIcon sx={{ fontSize: '18px' }} />}
+                {resolveLegendToggleDirection(legendPanelLayout.horizontal, legendVisible) === 'right' && <KeyboardArrowRightIcon sx={{ fontSize: '18px' }} />}
+                {resolveLegendToggleDirection(legendPanelLayout.horizontal, legendVisible) === 'up' && <KeyboardArrowUpIcon sx={{ fontSize: '16px' }} />}
+                {resolveLegendToggleDirection(legendPanelLayout.horizontal, legendVisible) === 'down' && <KeyboardArrowDownIcon sx={{ fontSize: '16px' }} />}
               </IconButton>
             </div>
-            {legendVisible && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', overflowY: 'auto', maxHeight: layeredNavigationEnabled ? 'calc(40vh - 62px)' : undefined, padding: '12px 20px 16px' }}>
-                <Typography sx={{ fontFamily: 'Inter, sans-serif', fontSize: '12px', fontWeight: 600, letterSpacing: '1.2px', textTransform: 'uppercase', color: viewerPalette.mutedInk, paddingBottom: '8px' }}>
+            {(legendVisible || legendPanelLayout.horizontal) && (
+              <div
+                data-testid="knowledge-graph-legend-items"
+                aria-hidden={!legendVisible}
+                style={{
+                  display: 'flex',
+                  flexDirection: legendPanelLayout.horizontal ? 'row' : 'column',
+                  flexWrap: legendPanelLayout.horizontal ? 'wrap' : 'nowrap',
+                  alignItems: legendPanelLayout.horizontal ? 'center' : 'stretch',
+                  columnGap: legendPanelLayout.horizontal ? '18px' : '4px',
+                  rowGap: '4px',
+                  overflowY: legendVisible ? 'auto' : 'hidden',
+                  overflowX: 'hidden',
+                  maxHeight: legendPanelLayout.horizontal
+                    ? (legendVisible ? '160px' : '0px')
+                    : (layeredNavigationEnabled ? 'calc(40vh - 62px)' : undefined),
+                  padding: legendPanelLayout.horizontal
+                    ? (legendVisible ? '10px 16px 14px' : '0 16px')
+                    : '12px 20px 16px',
+                  opacity: legendPanelLayout.horizontal ? (legendVisible ? 1 : 0) : 1,
+                  pointerEvents: legendVisible ? 'auto' : 'none',
+                  transition: legendPanelLayout.horizontal
+                    ? (legendVisible
+                      ? 'max-height 140ms ease 180ms, padding 140ms ease 180ms, opacity 120ms ease 200ms'
+                      : 'opacity 90ms ease, max-height 120ms ease 90ms, padding 120ms ease 90ms')
+                    : undefined,
+                }}
+              >
+                <Typography sx={{ fontFamily: 'Inter, sans-serif', fontSize: '12px', fontWeight: 600, letterSpacing: '1.2px', textTransform: 'uppercase', color: viewerPalette.mutedInk, paddingBottom: legendPanelLayout.horizontal ? 0 : '8px', whiteSpace: 'nowrap' }}>
                   Node types
                 </Typography>
-                {Array.isArray(activeLegend) && activeLegend.map(({ label, color }) => (
-                  <LegendItem key={label} label={label} color={color} />
-                ))}
+                {Array.isArray(activeLegend) && activeLegend
+                  .filter(({ label }) => !(dataResourceVisible && /data resource/i.test(label || '')))
+                  .map(({ label, color }) => (
+                    <LegendItem key={label} label={label} color={color} horizontal={legendPanelLayout.horizontal} />
+                  ))}
+                {dataResourceVisible && (
+                  <DataResourceLegendItem
+                    label={legendPanelLayout.dataResourceLabel}
+                    horizontal={legendPanelLayout.horizontal}
+                  />
+                )}
+                {dataNavigationVisible && legendPanelLayout.showConnections && (
+                  <>
+                    <Typography sx={{ fontFamily: 'Inter, sans-serif', fontSize: '12px', fontWeight: 600, letterSpacing: '1.2px', textTransform: 'uppercase', color: viewerPalette.mutedInk, paddingTop: '12px', paddingBottom: '4px' }}>
+                      Connections
+                    </Typography>
+                    <LegendLineItem
+                      label="Data/navigation — not a biological mechanism"
+                      color={effectiveMetadata?.layout?.edge_color}
+                    />
+                  </>
+                )}
               </div>
             )}
           </div>

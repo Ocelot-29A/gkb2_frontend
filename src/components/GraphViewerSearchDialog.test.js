@@ -6,7 +6,10 @@ import {
   screen,
 } from '@testing-library/react';
 
-import GraphViewerSearchDialog from './GraphViewerSearchDialog';
+import GraphViewerSearchDialog, {
+  searchLocationLabel,
+  searchLocationSelectorLabel,
+} from './GraphViewerSearchDialog';
 
 const index = {
   schema_version: '1.0.0',
@@ -163,4 +166,33 @@ test('falls back to lexical matches when an AI response has a stale checksum', a
   });
   expect(await screen.findByText(/AI ranking did not match this index/)).toBeTruthy();
   expect(screen.getByText(/Insulin gene expressed/)).toBeTruthy();
+});
+
+test('distinguishes multiple occurrences inside the same graph view', () => {
+  const locations = [
+    {
+      location_id: 't-cell::umap-1',
+      view_id: 'pathways/t-cell',
+      view_title: 'T-cell differentiation',
+      node_id: 'T1D:DATARESOURCE:scfm_t_cell_rna_umap-1',
+      viewer_occurrence_role: 'cd4_lane',
+      layer: 2,
+    },
+    {
+      location_id: 't-cell::umap-2',
+      view_id: 'pathways/t-cell',
+      view_title: 'T-cell differentiation',
+      node_id: 'T1D:DATARESOURCE:scfm_t_cell_rna_umap-2',
+      viewer_occurrence_role: 'cd8_lane',
+      layer: 2,
+    },
+  ];
+
+  expect(searchLocationSelectorLabel(locations)).toBe('Appears in 2 locations');
+  expect(searchLocationLabel(locations[0], locations)).toBe(
+    'Layer 2 · T-cell differentiation · cd4 lane',
+  );
+  expect(searchLocationLabel(locations[1], locations)).toBe(
+    'Layer 2 · T-cell differentiation · cd8 lane',
+  );
 });
